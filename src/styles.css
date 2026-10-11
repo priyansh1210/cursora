@@ -1,0 +1,99 @@
+:root {
+  color-scheme: light;
+  font: 14px/1.5 system-ui, sans-serif;
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #666666;
+  --line: #dddddd;
+  --accent: #4f46e5;
+  --error: #c62828;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #1e1e1e;
+    --fg: #eeeeee;
+    --muted: #aaaaaa;
+    --line: #3a3a3a;
+    --accent: #8b85ff;
+    --error: #ff6b6b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1e1e1e;
+  --fg: #eeeeee;
+  --muted: #aaaaaa;
+  --line: #3a3a3a;
+  --accent: #8b85ff;
+  --error: #ff6b6b;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+button,
+select {
+  font: inherit;
+}
+h2 {
+  font-size: 1.05rem;
+  margin: 16px 0 8px;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.row > span {
+  min-width: 100px;
+}
+.muted {
+  color: var(--muted);
+}
+.error {
+  color: var(--error);
+}
+
+.settings {
+  display: flex;
+  height: 100vh;
+}
+.settings nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  border-right: 1px solid var(--line);
+}
+.settings nav button {
+  text-align: left;
+  border: 0;
+  background: none;
+  color: inherit;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.settings nav button[aria-selected="true"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+.settings section,
+.setup {
+  flex: 1;
+  padding: 12px 24px;
+  overflow: auto;
+}
+.setup footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+dd {
+  margin: 0 0 12px;
+}
