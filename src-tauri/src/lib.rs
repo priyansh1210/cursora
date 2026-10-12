@@ -1,4 +1,6 @@
+mod capture;
 mod cli;
+mod hotkey;
 mod settings;
 mod tray;
 
@@ -65,9 +67,21 @@ fn open_setup(app: AppHandle) {
 }
 
 /// Saves, then applies the settings everywhere without a restart (APP-4.1).
+/// A hotkey that is invalid or can't be registered is refused before anything is saved (SEL-1.2, SEL-1.3).
 pub fn update_settings(app: &AppHandle, settings: Settings) -> Result<(), String> {
     let state = app.state::<AppState>();
-    settings::save(&state.path, &settings).map_err(|e| format!("Couldn't save settings: {e}"))?;
+    let old = state.settings.lock().unwrap().clone();
+    hotkey::validate(&settings.hotkeys, &old.hotkeys)?;
+    let hotkey_changed = old.hotkeys.ask != settings.hotkeys.ask || old.paused != settings.paused;
+    if hotkey_changed {
+        hotkey::apply(app, Some(&old), &settings)?;
+    }
+    if let Err(e) = settings::save(&state.path, &settings) {
+        if hotkey_changed {
+            let _ = hotkey::apply(app, None, &old);
+        }
+        return Err(format!("Couldn't save settings: {e}"));
+    }
     *state.settings.lock().unwrap() = settings.clone();
     tray::refresh(app, &settings);
     sync_autostart(app, &settings);
@@ -113,7 +127,8 @@ fn handle(app: &AppHandle, action: cli::Action) {
     match action {
         cli::Action::Settings => open_window(app, "settings"),
         cli::Action::Quit => app.exit(0),
-        cli::Action::Ask | cli::Action::Snip => log::info!("{action:?} is not available yet (specs 02 and 10)"),
+        cli::Action::Ask => hotkey::on_ask(app),
+        cli::Action::Snip => log::info!("snip is not available yet (spec 10)"),
     }
 }
 
@@ -133,6 +148,15 @@ pub fn run() {
         .plugin(tauri_plugin_log::Builder::new().level(log::LevelFilter::Info).max_file_size(1_000_000).rotation_strategy(RotationStrategy::KeepSome(5)).build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        hotkey::on_ask(app); // ask is the only hotkey registered so far
+                    }
+                })
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![get_settings, set_settings, app_info, open_folder, open_setup])
         .setup(|app| {
             let path = app.path().app_config_dir()?.join("settings.json");
@@ -143,6 +167,10 @@ pub fn run() {
             }
             tray::create(app.handle(), &settings)?;
             sync_autostart(app.handle(), &settings);
+            if let Err(e) = hotkey::apply(app.handle(), None, &settings) {
+                log::warn!("{e}");
+                app.dialog().message(e).title("Cursora").show(|_| {}); // SEL-1.3
+            }
             let setup_done = settings.setup_done;
             app.manage(AppState { settings: Mutex::new(settings), path });
             if !setup_done {

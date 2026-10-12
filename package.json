@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "trace": "node scripts/trace.mjs",
-    "test": "node --test \"scripts/*.test.mjs\""
+    "test": "node --test \"scripts/*.test.mjs\"",
+    "test:linux": "wsl -d Ubuntu-24.04 -- bash scripts/wsl-test.sh"
   },
   "dependencies": {
     "react": "^19.1.0",

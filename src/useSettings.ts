@@ -12,7 +12,18 @@ export type Settings = {
   hotkeys: { ask: string; snip: string; pushToTalk: string | null };
   personalityOn: boolean;
   localOnly: boolean;
+  capture: {
+    unsafeApps: string[];
+    copyShortcuts: Record<string, CopyKey>;
+    shareWindowTitle: boolean;
+    maxChars: number;
+    copyTimeoutMs: number;
+    fileMaxBytes: number;
+    filesTotalBytes: number;
+  };
 };
+
+export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";
 
 export type Save = (patch: Partial<Settings>) => Promise<void>;
 
