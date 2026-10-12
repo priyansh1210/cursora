@@ -57,7 +57,7 @@ impl Platform for WinPlatform {
             }
             let Ok(process) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
                 // Can't even query it: protected or higher-integrity, so treat as unreadable.
-                return SourceApp { title, elevated: true, ..SourceApp::default() };
+                return SourceApp { title, elevated: true, window: hwnd.0 as isize, ..SourceApp::default() };
             };
             let exe_path = image_path(process);
             let elevated = is_elevated(process) && !is_elevated(GetCurrentProcess());
@@ -66,7 +66,7 @@ impl Platform for WinPlatform {
             let exe = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             // shortcut: exe stem, not the product name; read FileDescription if names look wrong in the bubble.
             let name = path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            SourceApp { exe, name, title, elevated }
+            SourceApp { exe, name, title, elevated, window: hwnd.0 as isize }
         }
     }
 
