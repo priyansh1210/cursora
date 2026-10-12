@@ -4,7 +4,9 @@ mod chat;
 mod cli;
 mod history;
 mod hotkey;
+mod llm;
 mod prompt;
+mod secrets;
 mod settings;
 mod tray;
 
@@ -82,6 +84,11 @@ fn open_settings(app: AppHandle, tab: String) {
 
 /// Saves, then applies the settings everywhere without a restart (APP-4.1).
 /// A hotkey that is invalid or can't be registered is refused before anything is saved (SEL-1.2, SEL-1.3).
+/// How every window starts WebView2; the runtime needs them all the same. Its own background traffic
+/// (component updates, DNS-over-HTTPS probes) does nothing for Cursora and needs the internet (LLM-8.4).
+/// The first three features are wry's defaults, which setting any arguments replaces. Windows only.
+pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,DnsOverHttps --disable-background-networking --disable-component-update --disable-domain-reliability --no-pings";
+
 pub fn update_settings(app: &AppHandle, settings: Settings) -> Result<(), String> {
     let state = app.state::<AppState>();
     let old = state.settings.lock().unwrap().clone();
@@ -97,8 +104,15 @@ pub fn update_settings(app: &AppHandle, settings: Settings) -> Result<(), String
         return Err(format!("Couldn't save settings: {e}"));
     }
     *state.settings.lock().unwrap() = settings.clone();
+    let kept: Vec<&str> = settings.models.providers.iter().map(|p| p.id.as_str()).collect();
+    secrets::forget_removed(old.models.providers.iter().map(|p| p.id.as_str()), &kept);
     tray::refresh(app, &settings);
     sync_autostart(app, &settings);
+    // Switching a built-in model to "Always on" loads it now, as a start with Cursora would (LLM-3.5).
+    let always = |s: &Settings| s.models.providers.iter().filter_map(|p| p.engine.as_ref()).filter(|e| e.lifetime == llm::Lifetime::Always).map(|e| e.gguf.clone()).collect::<Vec<_>>();
+    if always(&settings).iter().any(|g| !always(&old).contains(g)) {
+        llm::engine::preload(app);
+    }
     let _ = app.emit("settings-changed", &settings);
     Ok(())
 }
@@ -141,7 +155,7 @@ fn open_window_at(app: &AppHandle, label: &str, tab: &str) {
     }
     let url = if tab.is_empty() { WebviewUrl::default() } else { WebviewUrl::App(format!("index.html#{tab}").into()) };
     let (title, width, height) = if label == "setup" { ("Cursora setup", 520.0, 480.0) } else { ("Cursora settings", 760.0, 540.0) };
-    if let Err(e) = WebviewWindowBuilder::new(app, label, url).title(title).inner_size(width, height).build() {
+    if let Err(e) = WebviewWindowBuilder::new(app, label, url).additional_browser_args(BROWSER_ARGS).title(title).inner_size(width, height).build() {
         log::error!("opening {label} window: {e}");
     }
 }
@@ -168,7 +182,8 @@ pub fn run() {
                 handle(app, action);
             }
         }))
-        .plugin(tauri_plugin_log::Builder::new().level(log::LevelFilter::Info).max_file_size(1_000_000).rotation_strategy(RotationStrategy::KeepSome(5)).build())
+        // KeepSome counts old files only; with the current one that makes 5 (APP-7.1).
+        .plugin(tauri_plugin_log::Builder::new().level(log::LevelFilter::Info).max_file_size(1_000_000).rotation_strategy(RotationStrategy::KeepSome(4)).build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(
@@ -184,7 +199,10 @@ pub fn run() {
             match event {
                 // Only the ask hotkey closes the bubble (BUB-2.3), so Alt+F4 must not destroy it.
                 tauri::WindowEvent::CloseRequested { api, .. } if window.label() == bubble::LABEL => api.prevent_close(),
-                tauri::WindowEvent::Destroyed if window.label() == chat::CHAT_LABEL => chat::drop_slot(window.app_handle(), chat::CHAT_LABEL),
+                tauri::WindowEvent::Destroyed if window.label() == chat::CHAT_LABEL => {
+                    chat::drop_slot(window.app_handle(), chat::CHAT_LABEL);
+                    llm::engine::release(window.app_handle());
+                }
                 _ => {}
             }
         })
@@ -206,6 +224,19 @@ pub fn run() {
             history::history_open,
             history::history_delete,
             history::history_clear,
+            llm::commands::providers_list,
+            llm::commands::key_set,
+            llm::commands::key_delete,
+            llm::commands::models_list,
+            llm::commands::provider_test,
+            llm::commands::runtimes_probe,
+            llm::commands::ram_suggestion,
+            llm::commands::engine_status,
+            llm::commands::engine_stop,
+            llm::commands::enabled_models,
+            llm::commands::set_model,
+            llm::commands::lan_host,
+            llm::commands::pick_model_file,
         ])
         .setup(|app| {
             let path = app.path().app_config_dir()?.join("settings.json");
@@ -229,6 +260,9 @@ pub fn run() {
             app.manage(AppState { settings: Mutex::new(settings), path });
             app.manage(ChatState::default());
             app.manage(BubbleState::default());
+            app.manage(llm::engine::Engine::default());
+            llm::engine::watch_idle(app.handle().clone());
+            llm::engine::preload(app.handle());
             bubble::create(app.handle())?;
             if !setup_done {
                 open_window(app.handle(), "setup");
@@ -241,10 +275,10 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while building Cursora")
-        .run(|_app, event| {
+        .run(|app, event| match event {
             // Closing the last window must not quit: Cursora lives in the tray (APP-1.1).
-            if let RunEvent::ExitRequested { api, code: None, .. } = event {
-                api.prevent_exit();
-            }
+            RunEvent::ExitRequested { api, code: None, .. } => api.prevent_exit(),
+            RunEvent::Exit => llm::engine::stop(app), // LLM-3.5
+            _ => {}
         });
 }

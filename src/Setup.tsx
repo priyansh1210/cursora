@@ -1,11 +1,147 @@
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { HotkeyFields } from "./HotkeyInput";
+import { AddProvider, describe, editModels } from "./Models";
+import { LIFETIMES, type ModelView, type Provider } from "./providers";
 import { useSettings, type Save, type Settings } from "./useSettings";
 
-type Step = (props: { settings: Settings; save: Save }) => ReactNode;
+type StepProps = { settings: Settings; save: Save; setReady: (ready: boolean) => void };
+type Step = (props: StepProps) => ReactNode;
 
-function Hotkeys({ settings, save }: { settings: Settings; save: Save }) {
+/** APP-6.1 step 1: setup goes on only once the chosen model passes Test connection. */
+function AiSource({ settings, save, setReady }: StepProps) {
+  const [status, setStatus] = useState<string>();
+  const [added, setAdded] = useState<Provider>();
+  const [listed, setListed] = useState<string[] | null>(); // undefined: loading; null: listing failed
+  const [model, setModel] = useState("");
+  const [works, setWorks] = useState(false);
+  const d = settings.models.default;
+  const current = d && settings.models.providers.find((p) => p.id === d.provider);
+
+  const test = (id: string) => {
+    setReady(false);
+    setWorks(false);
+    setStatus("Testing the model…");
+    invoke<number>("provider_test", { provider: id }).then(
+      () => {
+        setStatus("✓ It works.");
+        setReady(true);
+        setWorks(true);
+      },
+      (e) => setStatus(describe(e)),
+    );
+  };
+  // Re-running setup with a model that already works can go straight on (APP-6.3).
+  useEffect(() => {
+    setReady(false);
+    if (current) test(current.id);
+  }, []);
+
+  const use = (p: Provider, m: string) =>
+    editModels(save, (ms) => ({
+      ...ms,
+      providers: ms.providers.map((x) => (x.id === p.id && !x.models.includes(m) ? { ...x, models: [...x.models, m] } : x)),
+      default: { provider: p.id, model: m },
+    })).then(() => test(p.id), (e) => setStatus(String(e)));
+
+  const onAdded = (p: Provider) => {
+    setAdded(p);
+    setStatus(undefined);
+    if (p.kind === "builtin") return void use(p, p.models[0]);
+    setListed(undefined);
+    invoke<ModelView[]>("models_list", { provider: p.id }).then(
+      (l) => {
+        setListed(l.map((m) => m.id));
+        setModel(l[0]?.id ?? "");
+      },
+      (e) => {
+        setListed(null);
+        setStatus(`${describe(e)} You can type a model ID instead.`);
+      },
+    );
+  };
+
+  // Going back removes the provider just added (and its key), so a retry doesn't leave duplicates.
+  const back = (p: Provider) =>
+    editModels(save, (ms) => ({ ...ms, providers: ms.providers.filter((x) => x.id !== p.id), default: ms.default?.provider === p.id ? null : ms.default })).then(() => {
+      setAdded(undefined);
+      setStatus(undefined);
+    });
+
+  return (
+    <>
+      <h2>Choose an AI source</h2>
+      <p className="muted">Cursora needs a working model: one on this computer, or a cloud provider with an API key.</p>
+      {current && d && (
+        <p>
+          Current model: <strong>{d.model}</strong> ({current.name})
+        </p>
+      )}
+      {!added ? (
+        <AddProvider save={save} onAdded={onAdded} />
+      ) : (
+        <>
+          {added.kind !== "builtin" && (
+            <form
+              className="row"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (model.trim()) use(added, model.trim());
+              }}
+            >
+              <span>Model</span>
+              {listed ? (
+                <select aria-label="Model" value={model} onChange={(e) => setModel(e.target.value)}>
+                  {listed.map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </select>
+              ) : listed === null ? (
+                <input aria-label="Model ID" placeholder="Model ID" value={model} onChange={(e) => setModel(e.target.value)} />
+              ) : (
+                <span className="muted">Loading models…</span>
+              )}
+              <button type="submit" disabled={!model.trim()}>
+                Use this model
+              </button>
+            </form>
+          )}
+          <button type="button" className="link" onClick={() => back(added)}>
+            Choose a different source
+          </button>
+        </>
+      )}
+      {status && (
+        <p role="status" className="note">
+          {status}
+        </p>
+      )}
+      {works && current?.kind === "builtin" && <EngineLifetime p={current} save={save} />}
+    </>
+  );
+}
+
+/** LLM-3.5: how long the built-in model stays loaded, with "Always on" preselected. Settings → Models has the same choice. */
+function EngineLifetime({ p, save }: { p: Provider; save: Save }) {
+  const choose = (lifetime: (typeof LIFETIMES)[number]["value"]) =>
+    editModels(save, (ms) => ({ ...ms, providers: ms.providers.map((x) => (x.id === p.id && x.engine ? { ...x, engine: { ...x.engine, lifetime } } : x)) })).catch(() => {});
+  return (
+    <fieldset>
+      <legend>How long should the model stay loaded?</legend>
+      {LIFETIMES.map((l) => (
+        <label key={l.value} className="row">
+          <input type="radio" name="lifetime" checked={p.engine?.lifetime === l.value} onChange={() => void choose(l.value)} />
+          <span>
+            <strong>{l.label}</strong> <span className="muted">{l.hint}</span>
+          </span>
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+function Hotkeys({ settings, save }: StepProps) {
   return (
     <>
       <h2>Choose your hotkeys</h2>
@@ -15,7 +151,7 @@ function Hotkeys({ settings, save }: { settings: Settings; save: Save }) {
   );
 }
 
-function Startup({ settings, save }: { settings: Settings; save: Save }) {
+function Startup({ settings, save }: StepProps) {
   return (
     <>
       <h2>Start with your computer?</h2>
@@ -27,18 +163,23 @@ function Startup({ settings, save }: { settings: Settings; save: Save }) {
   );
 }
 
-// Later specs add their steps here: AI source (04), Personality (05), Try it (03).
-const STEPS: Step[] = [Hotkeys, Startup];
+// Later specs add their steps here: Personality (05), Try it (03).
+const STEPS: Step[] = [AiSource, Hotkeys, Startup];
 
 export default function Setup() {
   const { settings, save, error } = useSettings();
   const [i, setI] = useState(0);
+  const [ready, setReady] = useState(true);
   if (!settings) return null;
 
   const Current = STEPS[i];
   const last = i === STEPS.length - 1;
+  const go = (to: number) => {
+    setReady(true); // a step that needs something first says so when it opens
+    setI(to);
+  };
   async function next() {
-    if (!last) return setI(i + 1);
+    if (!last) return go(i + 1);
     try {
       await save({ setupDone: true });
       await getCurrentWindow().close();
@@ -53,14 +194,14 @@ export default function Setup() {
         Step {i + 1} of {STEPS.length}
       </p>
       {error && <p role="alert" className="error">{error}</p>}
-      <Current settings={settings} save={save} />
+      <Current settings={settings} save={save} setReady={setReady} />
       <footer>
         {i > 0 && (
-          <button type="button" onClick={() => setI(i - 1)}>
+          <button type="button" onClick={() => go(i - 1)}>
             Back
           </button>
         )}
-        <button type="button" onClick={next}>
+        <button type="button" onClick={next} disabled={!ready}>
           {last ? "Finish" : "Next"}
         </button>
       </footer>

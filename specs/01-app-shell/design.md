@@ -95,3 +95,5 @@ struct Settings {
 - **2026-10-11:** tauri-plugin-autostart was replaced by direct `auto-launch` calls. The plugin hard-codes the "Dynamic" mode, which wrote the machine-wide HKLM Run key on this PC, while APP-3.1 says per-user. `auto-launch` was already a transitive dependency.
 - **2026-10-11:** autostart is also synced at startup. Otherwise closing Setup early left "Start with system ✓" in Settings without an OS entry (`/ponytail-review` finding 1).
 - **2026-10-11:** APP-2.4 was added: relaunching Cursora with no arguments opens Settings (review finding 3).
+- **2026-10-13, manual checks:** log rotation keeps 4 old files (`KeepSome(4)`), since the plugin counts old files only; with the current one that makes the 5 of APP-7.1. It kept 6.
+- **2026-10-13:** with Cursora not running, `cursora --ask` opened an empty bubble: the action ran before the bubble's page had subscribed to its events. The page now also fetches the current conversation once it is listening (APP-2.3).

@@ -96,13 +96,16 @@ struct Placed {
 /// Created once and kept hidden, so opening it is only move + show (BUB-2.1, constitution §8).
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let window = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::default())
+        .additional_browser_args(crate::BROWSER_ARGS)
         .title("Cursora")
         .inner_size(WIDTH, START_HEIGHT)
         .decorations(false)
         .shadow(true) // Windows 11 rounds the corners of a frameless window that has a shadow
         .always_on_top(true)
         .skip_taskbar(true)
-        .resizable(false)
+        // GTK keeps a non-resizable window at its natural height (200 px), so a short bubble hung off the bottom
+        // edge on Linux (BUB-1.2). Frameless, it has no resize edges either way.
+        .resizable(cfg!(not(windows)))
         .visible(false)
         .focused(false)
         .on_navigation(|url| is_app_url(url))
@@ -138,6 +141,15 @@ pub fn open(app: &AppHandle, cursor: Option<(i32, i32)>, previous: isize, payloa
     apply(&window, rect(&anchor, START_HEIGHT));
     let _ = window.emit_to(LABEL, "bubble-open", payload);
     let _ = window.show();
+    // On X11 the window manager places the window as it appears, after this move; so the place is set again a moment later (BUB-1.1).
+    #[cfg(not(windows))]
+    {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(150));
+            reapply(&app);
+        });
+    }
     os::focus(&window);
 }
 
@@ -155,17 +167,23 @@ pub fn hide(app: &AppHandle) -> bool {
     let had_focus = os::foreground() == os::handle(&window);
     let _ = window.hide();
     let _ = window.emit_to(LABEL, "bubble-hidden", ());
+    crate::llm::engine::release(app); // "Only while answering" (LLM-3.5)
     had_focus
 }
 
 /// The view reports its content height; the bubble grows up to MAX_HEIGHT and then scrolls (BUB-2.5).
 #[tauri::command]
 pub fn bubble_resize(app: AppHandle, height: f64) {
+    placed(&app).height = height;
+    reapply(&app);
+}
+
+/// Puts the bubble where its anchor and current height say.
+fn reapply(app: &AppHandle) {
     let Some(window) = app.get_webview_window(LABEL) else { return };
-    let mut placed = placed(&app);
-    placed.height = height;
+    let placed = placed(app);
     if let Some(anchor) = placed.anchor {
-        apply(&window, rect(&anchor, height));
+        apply(&window, rect(&anchor, placed.height));
     }
 }
 

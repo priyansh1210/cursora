@@ -269,3 +269,7 @@ With no model, the bubble shows **"No AI model is available"**, the reason, and 
 - **2026-10-12, end-to-end run on Windows:**
   - The bubble's height now comes from CSS. Its content takes its natural height, up to `max-height: 520px`, and the window follows that one measured number. Before this, the header and context shrank to fit the window instead of growing it, so the bottom of the bubble was cut off near the screen corner.
   - `apply` offsets the position by the invisible frame Windows adds around a frameless window with a shadow: 9 px at 125 % scaling. The visible bubble now sits exactly at cursor + 16.
+- **2026-10-13, manual checks:** after × removes the context, focus goes back to the input; the removed button took it along (BUB-3.2, BUB-8.1).
+- **2026-10-13, X11 checks (WSL, Xvfb + Openbox):** two Linux fixes, both inside `#[cfg(not(windows))]` or `cfg!`:
+  - The bubble is resizable on Linux: GTK keeps a non-resizable window at its natural 200 px, so a short bubble near the bottom edge hung 33 px off screen. Frameless, it still has no resize edges.
+  - The bubble's place is set again 150 ms after it is shown: the window manager places a window as it appears, which undid the move (the bubble opened at 0,0 instead of by the cursor).
