@@ -70,6 +70,7 @@ User story: As a user, I want to just pick a model file and go, without installi
   4. otherwise, `false`
 - LLM-5.3 (auto) THE SYSTEM SHALL expose `capabilities(model) → { vision, contextTokens? }` for other specs to read.
 - LLM-5.4 (manual) THE user SHALL pick one default model. Skills can override it (SKL-2.5).
+- LLM-5.5 (manual) Clicking the model name in the bubble header SHALL open a quick switcher of configured models. In local-only mode, cloud models are disabled. (Was BUB-7.2.)
 
 ### LLM-6 API key storage
 - LLM-6.1 (auto) THE SYSTEM SHALL store API keys only in the OS keychain (Windows Credential Manager or Linux Secret Service), under service `cursora` and account `<provider-id>`.

@@ -5,7 +5,7 @@ mod other;
 #[cfg(windows)]
 mod windows;
 
-pub use files::FileContext;
+pub use files::{FileContext, Kind};
 #[cfg(not(windows))]
 pub use other::NullPlatform as OsPlatform;
 #[cfg(windows)]
@@ -25,24 +25,26 @@ pub enum CopyKey {
     Never,
 }
 
-#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq)]
 pub struct SourceApp {
     pub exe: String,
     pub name: String,
     pub title: String,
     /// The target runs as admin and Cursora does not, so Windows blocks reading it (SEL-6.1).
     pub elevated: bool,
+    /// The app's window handle, so closing the bubble can give it focus back (BUB-2.3). Never sent to the UI.
+    #[serde(skip)]
+    pub window: isize,
 }
 
 impl SourceApp {
     /// How the prompt may name the source: never the window title unless the user allows it (SEL-7.2).
-    #[allow(dead_code)] // the prompt builder (spec 05) calls this
     pub fn for_prompt(&self, share_title: bool) -> String {
         if share_title && !self.title.is_empty() { format!("{} ({})", self.name, self.title) } else { self.name.clone() }
     }
 }
 
-#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Method {
     Uia,
@@ -50,7 +52,7 @@ pub enum Method {
     None,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Content {
     Text { text: String, truncated: bool },
@@ -58,7 +60,7 @@ pub enum Content {
     None,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Notice {
     Elevated,
@@ -68,7 +70,7 @@ pub enum Notice {
     },
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Clone, Debug, PartialEq)]
 pub struct Capture {
     pub app: SourceApp,
     pub method: Method,
@@ -77,6 +79,7 @@ pub struct Capture {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(not(windows), allow(dead_code))] // the Linux clipboard arrives with spec 08
 pub enum Clip {
     Text(String),
     Files(Vec<PathBuf>),
@@ -182,7 +185,7 @@ mod tests {
     impl Fake {
         fn new(exe: &str) -> Self {
             Fake {
-                app: SourceApp { exe: exe.into(), name: exe.trim_end_matches(".exe").into(), title: "Secret doc".into(), elevated: false },
+                app: SourceApp { exe: exe.into(), name: exe.trim_end_matches(".exe").into(), title: "Secret doc".into(), elevated: false, window: 0 },
                 uia: None,
                 modifiers_held: false,
                 clipboard_busy: false,

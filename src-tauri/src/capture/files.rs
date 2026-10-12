@@ -1,19 +1,19 @@
 use crate::settings::CaptureSettings;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::{fs, time::UNIX_EPOCH};
 
 const MAX_ITEMS: usize = 20;
 const MAX_CHILDREN: usize = 50;
 
-#[derive(Serialize, Debug, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct FileContext {
     pub items: Vec<FileItem>,
     /// Selected items beyond the first 20 (SEL-5.5).
     pub omitted: usize,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct FileItem {
     pub path: PathBuf,
     pub name: String,
@@ -27,7 +27,7 @@ pub struct FileItem {
     pub skipped: Option<String>,
 }
 
-#[derive(Serialize, Debug, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
     File,

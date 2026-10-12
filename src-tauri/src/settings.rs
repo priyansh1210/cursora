@@ -18,6 +18,7 @@ pub struct Settings {
     pub personality_on: bool,
     pub local_only: bool,
     pub capture: CaptureSettings,
+    pub history: HistorySettings,
 }
 
 impl Default for Settings {
@@ -32,6 +33,7 @@ impl Default for Settings {
             personality_on: true,
             local_only: false,
             capture: CaptureSettings::default(),
+            history: HistorySettings::default(),
         }
     }
 }
@@ -66,6 +68,21 @@ impl Default for CaptureSettings {
             file_max_bytes: 100_000,
             files_total_bytes: 300_000,
         }
+    }
+}
+
+/// Spec 03 (BUB-9).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct HistorySettings {
+    pub save: bool,
+    /// `None` keeps conversations forever.
+    pub retention_days: Option<u32>,
+}
+
+impl Default for HistorySettings {
+    fn default() -> Self {
+        Self { save: true, retention_days: Some(90) }
     }
 }
 

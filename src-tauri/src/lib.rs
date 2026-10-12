@@ -1,9 +1,16 @@
+mod bubble;
 mod capture;
+mod chat;
 mod cli;
+mod history;
 mod hotkey;
+mod prompt;
 mod settings;
 mod tray;
 
+use bubble::BubbleState;
+use chat::ChatState;
+use history::History;
 use settings::Settings;
 use std::{path::PathBuf, sync::Mutex};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
@@ -61,9 +68,16 @@ fn open_folder(app: AppHandle, kind: String) -> Result<(), String> {
     app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+/// Async, like every command that creates a window: in a synchronous command it deadlocks on Windows (wry#583).
+#[tauri::command(async)]
 fn open_setup(app: AppHandle) {
     open_window(&app, "setup");
+}
+
+/// Settings on a given tab, e.g. "Models" from a bubble error (BUB-4.4).
+#[tauri::command(async)]
+fn open_settings(app: AppHandle, tab: String) {
+    open_window_at(&app, "settings", &tab);
 }
 
 /// Saves, then applies the settings everywhere without a restart (APP-4.1).
@@ -113,12 +127,21 @@ fn sync_autostart(app: &AppHandle, settings: &Settings) {
 
 /// Settings and Setup windows are created on demand and destroyed on close, to keep idle RAM low.
 pub fn open_window(app: &AppHandle, label: &str) {
+    open_window_at(app, label, "");
+}
+
+/// `tab` (Settings only) is passed as the URL fragment, or as an event when the window is already open.
+fn open_window_at(app: &AppHandle, label: &str, tab: &str) {
     if let Some(w) = app.get_webview_window(label) {
+        if !tab.is_empty() {
+            let _ = w.emit_to(label, "settings-tab", tab);
+        }
         let _ = w.set_focus();
         return;
     }
+    let url = if tab.is_empty() { WebviewUrl::default() } else { WebviewUrl::App(format!("index.html#{tab}").into()) };
     let (title, width, height) = if label == "setup" { ("Cursora setup", 520.0, 480.0) } else { ("Cursora settings", 760.0, 540.0) };
-    if let Err(e) = WebviewWindowBuilder::new(app, label, WebviewUrl::default()).title(title).inner_size(width, height).build() {
+    if let Err(e) = WebviewWindowBuilder::new(app, label, url).title(title).inner_size(width, height).build() {
         log::error!("opening {label} window: {e}");
     }
 }
@@ -157,7 +180,33 @@ pub fn run() {
                 })
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![get_settings, set_settings, app_info, open_folder, open_setup])
+        .on_window_event(|window, event| {
+            match event {
+                // Only the ask hotkey closes the bubble (BUB-2.3), so Alt+F4 must not destroy it.
+                tauri::WindowEvent::CloseRequested { api, .. } if window.label() == bubble::LABEL => api.prevent_close(),
+                tauri::WindowEvent::Destroyed if window.label() == chat::CHAT_LABEL => chat::drop_slot(window.app_handle(), chat::CHAT_LABEL),
+                _ => {}
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_settings,
+            set_settings,
+            app_info,
+            open_folder,
+            open_setup,
+            open_settings,
+            bubble::bubble_resize,
+            chat::ask,
+            chat::stop,
+            chat::regenerate,
+            chat::remove_context,
+            chat::get_conversation,
+            chat::expand,
+            history::history_list,
+            history::history_open,
+            history::history_delete,
+            history::history_clear,
+        ])
         .setup(|app| {
             let path = app.path().app_config_dir()?.join("settings.json");
             let (settings, warning) = settings::load(&path);
@@ -172,7 +221,15 @@ pub fn run() {
                 app.dialog().message(e).title("Cursora").show(|_| {}); // SEL-1.3
             }
             let setup_done = settings.setup_done;
+            let history = History::new(app.path().app_data_dir()?.join("history.sqlite"));
+            if let Err(e) = history.prune(&settings.history, chat::now_ms()) {
+                log::warn!("history: {e}");
+            }
+            app.manage(history);
             app.manage(AppState { settings: Mutex::new(settings), path });
+            app.manage(ChatState::default());
+            app.manage(BubbleState::default());
+            bubble::create(app.handle())?;
             if !setup_done {
                 open_window(app.handle(), "setup");
             }
