@@ -81,7 +81,7 @@ pub fn update_settings(app: &AppHandle, settings: Settings) -> Result<(), String
 fn sync_autostart(app: &AppHandle, settings: &Settings) {
     let Ok(exe) = std::env::current_exe() else { return };
     #[cfg(target_os = "linux")]
-    let exe = app.env().appimage.unwrap_or(exe);
+    let exe = app.env().appimage.map(PathBuf::from).unwrap_or(exe);
     let launcher = auto_launch::AutoLaunchBuilder::new()
         .set_app_name(&app.package_info().name)
         .set_app_path(&exe.display().to_string())
