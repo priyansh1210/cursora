@@ -8,7 +8,7 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | #  | Spec | Prefix | requirements | design | tasks | Status |
 |----|------|--------|--------------|--------|-------|--------|
 | 01 | [App shell](01-app-shell/requirements.md) | APP | Approved | [Approved](01-app-shell/design.md) | [In progress](01-app-shell/tasks.md) | In progress |
-| 02 | [Trigger & selection capture](02-trigger-and-selection/requirements.md) | SEL | Approved | — | — | Approved (reqs) |
+| 02 | [Trigger & selection capture](02-trigger-and-selection/requirements.md) | SEL | Approved | [Approved](02-trigger-and-selection/design.md) | [In progress](02-trigger-and-selection/tasks.md) | In progress |
 | 03 | [Bubble UI](03-bubble-ui/requirements.md) | BUB | Approved | — | — | Approved (reqs) |
 | 04 | [AI providers](04-providers/requirements.md) | LLM | Approved | — | — | Approved (reqs) |
 | 05 | [Personality](05-personality/requirements.md) | PER | Approved | — | — | Approved (reqs) |
