@@ -5,13 +5,15 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { errorText, formatSize, header, keyAction, type Conversation, type Delta, type Done, type Turn } from "./conversation";
 import { render } from "./markdown";
+import { ModelSelect, modelValue, useEnabledModels } from "./Models";
 import { useSettings } from "./useSettings";
 
 const isBubble = getCurrentWindow().label === "bubble";
 
 /** The conversation view, in the bubble and in the expanded window. Rust owns the conversation; this draws it. */
 export default function Chat() {
-  useSettings(); // follows the theme (BUB-8.2)
+  const { settings } = useSettings(); // also follows the theme (BUB-8.2)
+  const models = useEnabledModels(settings);
   const [conv, setConvState] = useState<Conversation | null>(null);
   const convRef = useRef<Conversation | null>(null);
   const [draft, setDraft] = useState("");
@@ -27,7 +29,6 @@ export default function Chat() {
   const reload = () => invoke<Conversation | null>("get_conversation").then(setConv);
 
   useEffect(() => {
-    if (!isBubble) reload();
     const subscriptions = [
       listen<Conversation>("bubble-open", (e) => {
         setConv(e.payload);
@@ -49,6 +50,8 @@ export default function Chat() {
         setConv({ ...withLast(c, { status: e.payload.status, error: e.payload.error }), dropped: e.payload.dropped });
       }),
     ];
+    // Once listening, fetch what is already there: `cursora --ask` can open the bubble before this page loads (APP-2.3).
+    void Promise.all(subscriptions).then(reload);
     return () => subscriptions.forEach((s) => void s.then((off) => off()));
   }, []);
 
@@ -109,7 +112,16 @@ export default function Chat() {
     <div ref={rootRef} className={isBubble ? "chat bubble" : "chat"}>
       <header data-tauri-drag-region>
         <span data-tauri-drag-region className="who">{h.persona}</span>
-        <span data-tauri-drag-region className="muted">{h.model}</span>
+        {models.length > 1 && settings ? (
+          <ModelSelect
+            label="Model"
+            models={models}
+            value={modelValue(settings.models.default)}
+            onChange={(provider, model) => invoke<Conversation | null>("set_model", { provider, model }).then((c) => c && setConv(c), (e) => setError(String(e)))}
+          />
+        ) : (
+          <span data-tauri-drag-region className="muted">{h.model}</span>
+        )}
         {h.badge && <span data-tauri-drag-region className="badge">{h.badge}</span>}
         <span data-tauri-drag-region className="grow" />
         {isBubble && (
@@ -119,11 +131,19 @@ export default function Chat() {
         )}
       </header>
 
-      {!conv.model ? (
-        <NoModel />
+      {!conv.model || conv.unavailable ? (
+        <NoModel reason={conv.unavailable} />
       ) : (
         <>
-          <Context conv={conv} onRemove={() => invoke<Conversation | null>("remove_context").then(setConv)} />
+          <Context
+            conv={conv}
+            onRemove={() =>
+              invoke<Conversation | null>("remove_context").then((c) => {
+                setConv(c);
+                inputRef.current?.focus(); // the × button is gone, and focus with it (BUB-8.1)
+              })
+            }
+          />
           <div ref={turnsRef} className="turns" role="log" aria-label="Conversation" onClick={onAnswerClick}>
             {conv.dropped > 0 && <p className="muted note">Earlier messages were left out to fit the model.</p>}
             {conv.turns.map((t, i) => (
@@ -167,12 +187,12 @@ function withLast(c: Conversation, patch: Partial<Turn>): Conversation {
   return last ? { ...c, turns: [...c.turns.slice(0, -1), { ...last, ...patch }] } : c;
 }
 
-/** LLM-9.1 wording; the health check itself is spec 04. */
-function NoModel() {
+/** LLM-9.1: instead of the input, with the reason. Everything else keeps working. */
+function NoModel({ reason }: { reason?: string }) {
   return (
     <div className="nomodel" role="alert">
       <strong>No AI model is available</strong>
-      <p className="muted">No model is set up yet.</p>
+      <p className="muted">{reason ?? "No model is set up yet."}</p>
       <button type="button" autoFocus onClick={() => void invoke("open_setup")}>
         Open setup
       </button>
@@ -253,6 +273,8 @@ function TurnView({ turn, latest, onRetry }: { turn: Turn; latest: boolean; onRe
       {err && (
         <div role="alert" className="error note">
           {err.text}
+          {/* The provider's own words, e.g. why the built-in engine stopped (LLM-3.6) or the token counts of a too-long request. */}
+          {turn.error?.kind !== "unknown" && turn.error?.message && <pre className="detail muted">{turn.error.message}</pre>}
           <div className="row">
             <button type="button" onClick={onRetry}>Retry</button>
             {err.openSettings && (

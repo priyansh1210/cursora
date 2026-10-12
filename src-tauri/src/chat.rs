@@ -1,7 +1,7 @@
 //! Conversations in the bubble and the expanded window (spec 03). Rust owns them; the views only draw them.
 use crate::capture::{Capture, Content, Notice, SourceApp};
 use crate::history::History;
-use crate::{bubble, prompt, AppState};
+use crate::{bubble, llm, prompt, AppState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindo
 pub const CHAT_LABEL: &str = "chat";
 /// Used when the model doesn't report its context size (BUB-5.2).
 const DEFAULT_CONTEXT_TOKENS: u32 = 8192;
+const CLOUD_CONTEXT_TOKENS: u32 = 32_768;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -40,6 +41,20 @@ pub enum Role {
 pub struct Message {
     pub role: Role,
     pub text: String,
+    /// Sent only to vision models; spec 10 fills it (LLM-1.1).
+    pub images: Vec<Image>,
+}
+
+impl Message {
+    pub fn new(role: Role, text: impl Into<String>) -> Self {
+        Self { role, text: text.into(), images: vec![] }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Image {
+    pub mime: String,
+    pub base64: String,
 }
 
 /// The LLM-1.4 failure kinds.
@@ -103,6 +118,9 @@ pub struct Conversation {
     pub turns: Vec<Turn>,
     /// Earlier question/answer pairs left out of the last request (BUB-5.2).
     pub dropped: usize,
+    /// Why no model can answer; the bubble then shows "No AI model is available" (LLM-9.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unavailable: Option<String>,
 }
 
 /// One conversation per window label: the bubble's and the expanded window's.
@@ -138,29 +156,42 @@ pub fn now_ms() -> i64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64)
 }
 
-// shortcut: spec 04 replaces this with the configured default model; debug builds talk to Echo so the bubble can be tested.
-pub fn active_model() -> Option<Arc<dyn Model>> {
-    #[cfg(debug_assertions)]
-    return Some(Arc::new(Echo));
-    #[cfg(not(debug_assertions))]
-    None
-}
-
 /// Starts the bubble's conversation for a new capture (BUB-5.3). Any earlier one is already in history.
 pub fn start(app: &AppHandle, capture: Capture) -> Conversation {
     let personality_on = app.state::<AppState>().settings.lock().unwrap().personality_on;
+    let model = llm::active(app);
     let conv = Conversation {
         id: now_ms(),
         app: capture.app,
         content: capture.content,
         notice: capture.notice,
-        model: active_model().map(|m| m.info()),
+        model: model.as_ref().ok().map(|m| m.info()),
         persona: personality_on.then(|| "Cursora".into()), // shortcut: fixed persona name until spec 05 adds personas
         turns: vec![],
         dropped: 0,
+        unavailable: model.err(),
     };
     put(app, bubble::LABEL, conv.clone());
     conv
+}
+
+/// The model switcher picked another model (LLM-5.5): the window's conversation answers with it from the next question.
+pub fn switch_model(app: &AppHandle, label: &str, info: Result<ModelInfo, String>) -> Option<Conversation> {
+    let mut slots = slots(app);
+    let conv = &mut slots.get_mut(label)?.conv;
+    (conv.model, conv.unavailable) = match info {
+        Ok(i) => (Some(i), None),
+        Err(reason) => (None, Some(reason)),
+    };
+    Some(conv.clone())
+}
+
+/// The health check failed: the bubble's conversation shows why instead of its input (LLM-9.1).
+pub fn set_unavailable(app: &AppHandle, id: i64, reason: String) -> Option<Conversation> {
+    with_conv(app, id, |c| {
+        c.unavailable = Some(reason);
+        c.clone()
+    })
 }
 
 fn put(app: &AppHandle, label: &str, conv: Conversation) {
@@ -279,6 +310,7 @@ fn show_chat_window(app: &AppHandle) -> Result<(), String> {
         return Ok(());
     }
     WebviewWindowBuilder::new(app, CHAT_LABEL, WebviewUrl::default())
+        .additional_browser_args(crate::BROWSER_ARGS)
         .title("Cursora")
         .inner_size(720.0, 640.0)
         .min_inner_size(380.0, 300.0)
@@ -290,9 +322,9 @@ fn show_chat_window(app: &AppHandle) -> Result<(), String> {
 
 /// Marks the turn as streaming via `change`, then answers it on a worker thread.
 fn begin(app: &AppHandle, label: &str, change: impl FnOnce(&mut Conversation)) -> Result<(), String> {
-    let model = active_model().ok_or("No AI model is available.")?;
+    let model = llm::active(app)?;
     let share_title = app.state::<AppState>().settings.lock().unwrap().capture.share_window_title;
-    let (id, messages, dropped, cancel) = {
+    let (id, messages, dropped, cancel, too_long) = {
         let mut slots = slots(app);
         let slot = slots.get_mut(label).ok_or("This conversation is closed.")?;
         if slot.conv.turns.last().is_some_and(|t| t.status == TurnStatus::Streaming) {
@@ -303,21 +335,27 @@ fn begin(app: &AppHandle, label: &str, change: impl FnOnce(&mut Conversation)) -
             return Ok(());
         }
         let info = model.info();
-        let (messages, dropped) = assemble(&slot.conv, share_title, budget(info.context_tokens));
+        // Unknown sizes: no current cloud chat model has less than 32k.
+        let assumed = info.context_tokens.or((info.locality == Locality::Cloud).then_some(CLOUD_CONTEXT_TOKENS));
+        let (messages, dropped) = assemble(&slot.conv, share_title, budget(assumed));
+        let too_long = info.context_tokens.and_then(|ctx| too_long(&messages, ctx));
         (slot.conv.model, slot.conv.dropped) = (Some(info), dropped); // a reopened conversation answers with today's model
         slot.cancel = Arc::default();
-        (slot.conv.id, messages, dropped, slot.cancel.clone())
+        (slot.conv.id, messages, dropped, slot.cancel.clone(), too_long)
     };
     let app = app.clone();
     std::thread::spawn(move || {
         let mut offset = 0;
-        let (status, error) = run_turn(&*model, &messages, &cancel, &mut |text| {
-            with_conv(&app, id, |c| c.turns.last_mut().unwrap().answer.push_str(text));
-            for label in [bubble::LABEL, CHAT_LABEL] {
-                let _ = app.emit_to(label, "chat-delta", Delta { id, offset, text });
-            }
-            offset += text.encode_utf16().count();
-        });
+        let (status, error) = match too_long {
+            Some(e) => (TurnStatus::Error, Some(e)),
+            None => run_turn(&*model, &messages, &cancel, &mut |text| {
+                with_conv(&app, id, |c| c.turns.last_mut().unwrap().answer.push_str(text));
+                for label in [bubble::LABEL, CHAT_LABEL] {
+                    let _ = app.emit_to(label, "chat-delta", Delta { id, offset, text });
+                }
+                offset += text.encode_utf16().count();
+            }),
+        };
         let conv = with_conv(&app, id, |c| {
             let t = c.turns.last_mut().unwrap();
             (t.status, t.error, t.answered) = (status, error.clone(), Some(now_ms()));
@@ -364,6 +402,16 @@ fn tokens(text: &str) -> usize {
     text.chars().count().div_ceil(4)
 }
 
+/// A request that can't fit a known context fails before it is sent: some local servers would cut it
+/// silently, dropping the start of the selection or the system prompt's rules (spec 04 design).
+pub fn too_long(messages: &[Message], context_tokens: u32) -> Option<ChatError> {
+    let need: usize = messages.iter().map(|m| tokens(&m.text)).sum();
+    (need > budget(Some(context_tokens))).then(|| ChatError {
+        kind: ErrorKind::ContextTooLong,
+        message: format!("This is about {need} tokens, more than fits in the model's {context_tokens}-token context with room for an answer. Select less, or raise the context size in Models settings."),
+    })
+}
+
 /// The request for the latest question (BUB-5.1, 5.2):
 /// system prompt, then the context on the oldest kept question (so exactly once), then the turns.
 /// Oldest pairs go first when over budget; the system prompt, context and latest question always stay.
@@ -381,20 +429,20 @@ pub fn assemble(conv: &Conversation, share_title: bool, budget: usize) -> (Vec<M
         start += 1;
     }
     let mut context = context;
-    let mut user = |q: &str| Message { role: Role::User, text: context.take().map_or_else(|| q.to_string(), |c| format!("{c}\n\n{q}")) };
-    let mut messages = vec![Message { role: Role::System, text: system }];
+    let mut user = |q: &str| Message::new(Role::User, context.take().map_or_else(|| q.to_string(), |c| format!("{c}\n\n{q}")));
+    let mut messages = vec![Message::new(Role::System, system)];
     for t in &pairs[start..] {
         messages.push(user(&t.question));
-        messages.push(Message { role: Role::Assistant, text: t.answer.clone() });
+        messages.push(Message::new(Role::Assistant, t.answer.clone()));
     }
     messages.push(user(&latest.question));
     (messages, start)
 }
 
-/// Debug builds only: streams a canned Markdown answer, so streaming, Stop, Expand and history can be tried before spec 04.
+/// Debug builds with CURSORA_ECHO set: streams a canned Markdown answer, so the bubble can be tried without a model.
 /// "error: <kind>" (e.g. "error: auth") answers with that error.
 #[cfg(debug_assertions)]
-struct Echo;
+pub struct Echo;
 
 #[cfg(debug_assertions)]
 impl Model for Echo {
@@ -443,6 +491,7 @@ mod tests {
             persona: None,
             turns,
             dropped: 0,
+            unavailable: None,
         }
     }
 
@@ -489,6 +538,15 @@ mod tests {
         assert_eq!(dropped, 2);
         assert_eq!(m.len(), 2);
         assert_eq!(context_count(&m), 1);
+    }
+
+    #[test]
+    fn bub_5_2_a_request_that_cant_fit_a_known_context_fails_before_sending() {
+        let fits = vec![Message::new(Role::System, "x".repeat(400)), Message::new(Role::User, "x".repeat(4000))]; // ~1100 tokens
+        assert_eq!(too_long(&fits, 8192), None);
+        let e = too_long(&fits, 1024).unwrap(); // 1024 - 256 for the answer
+        assert_eq!(e.kind, ErrorKind::ContextTooLong);
+        assert!(e.message.contains("1100 tokens") && e.message.contains("1024-token"), "{}", e.message);
     }
 
     /// Streams `parts`; the test's on_delta may cancel along the way.

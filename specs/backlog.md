@@ -5,6 +5,7 @@ These are ideas, not commitments. An item gets a numbered spec folder only when 
 | Idea | Notes |
 |------|-------|
 | **Disable Cursora per app** | Turn Cursora off for chosen apps. Unlike the privacy blocklist (PRI), the hotkey is *passed through*, so Ctrl+G keeps working as "Go to line" in VS Code. Reuses the PRI app-matching logic. Toggle it from the tray with "Disable in <current app>". |
+| Native Ollama support | Detect Ollama, pull models with progress and cancel, and use Ollama's own API (`/api/chat`) so Cursora can set the context size. Through its OpenAI-style API, Ollama runs models at its small default window and cuts longer requests without saying so. Was part of spec 04 (LLM-2.1, LLM-2.3); moved here on 2026-10-12 because Ollama can't be installed on the development PC to test it. Until then, Ollama can be added as an OpenAI-compatible server (`http://localhost:11434/v1`), with that limit. |
 | Replace in place | Skill option `output: replace` writes the answer back over the selection, with a diff preview and undo. |
 | Context-aware mode | Detect the active app (IDE, browser, mail client) and suggest matching skills or tone. |
 | Cursor companion avatar | An animated character that follows the cursor, with thinking and mood states. Skins match the persona. |

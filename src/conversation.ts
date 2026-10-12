@@ -18,6 +18,8 @@ export type Conversation = {
   persona: string | null;
   turns: Turn[];
   dropped: number;
+  /** Why no model can answer (LLM-9.1). */
+  unavailable?: string;
 };
 export type Delta = { id: number; offset: number; text: string };
 export type Done = { id: number; status: TurnStatus; error: ChatError | null; dropped: number };
@@ -47,8 +49,11 @@ export function errorText(kind: ErrorKind, message: string): { text: string; ope
 /** BUB-7.1 */
 export function header(c: { persona: string | null; model: ModelInfo | null }): { persona: string; model: string; badge: string } {
   const m = c.model;
-  const badge = !m ? "" : m.locality === "local" ? "🔒 Local" : m.locality === "lan" ? "🏠 LAN" : `☁ ${m.provider}`;
-  return { persona: c.persona ?? "Personality off", model: m?.name ?? "No model", badge };
+  return { persona: c.persona ?? "Personality off", model: m?.name ?? "No model", badge: m ? badge(m.locality, m.provider) : "" };
+}
+
+export function badge(l: Locality, provider: string): string {
+  return l === "local" ? "🔒 Local" : l === "lan" ? "🏠 LAN" : `☁ ${provider}`;
 }
 
 export function formatSize(bytes: number): string {

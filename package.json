@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "trace": "node scripts/trace.mjs",
     "test": "node --test \"scripts/*.test.mjs\" && vitest run",
-    "test:linux": "wsl -d Ubuntu-24.04 -- bash scripts/wsl-test.sh"
+    "test:linux": "wsl -d Ubuntu-24.04 -- bash scripts/wsl-test.sh",
+    "fetch-llama": "node scripts/fetch-llama.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

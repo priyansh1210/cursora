@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
+import type { Provider } from "./providers";
 
 // Mirrors src-tauri/src/settings.rs.
 export type Settings = {
@@ -22,6 +23,12 @@ export type Settings = {
     filesTotalBytes: number;
   };
   history: { save: boolean; retentionDays: number | null };
+  models: {
+    providers: Provider[];
+    default: { provider: string; model: string } | null;
+    trustedHosts: string[];
+    timeouts: { connectSecs: number; firstReplyLocalSecs: number; firstReplyCloudSecs: number; pauseSecs: number };
+  };
 };
 
 export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";
