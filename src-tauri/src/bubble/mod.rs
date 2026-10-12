@@ -157,7 +157,8 @@ pub fn open(app: &AppHandle, cursor: Option<(i32, i32)>, previous: isize, payloa
 pub fn close(app: &AppHandle) {
     crate::chat::cancel(app, LABEL);
     if hide(app) {
-        os::activate(placed(app).previous);
+        let previous = placed(app).previous; // not held while activating
+        os::activate(previous);
     }
 }
 
@@ -179,11 +180,15 @@ pub fn bubble_resize(app: AppHandle, height: f64) {
 }
 
 /// Puts the bubble where its anchor and current height say.
+/// The lock is let go first: on Linux, moving the window waits for the main thread, which may be waiting for this lock in `bubble_resize`.
 fn reapply(app: &AppHandle) {
     let Some(window) = app.get_webview_window(LABEL) else { return };
-    let placed = placed(app);
-    if let Some(anchor) = placed.anchor {
-        apply(&window, rect(&anchor, placed.height));
+    let (anchor, height) = {
+        let placed = placed(app);
+        (placed.anchor, placed.height)
+    };
+    if let Some(anchor) = anchor {
+        apply(&window, rect(&anchor, height));
     }
 }
 
