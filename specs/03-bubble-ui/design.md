@@ -273,3 +273,4 @@ With no model, the bubble shows **"No AI model is available"**, the reason, and 
 - **2026-10-13, X11 checks (WSL, Xvfb + Openbox):** two Linux fixes, both inside `#[cfg(not(windows))]` or `cfg!`:
   - The bubble is resizable on Linux: GTK keeps a non-resizable window at its natural 200 px, so a short bubble near the bottom edge hung 33 px off screen. Frameless, it still has no resize edges.
   - The bubble's place is set again 150 ms after it is shown: the window manager places a window as it appears, which undid the move (the bubble opened at 0,0 instead of by the cursor).
+  - That re-placing lets go of the bubble's lock before it moves the window: on Linux, moving waits for the main thread, which can be waiting for the same lock in `bubble_resize`; the two froze Cursora (found by the spec 04 Linux checks).
