@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Settings and setup windows",
+  "windows": [
+    "settings",
+    "setup"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close"
+  ]
+}
