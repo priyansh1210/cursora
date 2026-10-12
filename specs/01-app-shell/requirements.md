@@ -18,6 +18,7 @@ User story: As a user, I want Cursora to run quietly in the background, so that 
   - Personality on/off
   - Local-only on/off
   - Pause Cursora
+  - Stop the model (when a built-in model is set up, LLM-3.5)
   - Quit
 - APP-1.3 (manual) WHILE Cursora is paused THE SYSTEM SHALL unregister all global hotkeys and SHALL show a distinct "paused" tray icon.
 - APP-1.4 (manual) WHEN the user chooses Quit THE SYSTEM SHALL unregister hotkeys, stop all child processes (built-in engine, speech), and exit.
@@ -65,7 +66,7 @@ User story: As a user (especially on Linux Wayland), I want to trigger Cursora f
 ### APP-6 First-run onboarding
 User story: As a new user, I want a short setup, so that my first Ctrl+G just works.
 - APP-6.1 (manual) WHEN Cursora runs for the first time THE SYSTEM SHALL show onboarding with three steps:
-  1. Choose an AI source: detected local runtimes, the built-in engine (pick a `.gguf`), or a cloud API key.
+  1. Choose an AI source: detected local runtimes, the built-in engine (pick a `.gguf`), or a cloud API key. Setup SHALL NOT continue past this step until the chosen model passes Test connection (LLM-7.1). For the built-in engine, the user also picks how long the model stays loaded (LLM-3.5), with "Always on" preselected.
   2. Choose a persona, or turn personality off.
   3. Choose the hotkeys: ask (default Ctrl+G), snip (default Ctrl+Shift+G), and push-to-talk (optional, unset by default).
   4. A "try it" page with sample text and the hotkey.

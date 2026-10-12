@@ -14,17 +14,17 @@ Status: **In progress**. Code complete; the manual checklist is open.
 
 ## Manual checklist
 "✓ (auto-verified)" marks a check run automatically with process and window inspection on Windows. The rest needs a human: clicking the tray, logging in again, Linux.
-- [ ] APP-1.1 Starts with only a tray icon. Windows ✓ (auto-verified: no main window, about 35 MB) ☐ tray icon seen · X11 ☐ · Wayland ☐
-- [ ] APP-1.2 The tray menu has every item. Windows ☐ X11 ☐ Wayland ☐
-- [ ] APP-1.3 Pause swaps the icon (hotkey part verified after spec 02). Windows ☐ X11 ☐
-- [ ] APP-1.4 Quit exits cleanly with no process left. Windows ☐ X11 ☐
+- [ ] APP-1.1 Starts with only a tray icon. Windows ✓ (auto-verified: no main window, about 35 MB) ✓ tray icon (auto-verified 2026-10-13) · X11 ☐ · Wayland ☐
+- [ ] APP-1.2 The tray menu has every item. Windows ✓ (auto-verified 2026-10-13): every item; Personality and Local-only follow the setting; "Stop the model" unloads the built-in model X11 ☐ Wayland ☐
+- [ ] APP-1.3 Pause swaps the icon (hotkey part verified after spec 02). Windows ✓ (auto-verified 2026-10-13): gray icon, check mark, Ctrl+G ignored X11 ☐
+- [ ] APP-1.4 Quit exits cleanly with no process left. Windows ✓ (auto-verified 2026-10-13): from the tray with the engine running X11 ☐
 - [ ] APP-2.2 A second `cursora --settings` opens Settings in the first instance. Windows ✓ (auto-verified) · X11 ☐
-- [ ] APP-2.3 `cursora --settings` with no instance running starts the app and opens Settings. Windows ☐ X11 ☐
+- [ ] APP-2.3 `cursora --settings` with no instance running starts the app and opens Settings. Windows ✓ `--settings` and `--ask` (auto-verified 2026-10-13) X11 ☐
 - [ ] APP-2.4 Relaunching with no arguments opens Settings. Windows ✓ (auto-verified) · X11 ☐
 - [ ] APP-3.1 "Start with system" survives a logout/login. Windows: per-user Run entry written ✓ (auto-verified) ☐ login · X11 ☐
-- [ ] APP-3.2 Setup asks about starting with the system (default yes). Windows ✓ (the user went through setup)
-- [ ] APP-5.1 / 5.2 / 5.3 The tabs and their contents are present, and the folder buttons open the right folders. Windows ☐ X11 ☐
+- [x] APP-3.2 Setup asks about starting with the system (default yes). Windows ✓ (the user went through setup)
+- [ ] APP-5.1 / 5.2 / 5.3 The tabs and their contents are present, and the folder buttons open the right folders. Windows ✓ (auto-verified 2026-10-13) X11 ☐
 - [ ] APP-6.1 The full setup flow (after specs 03, 04 and 05). Windows ☐ X11 ☐
-- [ ] APP-6.3 Setup choices can be edited in Settings, and "Re-run setup" works. Windows ☐
-- [ ] APP-7.1 More than 5 MB of logs leaves at most 5 files of about 1 MB. Windows ☐
+- [x] APP-6.3 Setup choices can be edited in Settings, and "Re-run setup" works. Windows ✓ (auto-verified 2026-10-13)
+- [x] APP-7.1 More than 5 MB of logs leaves at most 5 files of about 1 MB. Windows ✓ (auto-verified 2026-10-13): 5 files (it kept 6 before the fix)
 - [ ] APP-8.2 CI is green on both OSes; a `v*` tag produces draft-release installers. ☐ (needs a GitHub remote)

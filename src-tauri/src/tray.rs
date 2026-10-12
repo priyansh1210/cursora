@@ -1,6 +1,6 @@
 use crate::{settings::Settings, AppState};
 use tauri::image::Image;
-use tauri::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Wry};
 
@@ -30,18 +30,20 @@ pub fn refresh(app: &AppHandle, s: &Settings) {
 fn menu(app: &AppHandle, s: &Settings) -> tauri::Result<Menu<Wry>> {
     // Persona list arrives with spec 05.
     let personas = Submenu::with_items(app, "Persona", false, &[])?;
-    Menu::with_items(
-        app,
-        &[
-            &MenuItem::with_id(app, "settings", "Open Settings", true, None::<&str>)?,
-            &personas,
-            &CheckMenuItem::with_id(app, "personality", "Personality", true, s.personality_on, None::<&str>)?,
-            &CheckMenuItem::with_id(app, "local_only", "Local-only", true, s.local_only, None::<&str>)?,
-            &CheckMenuItem::with_id(app, "pause", "Pause Cursora", true, s.paused, None::<&str>)?,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
-        ],
-    )
+    let open = MenuItem::with_id(app, "settings", "Open Settings", true, None::<&str>)?;
+    let personality = CheckMenuItem::with_id(app, "personality", "Personality", true, s.personality_on, None::<&str>)?;
+    let local_only = CheckMenuItem::with_id(app, "local_only", "Local-only", true, s.local_only, None::<&str>)?;
+    let pause = CheckMenuItem::with_id(app, "pause", "Pause Cursora", true, s.paused, None::<&str>)?;
+    let stop = MenuItem::with_id(app, "stop_model", "Stop the model", true, None::<&str>)?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let mut items: Vec<&dyn IsMenuItem<Wry>> = vec![&open, &personas, &personality, &local_only, &pause];
+    // Only with a built-in model set up (LLM-3.5).
+    if s.models.providers.iter().any(|p| p.engine.is_some()) {
+        items.push(&stop);
+    }
+    items.extend([&separator as &dyn IsMenuItem<Wry>, &quit]);
+    Menu::with_items(app, &items)
 }
 
 fn on_menu(app: &AppHandle, event: MenuEvent) {
@@ -49,6 +51,7 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
     match event.id.as_ref() {
         "settings" => return crate::open_window(app, "settings"),
         "quit" => return app.exit(0),
+        "stop_model" => return crate::llm::engine::stop_by_hand(app),
         "personality" => s.personality_on = !s.personality_on,
         "local_only" => s.local_only = !s.local_only,
         "pause" => s.paused = !s.paused,

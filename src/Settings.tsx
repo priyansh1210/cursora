@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import History from "./History";
 import { HotkeyFields } from "./HotkeyInput";
+import ModelsTab from "./Models";
 import { useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
 
 const TABS = ["General", "Models", "Personality", "Skills", "Voice", "Privacy", "History", "About"] as const;
@@ -35,6 +36,8 @@ export default function Settings() {
         {error && <p role="alert" className="error">{error}</p>}
         {tab === "General" ? (
           <General settings={settings} save={save} />
+        ) : tab === "Models" ? (
+          <ModelsTab settings={settings} save={save} />
         ) : tab === "History" ? (
           <History settings={settings} save={save} />
         ) : tab === "About" ? (

@@ -51,6 +51,8 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - run: npm ci
+      # The built-in engine (LLM-3.1): pinned llama.cpp build, checked against its SHA-256.
+      - run: npm run fetch-llama
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -58,3 +60,4 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: Cursora ${{ github.ref_name }}
           releaseDraft: true
+          args: --config src-tauri/tauri.llama.conf.json

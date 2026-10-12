@@ -12,13 +12,13 @@ Status: **In progress**. Code complete; the manual checklist is open (most items
 
 ## Manual checklist
 Most of these need spec 03's bubble to *see* the captured text. Until then, the log shows method, length and app.
-- [ ] SEL-1.1 The ask hotkey works in any app. Windows ✓ (auto-verified: injected Ctrl+G fired in a test window and in Explorer) ☐ real apps · X11 ☐
-- [ ] SEL-1.3 A hotkey owned by another app is refused, and the old one is kept. Windows ☐
-- [ ] SEL-1.4 The hotkey closes an open bubble. Windows ✓ (auto-verified with spec 03's bubble)
-- [ ] SEL-1.5 The Ctrl+G note shows in Setup and in Settings. Windows ☐
-- [ ] SEL-2.5 The bubble is visible within 200 ms on the copy path. Windows ✓ (auto-verified: 108 ms, capture 83 ms)
+- [ ] SEL-1.1 The ask hotkey works in any app. Windows ✓ (auto-verified: injected Ctrl+G fired in a test window and in Explorer) ✓ real apps: Notepad, Chrome, Edge, Word, Excel, Windows Terminal, Explorer, Desktop (auto-verified 2026-10-13) · X11 ☐
+- [x] SEL-1.3 A hotkey owned by another app is refused, and the old one is kept. Windows ✓ (auto-verified 2026-10-13): Ctrl+Alt+K held by another program, message shown, Ctrl+G kept and still works
+- [x] SEL-1.4 The hotkey closes an open bubble. Windows ✓ (auto-verified with spec 03's bubble)
+- [x] SEL-1.5 The Ctrl+G note shows in Setup and in Settings. Windows ✓ (auto-verified 2026-10-13)
+- [x] SEL-2.5 The bubble is visible within 200 ms on the copy path. Windows ✓ (auto-verified: 108 ms, capture 83 ms)
 - [ ] SEL-3.5 Copy X, select Y, hotkey, paste → X. Windows ✓ (auto-verified: clipboard "ORIGINAL" survived two copy-path captures) · X11 ☐
-- [ ] SEL-4.5 Windows Terminal with a running process: not interrupted, text captured. Windows ☐
-- [ ] SEL-5.1 Files and folders from Explorer and the Desktop. Windows: Explorer ✓ (auto-verified: 3 files) ☐ Desktop ☐ folders
+- [x] SEL-4.5 Windows Terminal with a running process: not interrupted, text captured. Windows ✓ (auto-verified 2026-10-13): read through UI Automation, no keys sent, the process kept writing
+- [x] SEL-5.1 Files and folders from Explorer and the Desktop. Windows: Explorer ✓ (auto-verified: 3 files) ✓ Desktop ✓ folders (auto-verified 2026-10-13)
 - [ ] SEL-6.1 Admin app → clear message, no keys sent. Windows ☐
-- [ ] SEL-8.1 The app compatibility matrix. Windows ☐
+- [ ] SEL-8.1 The app compatibility matrix. Windows ✓ Notepad, Chrome, Edge, Edge PDF, Word, Excel, Windows Terminal, Explorer, Desktop (auto-verified 2026-10-13) ☐ Firefox, VS Code, an Electron app, IntelliJ (not installed on the test PC)
