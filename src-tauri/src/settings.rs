@@ -19,6 +19,7 @@ pub struct Settings {
     pub local_only: bool,
     pub capture: CaptureSettings,
     pub history: HistorySettings,
+    pub models: crate::llm::ModelSettings,
 }
 
 impl Default for Settings {
@@ -34,6 +35,7 @@ impl Default for Settings {
             local_only: false,
             capture: CaptureSettings::default(),
             history: HistorySettings::default(),
+            models: crate::llm::ModelSettings::default(),
         }
     }
 }
@@ -114,7 +116,8 @@ pub fn load(path: &Path) -> (Settings, Option<String>) {
     let err = match fs::read_to_string(path) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => return (Settings::default(), None),
         Err(e) => e.to_string(),
-        Ok(text) => match serde_json::from_str(&text) {
+        // Notepad and PowerShell 5 may start the file with a UTF-8 byte order mark, which JSON doesn't allow.
+        Ok(text) => match serde_json::from_str(text.trim_start_matches('\u{feff}')) {
             Ok(s) => return (s, None),
             Err(e) => e.to_string(),
         },
@@ -186,6 +189,15 @@ mod tests {
     }
 
     #[test]
+    fn app_4_2_a_file_saved_with_a_byte_order_mark_still_loads() {
+        let path = temp_file("bom");
+        fs::write(&path, "\u{feff}{\"paused\":true}").unwrap();
+        let (s, warning) = load(&path);
+        assert_eq!(warning, None);
+        assert!(s.paused);
+    }
+
+    #[test]
     fn app_4_3_older_file_keeps_user_values_and_fills_defaults() {
         let path = temp_file("older");
         fs::write(&path, r#"{"schemaVersion":1,"paused":true,"hotkeys":{"ask":"Alt+Q"}}"#).unwrap();
@@ -207,8 +219,13 @@ mod tests {
                 }
             }
         }
+        // One provider of every kind, so the provider fields are walked too (the defaults have none).
+        use crate::llm::{tests::provider, Kind, ModelRef};
+        let mut s = Settings::default();
+        s.models.providers = [Kind::OpenAiCompatible, Kind::Anthropic, Kind::Gemini, Kind::Builtin].map(|k| provider("p", k, "http://localhost")).to_vec();
+        s.models.default = Some(ModelRef { provider: "p".into(), model: "m".into() });
         let mut all = Vec::new();
-        names(&serde_json::to_value(Settings::default()).unwrap(), &mut all);
+        names(&serde_json::to_value(s).unwrap(), &mut all);
         for n in all {
             let lower = n.to_lowercase();
             let secret = lower == "key" || n.ends_with("Key") || ["token", "secret", "password"].iter().any(|w| lower.contains(w));

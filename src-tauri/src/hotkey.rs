@@ -1,10 +1,10 @@
-use crate::capture::{self, Content};
+use crate::capture::{self, Content, Platform};
 use crate::settings::{Hotkeys, Settings};
-use crate::{bubble, chat, AppState};
+use crate::{bubble, chat, llm, AppState};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Modifiers, Shortcut};
 
 const RESERVED: [&str; 8] = ["Ctrl+Alt+Delete", "Ctrl+Shift+Escape", "Ctrl+Escape", "Alt+Tab", "Alt+F4", "Super+L", "Super+D", "Super+Tab"];
@@ -47,7 +47,8 @@ pub fn apply(app: &AppHandle, old: Option<&Settings>, new: &Settings) -> Result<
         if let Some(old) = old.filter(|o| !o.paused) {
             let _ = shortcuts.register(old.hotkeys.ask.as_str());
         }
-        return Err(format!("Couldn't use {} as the Ask hotkey. Another app may already use it. ({e})", new.hotkeys.ask));
+        log::warn!("hotkey: {e}");
+        return Err(format!("Couldn't use {} as the Ask hotkey. Another app may already use it.", new.hotkeys.ask));
     }
     Ok(())
 }
@@ -64,10 +65,21 @@ pub fn on_ask(app: &AppHandle) {
     // Read at the keypress, before the capture can take any time (BUB-1.1).
     let cursor = app.cursor_position().ok().map(|p| (p.x.round() as i32, p.y.round() as i32));
     let app = app.clone();
-    let cfg = app.state::<AppState>().settings.lock().unwrap().capture.clone();
+    let s = app.state::<AppState>().settings.lock().unwrap().clone();
     std::thread::spawn(move || {
         let started = Instant::now();
-        let result = capture::capture(&capture::OsPlatform::new(), &cfg, false); // vision arrives with spec 04
+        // With no model set up, nothing is captured: the bubble only says so (LLM-9.1).
+        let model = llm::availability(&s.models, s.local_only).ok();
+        let vision = model.is_some_and(|(p, m)| llm::vision(p, m));
+        let health = (model.is_some() || llm::echo()).then(|| {
+            let app = app.clone();
+            std::thread::spawn(move || llm::health(&app)) // alongside the capture
+        });
+        let platform = capture::OsPlatform::new();
+        let result = match health {
+            Some(_) => capture::capture(&platform, &s.capture, vision),
+            None => capture::Capture { app: platform.foreground(), method: capture::Method::None, content: Content::None, notice: None },
+        };
         CAPTURING.store(false, Ordering::SeqCst);
         // Metadata only, never the text (APP-7.2).
         let size = match &result.content {
@@ -77,8 +89,24 @@ pub fn on_ask(app: &AppHandle) {
         };
         log::info!("capture from {}: {:?}, {size}, {:?}, {} ms", result.app.exe, result.method, result.notice, started.elapsed().as_millis());
         let previous = result.app.window;
-        let conv = chat::start(&app, result);
+        let mut conv = chat::start(&app, result);
+        // A check that finished during the capture decides before the bubble shows; a slower one swaps the input afterwards.
+        let late = match health {
+            Some(h) if h.is_finished() => {
+                if let Err(reason) = h.join().unwrap_or(Ok(())) {
+                    conv = chat::set_unavailable(&app, conv.id, reason).unwrap_or(conv);
+                }
+                None
+            }
+            h => h,
+        };
+        let id = conv.id;
         bubble::open(&app, cursor, previous, conv);
+        if let Some(Err(reason)) = late.map(|h| h.join().unwrap_or(Ok(()))) {
+            if chat::set_unavailable(&app, id, reason).is_some() {
+                let _ = app.emit_to(bubble::LABEL, "chat-load", ());
+            }
+        }
     });
 }
 

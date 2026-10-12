@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# The built-in engine, downloaded by scripts/fetch-llama.mjs
+src-tauri/llama/

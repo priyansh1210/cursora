@@ -172,6 +172,7 @@ mod tests {
             persona: Some("Cursora".into()),
             turns: vec![Turn { question: question.into(), answer: answer.into(), status, error: None, asked: id, answered: Some(id + 5) }],
             dropped: 0,
+            unavailable: None,
         }
     }
 

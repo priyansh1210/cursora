@@ -12,7 +12,8 @@ edition = "2024"
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "cursora_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# Desktop only: the staticlib and cdylib outputs are for iOS and Android, and cost about 1 GB and a slow link per build.
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -29,14 +30,25 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-global-shortcut = "2"
 rusqlite = { version = "0.40", features = ["bundled"] }
+reqwest = { version = "0.13", default-features = false, features = ["native-tls", "system-proxy", "json"] }
+tokio = { version = "1", features = ["macros", "sync", "time"] }
+keyring-core = "1"
+url = "2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus-secret-service-keyring-store = { version = "1", features = ["crypto-openssl"] }
+libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 clipboard-win = { version = "5", features = ["std"] }
+windows-native-keyring-store = "1"
 # Same version Tauri already compiles, so this only adds features.
 windows = { version = "0.62", features = [
   "Win32_Foundation",
   "Win32_Security",
   "Win32_System_Com",
+  "Win32_System_JobObjects",
+  "Win32_System_SystemInformation",
   "Win32_System_Threading",
   "Win32_UI_Accessibility",
   "Win32_UI_Input_KeyboardAndMouse",
@@ -51,3 +63,7 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
+
+# This PC has 8 GB of RAM: with full debug info for every dependency, linking stalled for 15 minutes at a time.
+[profile.dev]
+debug = "line-tables-only"

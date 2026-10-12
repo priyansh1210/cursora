@@ -10,7 +10,7 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 01 | [App shell](01-app-shell/requirements.md) | APP | Approved | [Approved](01-app-shell/design.md) | [In progress](01-app-shell/tasks.md) | In progress |
 | 02 | [Trigger & selection capture](02-trigger-and-selection/requirements.md) | SEL | Approved | [Approved](02-trigger-and-selection/design.md) | [In progress](02-trigger-and-selection/tasks.md) | In progress |
 | 03 | [Bubble UI](03-bubble-ui/requirements.md) | BUB | Approved | [Approved](03-bubble-ui/design.md) | [In progress](03-bubble-ui/tasks.md) | In progress |
-| 04 | [AI providers](04-providers/requirements.md) | LLM | Approved | — | — | Approved (reqs) |
+| 04 | [AI providers](04-providers/requirements.md) | LLM | Approved | [Approved](04-providers/design.md) | [In progress](04-providers/tasks.md) | In progress |
 | 05 | [Personality](05-personality/requirements.md) | PER | Approved | — | — | Approved (reqs) |
 | 06 | [Skills](06-skills/requirements.md) | SKL | Approved | — | — | Approved (reqs) |
 | 07 | [Privacy guard](07-privacy-guard/requirements.md) | PRI | Approved | — | — | Approved (reqs) |
@@ -18,7 +18,7 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 09 | [Voice in/out](09-voice/requirements.md) | VOC | Approved | — | — | Approved (reqs) |
 | 10 | [Vision snip](10-vision-snip/requirements.md) | VIS | Approved | — | — | Approved (reqs) |
 
-Post-v1 ideas: [backlog.md](backlog.md).
+Post-v1 ideas: [backlog.md](backlog.md). Known problems, gaps and untested items: [issues.md](issues.md).
 
 ## Workflow per spec
 1. **Requirements:** write `requirements.md` and get it reviewed. When approved, set its status to Approved.

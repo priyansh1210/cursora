@@ -344,3 +344,30 @@ button.link {
 .history .muted {
   font-size: 12px;
 }
+.card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0;
+}
+.card .row > span:first-child {
+  min-width: 100px;
+}
+ul.models {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.chat > header select {
+  font-size: 12px;
+  max-width: 180px;
+}
+.error pre.detail {
+  margin: 4px 0;
+  max-height: 6em;
+  overflow: auto;
+  white-space: pre-wrap;
+  font: 11px/1.4 ui-monospace, monospace;
+}
