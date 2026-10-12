@@ -1,0 +1,103 @@
+use crate::capture::{self, Content};
+use crate::settings::{Hotkeys, Settings};
+use crate::AppState;
+use std::str::FromStr;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
+use tauri::{AppHandle, Manager};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Modifiers, Shortcut};
+
+const RESERVED: [&str; 8] = ["Ctrl+Alt+Delete", "Ctrl+Shift+Escape", "Ctrl+Escape", "Alt+Tab", "Alt+F4", "Super+L", "Super+D", "Super+Tab"];
+
+static CAPTURING: AtomicBool = AtomicBool::new(false);
+
+/// SEL-1.2. Only hotkeys that changed are checked, so an old invalid value never blocks other edits.
+pub fn validate(new: &Hotkeys, old: &Hotkeys) -> Result<(), String> {
+    let fields = [
+        ("Ask", Some(&new.ask), Some(&old.ask)),
+        ("Snip", Some(&new.snip), Some(&old.snip)),
+        ("Push-to-talk", new.push_to_talk.as_ref(), old.push_to_talk.as_ref()),
+    ];
+    let parsed: Vec<(&str, Shortcut)> = fields.iter().filter_map(|(label, v, _)| Some((*label, Shortcut::from_str(v.as_ref()?).ok()?))).collect();
+    for (label, value, before) in fields {
+        let Some(value) = value.filter(|v| Some(*v) != before) else { continue };
+        let shortcut = Shortcut::from_str(value).map_err(|_| format!("{label}: \"{value}\" isn't a valid hotkey."))?;
+        if !shortcut.mods.intersects(Modifiers::CONTROL | Modifiers::ALT | Modifiers::SUPER) {
+            return Err(format!("{label}: include Ctrl, Alt or Win. Shift alone would fire while you type capitals."));
+        }
+        if RESERVED.iter().any(|r| Shortcut::from_str(r).is_ok_and(|r| r == shortcut)) {
+            return Err(format!("{label}: {value} is reserved by the system."));
+        }
+        if let Some((other, _)) = parsed.iter().find(|(l, s)| *l != label && *s == shortcut) {
+            return Err(format!("{label}: {value} is already used for {other}."));
+        }
+    }
+    Ok(())
+}
+
+/// Registers the ask hotkey unless paused (APP-1.3). If the new one can't be registered, the old one is put back (SEL-1.3).
+/// Snip (spec 10) and push-to-talk (spec 09) are registered by their own specs, so we don't hold keys we don't use.
+pub fn apply(app: &AppHandle, old: Option<&Settings>, new: &Settings) -> Result<(), String> {
+    let shortcuts = app.global_shortcut();
+    let _ = shortcuts.unregister_all();
+    if new.paused {
+        return Ok(());
+    }
+    if let Err(e) = shortcuts.register(new.hotkeys.ask.as_str()) {
+        if let Some(old) = old.filter(|o| !o.paused) {
+            let _ = shortcuts.register(old.hotkeys.ask.as_str());
+        }
+        return Err(format!("Couldn't use {} as the Ask hotkey. Another app may already use it. ({e})", new.hotkeys.ask));
+    }
+    Ok(())
+}
+
+/// Runs the capture off the main thread. A second press while one is running is ignored,
+/// since two captures would fight over the clipboard.
+pub fn on_ask(app: &AppHandle) {
+    // SEL-1.4 (closing an open bubble) comes with spec 03.
+    if CAPTURING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    let cfg = app.state::<AppState>().settings.lock().unwrap().capture.clone();
+    std::thread::spawn(move || {
+        let started = Instant::now();
+        let result = capture::capture(&capture::OsPlatform::new(), &cfg, false); // vision arrives with spec 04
+        CAPTURING.store(false, Ordering::SeqCst);
+        // Spec 03 shows the capture in the bubble. Until then only metadata is logged, never the text (APP-7.2).
+        let size = match &result.content {
+            Content::Text { text: t, truncated } => format!("{} chars{}", t.chars().count(), if *truncated { ", truncated" } else { "" }),
+            Content::Files(f) => format!("{} items", f.items.len() + f.omitted),
+            Content::None => "nothing".into(),
+        };
+        log::info!("capture from {}: {:?}, {size}, {:?}, {} ms", result.app.exe, result.method, result.notice, started.elapsed().as_millis());
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn keys(ask: &str, snip: &str, ptt: Option<&str>) -> Hotkeys {
+        Hotkeys { ask: ask.into(), snip: snip.into(), push_to_talk: ptt.map(Into::into) }
+    }
+
+    #[test]
+    fn sel_1_2_hotkeys_are_validated() {
+        let old = Hotkeys::default();
+        assert_eq!(validate(&keys("Alt+Q", "Ctrl+Shift+G", None), &old), Ok(()));
+        assert!(validate(&keys("Shift+G", "Ctrl+Shift+G", None), &old).unwrap_err().contains("Ctrl, Alt or Win"));
+        assert!(validate(&keys("G", "Ctrl+Shift+G", None), &old).is_err());
+        assert!(validate(&keys("Alt+F4", "Ctrl+Shift+G", None), &old).unwrap_err().contains("reserved"));
+        assert!(validate(&keys("Ctrl+Shift+G", "Ctrl+Shift+G", None), &old).unwrap_err().contains("already used for Snip"));
+        assert!(validate(&keys("Ctrl+G+H", "Ctrl+Shift+G", None), &old).unwrap_err().contains("isn't a valid hotkey"));
+    }
+
+    #[test]
+    fn sel_1_2_only_changed_hotkeys_are_checked() {
+        let old = keys("Ctrl+G", "Ctrl+Shift+G", Some("U")); // an invalid value saved earlier
+        assert_eq!(validate(&keys("Alt+Q", "Ctrl+Shift+G", Some("U")), &old), Ok(()));
+        assert!(validate(&keys("Ctrl+G", "Ctrl+Shift+G", Some("V")), &old).is_err());
+    }
+}

@@ -1,4 +1,6 @@
+use crate::capture::CopyKey;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, io, path::Path};
 
@@ -15,6 +17,7 @@ pub struct Settings {
     pub hotkeys: Hotkeys,
     pub personality_on: bool,
     pub local_only: bool,
+    pub capture: CaptureSettings,
 }
 
 impl Default for Settings {
@@ -28,6 +31,40 @@ impl Default for Settings {
             hotkeys: Hotkeys::default(),
             personality_on: true,
             local_only: false,
+            capture: CaptureSettings::default(),
+        }
+    }
+}
+
+/// Spec 02. The four limits have no UI; they are editable in settings.json.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CaptureSettings {
+    /// Apps where Ctrl+C may interrupt a process (SEL-4.3).
+    pub unsafe_apps: Vec<String>,
+    /// Per-app copy key, by exe name (SEL-4.4).
+    pub copy_shortcuts: BTreeMap<String, CopyKey>,
+    pub share_window_title: bool,
+    pub max_chars: usize,
+    pub copy_timeout_ms: u64,
+    pub file_max_bytes: u64,
+    pub files_total_bytes: u64,
+}
+
+impl Default for CaptureSettings {
+    fn default() -> Self {
+        let unsafe_apps = [
+            "WindowsTerminal.exe", "conhost.exe", "OpenConsole.exe", "cmd.exe", "powershell.exe", "pwsh.exe",
+            "mintty.exe", "alacritty.exe", "wezterm-gui.exe", "Code.exe", "Cursor.exe", "idea64.exe", "pycharm64.exe",
+        ];
+        Self {
+            unsafe_apps: unsafe_apps.map(String::from).to_vec(),
+            copy_shortcuts: BTreeMap::new(),
+            share_window_title: false,
+            max_chars: 50_000,
+            copy_timeout_ms: 150,
+            file_max_bytes: 100_000,
+            files_total_bytes: 300_000,
         }
     }
 }

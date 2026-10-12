@@ -39,6 +39,9 @@ export function HotkeyFields({ settings, save }: { settings: Settings; save: Sav
   return (
     <>
       <HotkeyInput label="Ask" value={settings.hotkeys.ask} onChange={(ask) => ask && set({ ask })} />
+      {settings.hotkeys.ask === "Ctrl+G" && (
+        <p className="muted">Ctrl+G replaces "Go to line" in VS Code and Notepad, and "Find next" in browsers.</p>
+      )}
       <HotkeyInput label="Snip" value={settings.hotkeys.snip} onChange={(snip) => snip && set({ snip })} />
       <HotkeyInput label="Push-to-talk" clearable value={settings.hotkeys.pushToTalk} onChange={(pushToTalk) => set({ pushToTalk })} />
     </>

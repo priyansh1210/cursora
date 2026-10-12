@@ -11,6 +11,7 @@ AI cursor companion: select text anywhere → hotkey → chat bubble at the curs
 - `npm run trace`: the spec ↔ test traceability check
 - `npm test`: JS tests
 - `npm run build`, then `cargo test --manifest-path src-tauri/Cargo.toml`
+- `npm run test:linux`: the same Rust tests, built for Linux in WSL (`Ubuntu-24.04`). Run it after `npm run build` and before every push.
 - `npm run tauri dev`: run the app
 
-Develop on Windows. Linux is built by CI (`.github/workflows/ci.yml`) and tested in a VM.
+Develop on Windows. Linux is built by CI (`.github/workflows/ci.yml`) and in WSL; it is tested by hand on a Live USB or VM.

@@ -97,3 +97,17 @@ h2 {
 dd {
   margin: 0 0 12px;
 }
+details {
+  margin-top: 24px;
+}
+summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+textarea {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin: 4px 0 12px;
+  font: 12px/1.4 ui-monospace, monospace;
+}

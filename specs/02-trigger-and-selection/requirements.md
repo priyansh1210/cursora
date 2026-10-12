@@ -20,7 +20,7 @@
 User story: As a user, I want one shortcut that works everywhere, so that I can ask about whatever I'm looking at.
 - SEL-1.1 (manual) WHEN the user presses the ask hotkey (default **Ctrl+G**) in any app THE SYSTEM SHALL start the capture flow.
 - SEL-1.2 (auto) WHEN the user sets a new hotkey THE SYSTEM SHALL validate it. The hotkey must:
-  - include at least one modifier,
+  - include at least one of Ctrl, Alt or Win (Shift alone would fire while typing capitals),
   - not be OS-reserved (e.g. Ctrl+Alt+Del, Win+L), and
   - not duplicate another Cursora hotkey.
 
@@ -31,12 +31,7 @@ User story: As a user, I want one shortcut that works everywhere, so that I can 
 
 ### SEL-2 Capture pipeline
 - SEL-2.1 (auto) WHEN the capture flow starts THE SYSTEM SHALL record the foreground window and app **before** showing any Cursora window.
-- SEL-2.2 (auto) THE SYSTEM SHALL try the capture strategies in their configured order, by default:
-  1. files (when the app is a file manager)
-  2. accessibility API
-  3. simulated copy
-
-  It SHALL stop at the first strategy that returns non-empty content.
+- SEL-2.2 (auto) THE SYSTEM SHALL try the capture strategies in this order: (1) accessibility API, then (2) simulated copy, which also yields file lists. It SHALL stop at the first strategy that returns non-empty content. (Linux file managers: LNX-3.2.)
 - SEL-2.3 (auto) WHEN every strategy returns nothing THE SYSTEM SHALL open the bubble in general-chat mode with no attached context.
 - SEL-2.4 (auto) WHEN captured text exceeds the context limit (default 50,000 characters, configurable) THE SYSTEM SHALL truncate it and mark the capture as truncated. The bubble shows a notice (BUB-3.3).
 - SEL-2.5 (manual) WHEN the hotkey is pressed THE bubble SHALL become visible within 200 ms, including on the simulated-copy path (constitution §8).
@@ -44,7 +39,7 @@ User story: As a user, I want one shortcut that works everywhere, so that I can 
 ### SEL-3 Clipboard safety for simulated copy
 User story: As a user, I don't want Cursora to mess up what I copied earlier.
 - SEL-3.1 (auto) WHEN the simulated-copy strategy runs THE SYSTEM SHALL snapshot the clipboard first and restore it afterwards. This applies on success, failure and timeout alike, and covers at least the text, image and file-list formats.
-- SEL-3.2 (auto) BEFORE sending simulated keys THE SYSTEM SHALL wait until the user has physically released the hotkey's keys (up to 300 ms). IF any key is still held after that THE SYSTEM SHALL skip the simulated copy rather than send a combined shortcut.
+- SEL-3.2 (auto) BEFORE sending simulated keys THE SYSTEM SHALL wait until Shift, Alt and Win are physically released (up to 300 ms). IF any of them is still held after that THE SYSTEM SHALL skip the simulated copy rather than send a combined shortcut. (Ctrl may stay held, because every copy key uses Ctrl.)
 - SEL-3.3 (auto) THE SYSTEM SHALL detect a successful copy only by a clipboard change (Windows: `GetClipboardSequenceNumber`). It SHALL give up after 150 ms (configurable).
 - SEL-3.4 (auto) WHEN the clipboard did not change after a simulated copy THE SYSTEM SHALL treat the result as "nothing selected" and SHALL NOT use the old clipboard content.
 - SEL-3.5 (manual) WHEN the user copies X, then selects other text Y in another app, presses the hotkey, closes the bubble and pastes THE pasted content SHALL be X, AND the bubble SHALL have shown Y.
@@ -63,12 +58,12 @@ User story: As a developer, I want to ask about terminal output without killing 
 
 ### SEL-5 Files and folders
 User story: As a user, I want to select files in File Explorer and ask about them.
-- SEL-5.1 (manual) WHEN files or folders are selected in File Explorer or on the Desktop and the hotkey is pressed THE SYSTEM SHALL capture their full paths. It SHALL use the shell selection API first and fall back to the clipboard file list.
+- SEL-5.1 (manual) WHEN files or folders are selected in File Explorer or on the Desktop and the hotkey is pressed THE SYSTEM SHALL capture their full paths from the clipboard file list of the simulated copy (restored afterwards, SEL-3.1).
 - SEL-5.2 (auto) WHEN a capture contains paths THE SYSTEM SHALL build a file context:
   - For each item: name, kind (file/folder), extension, size and modified date.
   - For each folder: a listing of up to 50 direct children.
-- SEL-5.3 (auto) WHERE a file is text-like (by extension, plus a UTF-8/UTF-16 check of its first 8 KB) AND it is ≤ 100 KB AND the running total is ≤ 300 KB (both limits configurable) THE SYSTEM SHALL include its content. Otherwise THE SYSTEM SHALL include metadata only, with the reason the content was left out.
-- SEL-5.4 (auto) WHERE a file is an image (png, jpg, jpeg, webp, gif) AND the active model supports vision THE SYSTEM SHALL attach it, downscaled so the longest side is ≤ 2048 px. At most 4 images are attached. Otherwise THE SYSTEM SHALL include metadata only.
+- SEL-5.3 (auto) WHERE a file is text (valid UTF-8 without NUL bytes, or UTF-16 with a byte-order mark) AND it is ≤ 100 KB AND the running total is ≤ 300 KB (both limits configurable) THE SYSTEM SHALL include its content. Otherwise THE SYSTEM SHALL include metadata only, with the reason the content was left out.
+- SEL-5.4 (retired) Attaching selected image files. Moved to VIS-2.7, where image decoding is built. Until then, image files are sent as metadata only.
 - SEL-5.5 (auto) WHEN more than 20 items are selected THE SYSTEM SHALL include the first 20 and state how many were left out.
 - SEL-5.6 (auto) THE SYSTEM SHALL NOT recurse into subfolders and SHALL NOT follow symlinks or junctions.
 

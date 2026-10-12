@@ -24,6 +24,7 @@ User story: As a user, I want to draw a box around anything on screen and ask ab
 - VIS-2.4 (manual) Region coordinates SHALL map correctly to screen pixels on multi-monitor and mixed-DPI setups.
 - VIS-2.5 (manual) Cursora's own overlay and bubble SHALL NOT appear in the captured image.
 - VIS-2.6 (auto) Snip images SHALL be held only in memory. WHERE history is on, only a thumbnail (≤ 256 px) SHALL be stored with the conversation.
+- VIS-2.7 (auto) WHERE files selected in a file manager (SEL-5) include images (png, jpg, jpeg, webp, gif) AND the active model supports vision THE SYSTEM SHALL attach them, downscaled so the longest side is ≤ 2048 px. At most 4 images are attached. Otherwise they are sent as metadata only. (Moved from SEL-5.4.)
 
 ### VIS-3 Privacy
 - VIS-3.1 (auto) WHEN a snip is requested while the foreground app is blocklisted (PRI-2) THE SYSTEM SHALL refuse and show the blocked notice.
