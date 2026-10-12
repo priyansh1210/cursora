@@ -1,13 +1,25 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
+import History from "./History";
 import { HotkeyFields } from "./HotkeyInput";
 import { useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
 
 const TABS = ["General", "Models", "Personality", "Skills", "Voice", "Privacy", "History", "About"] as const;
+type Tab = (typeof TABS)[number];
+const isTab = (t: string): t is Tab => (TABS as readonly string[]).includes(t);
 
 export default function Settings() {
   const { settings, save, error } = useSettings();
-  const [tab, setTab] = useState<(typeof TABS)[number]>("General");
+  // A bubble error can open a given tab (BUB-4.4): by URL fragment, or by event when Settings is already open.
+  const [tab, setTab] = useState<Tab>(() => {
+    const hash = decodeURIComponent(location.hash.slice(1));
+    return isTab(hash) ? hash : "General";
+  });
+  useEffect(() => {
+    const off = listen<string>("settings-tab", (e) => isTab(e.payload) && setTab(e.payload));
+    return () => void off.then((f) => f());
+  }, []);
   if (!settings) return null;
 
   return (
@@ -21,7 +33,15 @@ export default function Settings() {
       </nav>
       <section role="tabpanel" aria-label={tab}>
         {error && <p role="alert" className="error">{error}</p>}
-        {tab === "General" ? <General settings={settings} save={save} /> : tab === "About" ? <About /> : <p className="muted">Coming soon.</p>}
+        {tab === "General" ? (
+          <General settings={settings} save={save} />
+        ) : tab === "History" ? (
+          <History settings={settings} save={save} />
+        ) : tab === "About" ? (
+          <About />
+        ) : (
+          <p className="muted">Coming soon.</p>
+        )}
       </section>
     </div>
   );
