@@ -57,3 +57,4 @@ These rules are non-negotiable. Specs, designs, tasks and code must all follow t
 ---
 ### Amendments
 - **2026-10-11, §3:** "Leaves the machine" means leaves this computer *or a LAN host the user explicitly marked as trusted* (LLM-8.2). Public hosts can never be trusted.
+- **2026-10-12, §8:** Idle RAM is ≤ 60 MB for Cursora's own process, and ≤ 200 MB in total including the WebView2 processes of the pre-created, hidden bubble. One webview measured 154 MB, so the ≤ 200 ms open budget (BUB-2.1) can't be met within 60 MB in total. Chosen by the user over loading the bubble on demand ([03 design](03-bubble-ui/design.md), decision 1).

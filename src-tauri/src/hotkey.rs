@@ -1,6 +1,6 @@
 use crate::capture::{self, Content};
 use crate::settings::{Hotkeys, Settings};
-use crate::AppState;
+use crate::{bubble, chat, AppState};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
@@ -52,26 +52,33 @@ pub fn apply(app: &AppHandle, old: Option<&Settings>, new: &Settings) -> Result<
     Ok(())
 }
 
-/// Runs the capture off the main thread. A second press while one is running is ignored,
-/// since two captures would fight over the clipboard.
+/// Closes an open bubble (SEL-1.4). Otherwise captures off the main thread and opens the bubble.
+/// A second press while a capture runs is ignored, since two captures would fight over the clipboard.
 pub fn on_ask(app: &AppHandle) {
-    // SEL-1.4 (closing an open bubble) comes with spec 03.
+    if bubble::is_open(app) {
+        return bubble::close(app);
+    }
     if CAPTURING.swap(true, Ordering::SeqCst) {
         return;
     }
+    // Read at the keypress, before the capture can take any time (BUB-1.1).
+    let cursor = app.cursor_position().ok().map(|p| (p.x.round() as i32, p.y.round() as i32));
     let app = app.clone();
     let cfg = app.state::<AppState>().settings.lock().unwrap().capture.clone();
     std::thread::spawn(move || {
         let started = Instant::now();
         let result = capture::capture(&capture::OsPlatform::new(), &cfg, false); // vision arrives with spec 04
         CAPTURING.store(false, Ordering::SeqCst);
-        // Spec 03 shows the capture in the bubble. Until then only metadata is logged, never the text (APP-7.2).
+        // Metadata only, never the text (APP-7.2).
         let size = match &result.content {
             Content::Text { text: t, truncated } => format!("{} chars{}", t.chars().count(), if *truncated { ", truncated" } else { "" }),
             Content::Files(f) => format!("{} items", f.items.len() + f.omitted),
             Content::None => "nothing".into(),
         };
         log::info!("capture from {}: {:?}, {size}, {:?}, {} ms", result.app.exe, result.method, result.notice, started.elapsed().as_millis());
+        let previous = result.app.window;
+        let conv = chat::start(&app, result);
+        bubble::open(&app, cursor, previous, conv);
     });
 }
 

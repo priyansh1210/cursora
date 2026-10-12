@@ -40,7 +40,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
   - **Files:** chips showing an icon, name and size.
   - **Images:** thumbnails.
   - **Source:** the source app's name.
-- BUB-3.2 (manual) THE user SHALL be able to remove the attached context (×) and ask a general question instead.
+- BUB-3.2 (manual) Until the first question is sent, THE user SHALL be able to remove the attached context (×) and ask a general question instead.
 - BUB-3.3 (manual) WHEN the capture was truncated or files were left out THE bubble SHALL say so (SEL-2.4, SEL-5.3, SEL-5.5).
 - BUB-3.4 (retired) Pasting context into the bubble. Removed: Cursora works on the selection, so text is never copied into the chat by hand.
 
@@ -49,6 +49,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
 - BUB-4.2 (auto) THE answer SHALL be rendered as Markdown, with syntax-highlighted code blocks.
   - Raw HTML in model output SHALL NOT be executed or rendered.
   - Links SHALL open in the default browser only when clicked.
+  - Images in model output SHALL NOT be loaded; they show as text (PRI-4.1).
 - BUB-4.3 (manual) A Stop button SHALL cancel streaming and keep the partial answer.
 - BUB-4.4 (auto) IF the request fails THE bubble SHALL show a plain-language message for the error kind (auth, rate limit, model not found, context too long, network, server, blocked by local-only), with Retry. For auth and configuration errors it SHALL also offer "Open Models settings".
 - BUB-4.5 (manual) A "thinking" indicator SHALL show until the first token arrives.
@@ -61,7 +62,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
 ### BUB-6 Answer actions
 - BUB-6.1 (manual) Each answer SHALL offer:
   - **Copy:** Markdown, or plain text when Shift is held
-  - **Regenerate**
+  - **Regenerate**, on the latest answer only
   - **Speak:** when speech is available (VOC)
 
   Each question SHALL offer **Save as skill** (SKL-4.3).
@@ -71,7 +72,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
   - the active persona's name, or "Personality off"
   - the model name
   - a badge: "🔒 Local" for a provider on this machine (LLM-8.1), "🏠 LAN" for a trusted LAN host (LLM-8.2), otherwise "☁ <provider name>"
-- BUB-7.2 (manual) Clicking the model name SHALL open a quick switcher of configured models. In local-only mode, cloud models are disabled.
+- BUB-7.2 (retired) The quick model switcher. Moved to spec 04 as LLM-5.5, since it needs configured models.
 
 ### BUB-8 Keyboard and accessibility
 - BUB-8.1 (manual) Every bubble control SHALL be reachable with the keyboard, and all buttons SHALL have accessible labels for screen readers.

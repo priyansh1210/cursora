@@ -21,6 +21,7 @@ export type Settings = {
     fileMaxBytes: number;
     filesTotalBytes: number;
   };
+  history: { save: boolean; retentionDays: number | null };
 };
 
 export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";
