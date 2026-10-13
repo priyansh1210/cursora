@@ -17,6 +17,9 @@
   },
   "bundle": {
     "active": true,
+    "linux": {
+      "deb": { "recommends": ["wl-clipboard"] }
+    },
     "targets": "all",
     "icon": [
       "icons/32x32.png",

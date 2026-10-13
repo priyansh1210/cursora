@@ -15,10 +15,10 @@ Status: **In progress**. Code complete; the manual checklist is open.
 ## Manual checklist
 "✓ (auto-verified)" marks a check run automatically with process and window inspection on Windows. The rest needs a human: clicking the tray, logging in again, Linux.
 - [ ] APP-1.1 Starts with only a tray icon. Windows ✓ (auto-verified: no main window, about 35 MB) ✓ tray icon (auto-verified 2026-10-13) · X11 ☐ · Wayland ☐
-- [ ] APP-1.2 The tray menu has every item. Windows ✓ (auto-verified 2026-10-13): every item; Personality and Local-only follow the setting; "Stop the model" unloads the built-in model X11 ☐ Wayland ☐
-- [ ] APP-1.3 Pause swaps the icon (hotkey part verified after spec 02). Windows ✓ (auto-verified 2026-10-13): gray icon, check mark, Ctrl+G ignored X11 ☐
-- [ ] APP-1.4 Quit exits cleanly with no process left. Windows ✓ (auto-verified 2026-10-13): from the tray with the engine running X11 ☐
-- [ ] APP-2.2 A second `cursora --settings` opens Settings in the first instance. Windows ✓ (auto-verified) · X11 ☐
+- [ ] APP-1.2 The tray menu has every item. Windows ✓ (auto-verified 2026-10-13): every item; Personality and Local-only follow the setting; "Stop the model" unloads the built-in model X11 ✓ every item; Open Settings, Pause and "Stop the model" work (auto-verified 2026-10-14 in WSL, stalonetray as the tray host; real Ubuntu: issue 2) Wayland ☐
+- [ ] APP-1.3 Pause swaps the icon (hotkey part verified after spec 02). Windows ✓ (auto-verified 2026-10-13): gray icon, check mark, Ctrl+G ignored X11 ✓ paused and resumed from the tray, Ctrl+G ignored while paused (auto-verified 2026-10-14 in WSL; the icon wasn't looked at) ☐ the icon
+- [x] APP-1.4 Quit exits cleanly with no process left. Windows ✓ (auto-verified 2026-10-13): from the tray with the engine running X11 ✓ from the tray and with `cursora --quit`, no process left (auto-verified 2026-10-14 in WSL)
+- [x] APP-2.2 A second `cursora --settings` opens Settings in the first instance. Windows ✓ (auto-verified) · X11 ✓ (auto-verified in WSL: every Linux Settings check from spec 04 on opens it this way)
 - [ ] APP-2.3 `cursora --settings` with no instance running starts the app and opens Settings. Windows ✓ `--settings` and `--ask` (auto-verified 2026-10-13) X11 ☐
 - [ ] APP-2.4 Relaunching with no arguments opens Settings. Windows ✓ (auto-verified) · X11 ☐
 - [ ] APP-3.1 "Start with system" survives a logout/login. Windows: per-user Run entry written ✓ (auto-verified) ☐ login · X11 ☐
