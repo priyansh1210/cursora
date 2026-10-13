@@ -16,6 +16,10 @@ pub struct Settings {
     pub theme: Theme,
     pub hotkeys: Hotkeys,
     pub personality_on: bool,
+    /// A preset id ("preset:cursora") or one of `personas` (spec 05).
+    pub active_persona: String,
+    /// Only the user's own; the presets live in code.
+    pub personas: Vec<crate::persona::Persona>,
     pub local_only: bool,
     pub capture: CaptureSettings,
     pub history: HistorySettings,
@@ -32,6 +36,8 @@ impl Default for Settings {
             theme: Theme::System,
             hotkeys: Hotkeys::default(),
             personality_on: true,
+            active_persona: crate::persona::DEFAULT.into(),
+            personas: vec![],
             local_only: false,
             capture: CaptureSettings::default(),
             history: HistorySettings::default(),

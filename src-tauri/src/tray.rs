@@ -28,8 +28,13 @@ pub fn refresh(app: &AppHandle, s: &Settings) {
 }
 
 fn menu(app: &AppHandle, s: &Settings) -> tauri::Result<Menu<Wry>> {
-    // Persona list arrives with spec 05.
-    let personas = Submenu::with_items(app, "Persona", false, &[])?;
+    // PER-3.2: every persona, the active one checked.
+    let active = crate::persona::active(s).id;
+    let choices = crate::persona::all(s)
+        .into_iter()
+        .map(|p| CheckMenuItem::with_id(app, format!("persona:{}", p.id), &p.name, true, p.id == active, None::<&str>))
+        .collect::<tauri::Result<Vec<_>>>()?;
+    let personas = Submenu::with_items(app, "Persona", true, &choices.iter().map(|c| c as &dyn IsMenuItem<Wry>).collect::<Vec<_>>())?;
     let open = MenuItem::with_id(app, "settings", "Open Settings", true, None::<&str>)?;
     let personality = CheckMenuItem::with_id(app, "personality", "Personality", true, s.personality_on, None::<&str>)?;
     let local_only = CheckMenuItem::with_id(app, "local_only", "Local-only", true, s.local_only, None::<&str>)?;
@@ -55,6 +60,8 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
         "personality" => s.personality_on = !s.personality_on,
         "local_only" => s.local_only = !s.local_only,
         "pause" => s.paused = !s.paused,
+        // Choosing a persona means wanting it, so personality comes on too (like `/persona`).
+        id if id.starts_with("persona:") => (s.active_persona, s.personality_on) = (id["persona:".len()..].into(), true),
         _ => return,
     }
     if let Err(e) = crate::update_settings(app, s) {

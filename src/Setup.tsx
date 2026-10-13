@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState, type ReactNode } from "react";
 import { HotkeyFields } from "./HotkeyInput";
 import { AddProvider, describe, editModels } from "./Models";
+import { describePersona, type Persona } from "./personas";
 import { LIFETIMES, type ModelView, type Provider } from "./providers";
 import { useSettings, type Save, type Settings } from "./useSettings";
 
@@ -141,6 +142,33 @@ function EngineLifetime({ p, save }: { p: Provider; save: Save }) {
   );
 }
 
+/** APP-6.1 step 2: a persona, Cursora preselected, or personality off. */
+function Personality({ settings, save }: StepProps) {
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  useEffect(() => void invoke<Persona[]>("personas").then(setPersonas), []);
+  const active = personas.find((p) => p.id === settings.activePersona)?.id ?? "preset:cursora";
+  const choose = (patch: Partial<Settings>) => save(patch).catch(() => {});
+  const option = (key: string, checked: boolean, onChange: () => void, name: string, hint: string) => (
+    <label key={key} className="row">
+      <input type="radio" name="persona" checked={checked} onChange={onChange} />
+      <span>
+        <strong>{name}</strong> <span className="muted">{hint}</span>
+      </span>
+    </label>
+  );
+  return (
+    <>
+      <h2>Choose a personality</h2>
+      <p className="muted">Your cursor's name and style. You can change it or make your own in Settings → Personality, or type /persona in the bubble.</p>
+      <fieldset>
+        <legend>Personality</legend>
+        {personas.map((p) => option(p.id, settings.personalityOn && p.id === active, () => void choose({ activePersona: p.id, personalityOn: true }), p.name, describePersona(p)))}
+        {option("off", !settings.personalityOn, () => void choose({ personalityOn: false }), "Personality off", "The plain model, with no name or character.")}
+      </fieldset>
+    </>
+  );
+}
+
 function Hotkeys({ settings, save }: StepProps) {
   return (
     <>
@@ -163,8 +191,8 @@ function Startup({ settings, save }: StepProps) {
   );
 }
 
-// Later specs add their steps here: Personality (05), Try it (03).
-const STEPS: Step[] = [AiSource, Hotkeys, Startup];
+// Later specs add their steps here: Try it (03).
+const STEPS: Step[] = [AiSource, Personality, Hotkeys, Startup];
 
 export default function Setup() {
   const { settings, save, error } = useSettings();

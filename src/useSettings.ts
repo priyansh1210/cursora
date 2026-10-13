@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
+import type { Persona } from "./personas";
 import type { Provider } from "./providers";
 
 // Mirrors src-tauri/src/settings.rs.
@@ -12,6 +13,8 @@ export type Settings = {
   theme: "system" | "light" | "dark";
   hotkeys: { ask: string; snip: string; pushToTalk: string | null };
   personalityOn: boolean;
+  activePersona: string;
+  personas: Persona[];
   localOnly: boolean;
   capture: {
     unsafeApps: string[];
@@ -34,6 +37,12 @@ export type Settings = {
 export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";
 
 export type Save = (patch: Partial<Settings>) => Promise<void>;
+
+/** Changes one section starting from the latest saved settings, so changes made one after another don't undo each other. */
+export async function editSettings<K extends keyof Settings>(save: Save, key: K, f: (v: Settings[K]) => Settings[K]) {
+  const s = await invoke<Settings>("get_settings");
+  await save({ [key]: f(s[key]) } as Partial<Settings>);
+}
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings>();
