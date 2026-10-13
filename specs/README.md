@@ -12,7 +12,7 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 03 | [Bubble UI](03-bubble-ui/requirements.md) | BUB | Approved | [Approved](03-bubble-ui/design.md) | [In progress](03-bubble-ui/tasks.md) | In progress |
 | 04 | [AI providers](04-providers/requirements.md) | LLM | Approved | [Approved](04-providers/design.md) | [In progress](04-providers/tasks.md) | In progress |
 | 05 | [Personality](05-personality/requirements.md) | PER | Approved | [Approved](05-personality/design.md) | [In progress](05-personality/tasks.md) | In progress |
-| 06 | [Skills](06-skills/requirements.md) | SKL | Approved | — | — | Approved (reqs) |
+| 06 | [Skills](06-skills/requirements.md) | SKL | Approved | [Approved](06-skills/design.md) | [In progress](06-skills/tasks.md) | In progress |
 | 07 | [Privacy guard](07-privacy-guard/requirements.md) | PRI | Approved | — | — | Approved (reqs) |
 | 08 | [Linux platform](08-linux-platform/requirements.md) | LNX | Approved | — | — | Approved (reqs) |
 | 09 | [Voice in/out](09-voice/requirements.md) | VOC | Approved | — | — | Approved (reqs) |

@@ -6,7 +6,7 @@ export type ErrorKind = (typeof ERROR_KINDS)[number];
 export type ChatError = { kind: ErrorKind; message: string };
 export type TurnStatus = "streaming" | "done" | "cancelled" | "error";
 /** `local`: Cursora's own reply to a command such as /persona, never sent to the model (PER-3.1). */
-export type Turn = { question: string; answer: string; status: TurnStatus; error: ChatError | null; asked: number; answered: number | null; local: boolean };
+export type Turn = { question: string; answer: string; status: TurnStatus; error: ChatError | null; asked: number; answered: number | null; local: boolean; note?: string | null };
 export type FileItem = { path: string; name: string; kind: "file" | "folder" | "link"; size: number; modified: number; children: string[]; content: string | null; skipped: string | null };
 export type Content = { kind: "text"; text: string; truncated: boolean } | { kind: "files"; items: FileItem[]; omitted: number } | { kind: "none" };
 export type Notice = { kind: "elevated" } | { kind: "noSelection"; offerSnip: boolean };
