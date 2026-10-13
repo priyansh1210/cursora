@@ -2,7 +2,9 @@
 use crate::capture::{Capture, Content, Notice, SourceApp};
 use crate::history::History;
 use crate::persona::{self, Persona};
-use crate::{bubble, llm, prompt, skills, AppState};
+use crate::privacy::{Hidden, Restorer};
+use crate::settings::Settings;
+use crate::{bubble, llm, privacy, prompt, skills, AppState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -116,6 +118,39 @@ pub struct Turn {
     /// Said about the answer, e.g. that a skill's own model wasn't available (SKL-2.5).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+}
+
+impl Turn {
+    /// A question waiting for its answer.
+    pub fn asking(question: String) -> Self {
+        Turn { question, answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, local: false, note: None }
+    }
+}
+
+/// What `ask` and `regenerate` did: sent, or answered by Cursora itself; or nothing yet,
+/// because a cloud request waits for an explicit Send (PRI-3.7).
+#[derive(Serialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Asked {
+    Sent,
+    Confirm,
+}
+
+/// A request as it goes out: redacted where that applies, with the hidden values that restore the answer (PRI-3).
+pub struct Request {
+    pub messages: Vec<Message>,
+    /// Earlier question/answer pairs left out (BUB-5.2).
+    pub dropped: usize,
+    pub hidden: Hidden,
+}
+
+/// The model that answers a question, and the skill it runs, if any.
+struct Resolved {
+    model: Arc<dyn Model>,
+    /// Said about the answer, e.g. that the skill's own model wasn't available (SKL-2.5).
+    note: Option<String>,
+    /// The skill and the text typed after its name.
+    skill: Option<(skills::Skill, String)>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -258,16 +293,17 @@ pub fn get_conversation(window: WebviewWindow, app: AppHandle) -> Option<Convers
     slots(&app).get(window.label()).map(|s| s.conv.clone())
 }
 
+/// `confirmed`: the user pressed Send in "What will be sent" (PRI-3.7).
 #[tauri::command]
-pub fn ask(window: WebviewWindow, app: AppHandle, question: String) -> Result<(), String> {
+pub fn ask(window: WebviewWindow, app: AppHandle, question: String, confirmed: bool) -> Result<Asked, String> {
     let question = question.trim().to_string();
     if question.is_empty() {
-        return Ok(());
+        return Ok(Asked::Sent);
     }
     let label = window.label();
-    let Some((name, rest)) = command(&question) else { return answer(&app, label, question) };
+    let Some((name, rest)) = command(&question) else { return answer(&app, label, question, confirmed) };
     let rest = rest.to_string();
-    match name.as_str() {
+    let replied = match name.as_str() {
         skills::PERSONA => persona_command(&app, label, question, &rest),
         skills::HELP => local(&app, label, question, skills::help(&skills::available(&app))),
         skills::CLEAR => clear(&app, label),
@@ -279,19 +315,18 @@ pub fn ask(window: WebviewWindow, app: AppHandle, question: String) -> Result<()
                 let (model, _) = llm::for_skill(&app, s.model.as_deref(), s.temperature)?;
                 match skills::refusal(&s, &model.info()) {
                     Some(reason) => local(&app, label, question, reason),
-                    None => answer(&app, label, question),
+                    None => return answer(&app, label, question, confirmed),
                 }
             }
         },
-    }
+    };
+    replied.map(|()| Asked::Sent)
 }
 
 /// Sends a question to the model as a new turn.
-fn answer(app: &AppHandle, label: &str, question: String) -> Result<(), String> {
+fn answer(app: &AppHandle, label: &str, question: String, confirmed: bool) -> Result<Asked, String> {
     let q = question.clone();
-    begin(app, label, &q, move |conv| {
-        conv.turns.push(Turn { question, answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, local: false, note: None })
-    })
+    begin(app, label, &q, confirmed, move |conv| conv.turns.push(Turn::asking(question)))
 }
 
 /// `/name rest`: the name in lower case and the trimmed rest, if the question is a command (SKL-2.2).
@@ -373,10 +408,10 @@ pub fn persona_changed(app: &AppHandle, name: Option<String>) {
 
 /// Re-runs the latest question, a skill too; Retry uses it as well (BUB-4.4, BUB-6.1). A local reply stays as it is.
 #[tauri::command]
-pub fn regenerate(window: WebviewWindow, app: AppHandle) -> Result<(), String> {
+pub fn regenerate(window: WebviewWindow, app: AppHandle, confirmed: bool) -> Result<Asked, String> {
     let label = window.label();
-    let Some(question) = slots(&app).get(label).and_then(|s| s.conv.turns.last()).filter(|t| !t.local).map(|t| t.question.clone()) else { return Ok(()) };
-    begin(&app, label, &question, |conv| {
+    let Some(question) = slots(&app).get(label).and_then(|s| s.conv.turns.last()).filter(|t| !t.local).map(|t| t.question.clone()) else { return Ok(Asked::Sent) };
+    begin(&app, label, &question, confirmed, |conv| {
         if let Some(t) = conv.turns.last_mut() {
             *t = Turn { answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, note: None, ..t.clone() };
         }
@@ -439,9 +474,8 @@ fn show_chat_window(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Marks the turn as streaming via `change`, then answers `question` on a worker thread.
-/// A question that names a skill runs it, with the skill's model if it has one (SKL-2.2, 2.5).
-fn begin(app: &AppHandle, label: &str, question: &str, change: impl FnOnce(&mut Conversation)) -> Result<(), String> {
+/// The question's skill, if it names one, and the model that answers it (SKL-2.2, 2.5).
+fn resolve(app: &AppHandle, question: &str) -> Result<Resolved, String> {
     let skill = command(question).and_then(|(name, input)| skills::find(app, &name).map(|s| (s, input.to_string())));
     let (model, note) = match &skill {
         Some((s, _)) => llm::for_skill(app, s.model.as_deref(), s.temperature)?,
@@ -450,40 +484,63 @@ fn begin(app: &AppHandle, label: &str, question: &str, change: impl FnOnce(&mut 
     if let Some(reason) = skill.as_ref().and_then(|(s, _)| skills::refusal(s, &model.info())) {
         return Err(reason);
     }
+    Ok(Resolved { model, note, skill })
+}
+
+/// The request for `conv`'s latest question, running the skill if there is one.
+fn build(conv: &Conversation, s: &Settings, skill: Option<&(skills::Skill, String)>, info: &ModelInfo) -> Result<Request, String> {
+    let language = skills::language(persona::in_use(s).as_ref());
+    let instructions = skill.map(|(sk, input)| skills::render(&sk.template, &skills::Vars { input, app: &conv.app.name, language: &language, date: &skills::today() }));
+    // Unknown sizes: no current cloud chat model has less than 32k.
+    let assumed = info.context_tokens.or((info.locality == Locality::Cloud).then_some(CLOUD_CONTEXT_TOKENS));
+    request(conv, s, instructions.as_deref(), info.locality, budget(assumed))
+}
+
+/// Marks the turn as streaming via `change`, then answers `question` on a worker thread.
+/// A question that names a skill runs it, with the skill's model if it has one (SKL-2.2, 2.5).
+/// A cloud request waits for an explicit Send while confirming is on (PRI-3.7); nothing changes until then.
+fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: impl FnOnce(&mut Conversation)) -> Result<Asked, String> {
+    let Resolved { model, note, skill } = resolve(app, question)?;
+    let info = model.info();
     let s = app.state::<AppState>().settings.lock().unwrap().clone();
-    let (share_title, persona) = (s.capture.share_window_title, persona::in_use(&s));
-    let language = skills::language(persona.as_ref());
-    let (id, messages, dropped, cancel, too_long) = {
+    if privacy::must_confirm(&s.privacy, info.locality, confirmed) {
+        return Ok(Asked::Confirm);
+    }
+    let (id, req, cancel, too_long) = {
         let mut slots = slots(app);
         let slot = slots.get_mut(label).ok_or(CLOSED)?;
         idle(&slot.conv)?;
-        change(&mut slot.conv);
-        let Some(last) = slot.conv.turns.last_mut().filter(|t| t.status == TurnStatus::Streaming) else { return Ok(()) }; // nothing to answer
+        let mut conv = slot.conv.clone(); // changed only once the request is built: a bad custom pattern leaves it as it was
+        change(&mut conv);
+        let Some(last) = conv.turns.last_mut().filter(|t| t.status == TurnStatus::Streaming) else { return Ok(Asked::Sent) }; // nothing to answer
         last.note = note;
-        let date = skills::today();
-        let instructions = skill.map(|(s, input)| skills::render(&s.template, &skills::Vars { input: &input, app: &slot.conv.app.name, language: &language, date: &date }));
-        let info = model.info();
-        // Unknown sizes: no current cloud chat model has less than 32k.
-        let assumed = info.context_tokens.or((info.locality == Locality::Cloud).then_some(CLOUD_CONTEXT_TOKENS));
-        let (messages, dropped) = assemble(&slot.conv, persona.as_ref(), instructions.as_deref(), share_title, budget(assumed));
-        let too_long = info.context_tokens.and_then(|ctx| too_long(&messages, ctx));
-        (slot.conv.model, slot.conv.dropped) = (Some(info), dropped); // a reopened conversation answers with today's model
+        let req = build(&conv, &s, skill.as_ref(), &info)?;
+        let too_long = info.context_tokens.and_then(|ctx| too_long(&req.messages, ctx));
+        (conv.model, conv.dropped) = (Some(info), req.dropped); // a reopened conversation answers with today's model
+        slot.conv = conv;
         slot.cancel = Arc::default();
-        (slot.conv.id, messages, dropped, slot.cancel.clone(), too_long)
+        (slot.conv.id, req, slot.cancel.clone(), too_long)
     };
+    let dropped = req.dropped;
     let app = app.clone();
     std::thread::spawn(move || {
+        let mut restorer = Restorer::new(req.hidden); // the user sees their own values again (PRI-3.3)
         let mut offset = 0;
+        let mut show = |text: &str| {
+            if text.is_empty() {
+                return;
+            }
+            with_conv(&app, id, |c| c.turns.last_mut().unwrap().answer.push_str(text));
+            for label in [bubble::LABEL, CHAT_LABEL] {
+                let _ = app.emit_to(label, "chat-delta", Delta { id, offset, text });
+            }
+            offset += text.encode_utf16().count();
+        };
         let (status, error) = match too_long {
             Some(e) => (TurnStatus::Error, Some(e)),
-            None => run_turn(&*model, &messages, &cancel, &mut |text| {
-                with_conv(&app, id, |c| c.turns.last_mut().unwrap().answer.push_str(text));
-                for label in [bubble::LABEL, CHAT_LABEL] {
-                    let _ = app.emit_to(label, "chat-delta", Delta { id, offset, text });
-                }
-                offset += text.encode_utf16().count();
-            }),
+            None => run_turn(&*model, &req.messages, &cancel, &mut |piece| show(&restorer.push(piece))),
         };
+        show(&restorer.finish());
         let conv = with_conv(&app, id, |c| {
             let t = c.turns.last_mut().unwrap();
             (t.status, t.error, t.answered) = (status, error.clone(), Some(now_ms()));
@@ -496,7 +553,60 @@ fn begin(app: &AppHandle, label: &str, question: &str, change: impl FnOnce(&mut 
             save(&app, &conv);
         }
     });
-    Ok(())
+    Ok(Asked::Sent)
+}
+
+/// Every request is built here (PRI-3): the messages (BUB-5.1), then, where redaction applies to this model,
+/// each detected value swapped for a placeholder. Values are numbered in conversation order first,
+/// so a value keeps its number even after early turns are dropped from the request (PRI-3.1).
+pub fn request(conv: &Conversation, s: &Settings, skill: Option<&str>, locality: Locality, budget: usize) -> Result<Request, String> {
+    let share_title = s.capture.share_window_title;
+    let (mut messages, dropped) = assemble(conv, persona::in_use(s).as_ref(), skill, share_title, budget);
+    let mut hidden = Hidden::default();
+    if privacy::applies(&s.privacy, locality) && !messages.is_empty() {
+        let detectors = privacy::Detectors::new(&s.privacy)?;
+        let context = prompt::context(&conv.app, &conv.content, share_title);
+        for text in context.iter().chain(conv.turns.iter().flat_map(|t| [&t.question, &t.answer])) {
+            detectors.hide(text, &mut hidden);
+        }
+        for m in &mut messages {
+            m.text = detectors.hide(&m.text, &mut hidden);
+        }
+        if !hidden.is_empty() {
+            messages[0].text = format!("{}\n\n{}", messages[0].text, prompt::PLACEHOLDERS);
+            log::info!("redaction: hid {} values", hidden.placeholders().len()); // counts only (APP-7.2)
+        }
+    }
+    Ok(Request { messages, dropped, hidden })
+}
+
+/// "What will be sent" (PRI-3.6): the request for `question` in this window's conversation, built as a send would build it.
+/// `retry`: the question replaces the latest one, as Retry and Regenerate do. No receiver: Cursora answers it itself.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Preview {
+    to: Option<ModelInfo>,
+    text: String,
+    placeholders: Vec<String>,
+    image_warning: bool,
+}
+
+#[tauri::command]
+pub fn send_preview(window: WebviewWindow, app: AppHandle, question: String, retry: bool) -> Result<Preview, String> {
+    let question = question.trim().to_string();
+    if command(&question).is_some_and(|(name, _)| skills::find(&app, &name).is_none()) {
+        return Ok(Preview { to: None, text: String::new(), placeholders: vec![], image_warning: false });
+    }
+    let r = resolve(&app, &question)?;
+    let info = r.model.info();
+    let s = app.state::<AppState>().settings.lock().unwrap().clone();
+    let mut conv = slots(&app).get(window.label()).ok_or(CLOSED)?.conv.clone();
+    if retry {
+        conv.turns.pop();
+    }
+    conv.turns.push(Turn::asking(question));
+    let req = build(&conv, &s, r.skill.as_ref(), &info)?;
+    Ok(Preview { image_warning: privacy::image_warning(&req.messages, info.locality), text: prompt::render(&req.messages), placeholders: req.hidden.placeholders(), to: Some(info) })
 }
 
 /// Finds the conversation wherever it is now; Expand may have moved it while it streamed.
@@ -568,12 +678,13 @@ pub fn assemble(conv: &Conversation, persona: Option<&Persona>, skill: Option<&s
     (messages, start)
 }
 
-/// The exact messages for a sample selection and question with the current settings (PER-4.4).
+/// The exact messages for a sample selection and question with the current settings, after redaction for the active model (PER-4.4).
 #[tauri::command]
 pub fn prompt_preview(app: AppHandle) -> String {
     let s = app.state::<AppState>().settings.lock().unwrap().clone();
     let conv = sample("Step 1: write the draft.\nStep 2: send it to Priya by Friday.", "What is due on Friday?");
-    prompt::render(&assemble(&conv, persona::in_use(&s).as_ref(), None, s.capture.share_window_title, usize::MAX).0)
+    let locality = llm::active(&app).map_or(Locality::Local, |m| m.info().locality);
+    request(&conv, &s, None, locality, usize::MAX).map_or_else(|e| e, |r| prompt::render(&r.messages))
 }
 
 /// A conversation about `text` selected in Notepad, waiting for the answer to `question`: for previews and tests.
@@ -585,21 +696,24 @@ pub fn sample(text: &str, question: &str) -> Conversation {
         notice: None,
         model: None,
         persona: None,
-        turns: vec![Turn { question: question.into(), answer: String::new(), status: TurnStatus::Streaming, error: None, asked: 0, answered: None, local: false, note: None }],
+        turns: vec![Turn::asking(question.into())],
         dropped: 0,
         unavailable: None,
     }
 }
 
 /// Debug builds with CURSORA_ECHO set: streams a canned Markdown answer, so the bubble can be tried without a model.
-/// "error: <kind>" (e.g. "error: auth") answers with that error.
+/// "error: <kind>" (e.g. "error: auth") answers with that error. CURSORA_ECHO=cloud makes it pose as a cloud model,
+/// so redaction and confirming can be tried without API keys; it never touches the network either way.
 #[cfg(debug_assertions)]
 pub struct Echo;
 
 #[cfg(debug_assertions)]
 impl Model for Echo {
     fn info(&self) -> ModelInfo {
-        ModelInfo { name: "echo".into(), provider: "Debug".into(), locality: Locality::Local, context_tokens: Some(DEFAULT_CONTEXT_TOKENS), vision: false }
+        let cloud = std::env::var("CURSORA_ECHO").is_ok_and(|v| v == "cloud");
+        let locality = if cloud { Locality::Cloud } else { Locality::Local };
+        ModelInfo { name: "echo".into(), provider: "Debug".into(), locality, context_tokens: Some(DEFAULT_CONTEXT_TOKENS), vision: false }
     }
 
     fn stream(&self, messages: &[Message], cancel: &AtomicBool, on_delta: &mut dyn FnMut(&str)) -> Result<(), ChatError> {
@@ -679,6 +793,26 @@ mod tests {
         assert_eq!(m.len(), 4);
         assert!(m.iter().all(|m| !m.text.contains("/persona") && !m.text.contains("Ada")));
         assert!(m[1].text.contains("SELECTED") && m[1].text.ends_with("q1"), "the context moves to the first real question");
+    }
+
+    #[test]
+    fn pri_3_1_every_message_is_redacted_and_numbers_hold_when_turns_are_dropped() {
+        let s = Settings::default();
+        let mut c = conv(vec![turn("ask b@y.io", "wrote to a@x.io", TurnStatus::Done), turn("and c@z.io?", "", TurnStatus::Streaming)]);
+        c.content = Content::Text { text: "from a@x.io".into(), truncated: false };
+        let r = request(&c, &s, Some("Reply to c@z.io"), Locality::Cloud, usize::MAX).unwrap();
+        let all = prompt::render(&r.messages);
+        assert!(!all.contains('@'), "{all}");
+        assert_eq!(r.hidden.placeholders(), ["[EMAIL_1]", "[EMAIL_2]", "[EMAIL_3]"], "the capture first, then the turns in order");
+        assert!(r.messages[1].text.contains("from [EMAIL_1]") && r.messages[1].text.ends_with("ask [EMAIL_2]"), "{}", r.messages[1].text);
+        assert_eq!(r.messages[2].text, "wrote to [EMAIL_1]", "earlier answers too");
+        assert!(r.messages[0].text.contains("Reply to [EMAIL_3]") && r.messages[0].text.ends_with(prompt::PLACEHOLDERS), "the skill's input in the system message");
+        let short = request(&c, &s, None, Locality::Cloud, 1).unwrap();
+        assert_eq!(short.dropped, 1);
+        assert!(short.messages.last().unwrap().text.ends_with("and [EMAIL_3]?"), "c@z.io keeps its number without the dropped turn");
+        // Local models get the text as it is (PRI-3.5), and nothing is said about placeholders.
+        let local = request(&c, &s, None, Locality::Local, usize::MAX).unwrap();
+        assert!(local.hidden.is_empty() && prompt::render(&local.messages).contains("b@y.io") && !local.messages[0].text.contains(prompt::PLACEHOLDERS));
     }
 
     #[test]

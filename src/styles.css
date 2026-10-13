@@ -167,6 +167,7 @@ body:has(.chat) {
 }
 .badge {
   font-size: 11px;
+  white-space: nowrap;
   padding: 0 6px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -412,4 +413,30 @@ ul.complete li {
 }
 ul.complete li[aria-selected="true"] {
   background: var(--line);
+}
+
+/* "What will be sent" (PRI-3.6) */
+.outgoing {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.outgoing pre.sent {
+  max-height: 12em;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 11px;
+  background: var(--code-bg);
+  padding: 6px;
+  margin: 4px 0;
+}
+
+mark {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: inherit;
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
 }

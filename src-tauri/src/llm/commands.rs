@@ -157,6 +157,16 @@ pub fn enabled_models(app: AppHandle) -> Vec<Enabled> {
     out
 }
 
+/// Why no model can answer now, in the words the bubble uses (LLM-9.1, PRI-1.3); None when one can.
+#[tauri::command]
+pub fn model_problem(app: AppHandle) -> Option<String> {
+    let s = settings(&app);
+    if super::echo() {
+        return None;
+    }
+    super::availability(&s.models, s.local_only).err()
+}
+
 /// The switcher (LLM-5.5): makes this the default, and the calling window's conversation answers with it from the next question.
 #[tauri::command(async)]
 pub fn set_model(window: WebviewWindow, app: AppHandle, provider: String, model: String) -> Result<Option<Conversation>, String> {

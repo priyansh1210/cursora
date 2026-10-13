@@ -6,6 +6,7 @@ import { HotkeyFields } from "./HotkeyInput";
 import ModelsTab from "./Models";
 import PersonalityTab from "./Personality";
 import SkillsTab from "./SkillsTab";
+import Privacy from "./Privacy";
 import { useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
 
 const TABS = ["General", "Models", "Personality", "Skills", "Voice", "Privacy", "History", "About"] as const;
@@ -44,6 +45,8 @@ export default function Settings() {
           <PersonalityTab settings={settings} save={save} />
         ) : tab === "Skills" ? (
           <SkillsTab settings={settings} />
+        ) : tab === "Privacy" ? (
+          <Privacy settings={settings} save={save} />
         ) : tab === "History" ? (
           <History settings={settings} save={save} />
         ) : tab === "About" ? (
