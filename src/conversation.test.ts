@@ -18,6 +18,11 @@ describe("chat helpers", () => {
     expect(errorText("unknown", "raw detail").text).toContain("raw detail");
   });
 
+  it("PER-2.3 with personality off the header says so and still names the model", () => {
+    const model = { name: "llama3.2", provider: "Ollama", locality: "local" as const, contextTokens: null };
+    expect(header({ persona: null, model })).toEqual({ persona: "Personality off", model: "llama3.2", badge: "🔒 Local" });
+  });
+
   it("BUB-7.1 the header shows persona or 'Personality off', the model and its badge", () => {
     const model = { name: "llama3.2", provider: "Ollama", locality: "local" as const, contextTokens: null };
     expect(header({ persona: "Cursora", model })).toEqual({ persona: "Cursora", model: "llama3.2", badge: "🔒 Local" });

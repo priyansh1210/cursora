@@ -12,7 +12,7 @@ const isBubble = getCurrentWindow().label === "bubble";
 
 /** The conversation view, in the bubble and in the expanded window. Rust owns the conversation; this draws it. */
 export default function Chat() {
-  const { settings } = useSettings(); // also follows the theme (BUB-8.2)
+  const { settings, save } = useSettings(); // also follows the theme (BUB-8.2)
   const models = useEnabledModels(settings);
   const [conv, setConvState] = useState<Conversation | null>(null);
   const convRef = useRef<Conversation | null>(null);
@@ -37,6 +37,8 @@ export default function Chat() {
       }),
       listen("bubble-hidden", () => setConv(null)), // the next open must not flash this conversation
       listen("chat-load", reload),
+      // Personality or the persona changed: the header shows who answers the next message (PER-2.2).
+      listen<string | null>("chat-persona", (e) => convRef.current && setConv({ ...convRef.current, persona: e.payload })),
       listen<Delta>("chat-delta", (e) => {
         const c = convRef.current;
         const last = c?.turns.at(-1);
@@ -81,7 +83,7 @@ export default function Chat() {
   const send = (question: string) => {
     const q = question.trim();
     if (!q || streaming) return;
-    const turn: Turn = { question: q, answer: "", status: "streaming", error: null, asked: Date.now(), answered: null };
+    const turn: Turn = { question: q, answer: "", status: "streaming", error: null, asked: Date.now(), answered: null, local: false };
     setConv({ ...conv, turns: [...conv.turns, turn] }); // before the first delta can arrive
     setDraft("");
     setError(undefined);
@@ -112,6 +114,18 @@ export default function Chat() {
     <div ref={rootRef} className={isBubble ? "chat bubble" : "chat"}>
       <header data-tauri-drag-region>
         <span data-tauri-drag-region className="who">{h.persona}</span>
+        {settings && (
+          <button
+            type="button"
+            className="icon"
+            aria-label="Personality"
+            aria-pressed={settings.personalityOn}
+            title={settings.personalityOn ? "Personality on. Turn it off for the plain model" : "Personality off. Turn it on"}
+            onClick={() => save({ personalityOn: !settings.personalityOn }).catch((e) => setError(String(e)))}
+          >
+            🎭
+          </button>
+        )}
         {models.length > 1 && settings ? (
           <ModelSelect
             label="Model"
@@ -265,7 +279,7 @@ function TurnView({ turn, latest, onRetry }: { turn: Turn; latest: boolean; onRe
   };
 
   return (
-    <article className="turn">
+    <article className={turn.local ? "turn local" : "turn"}>
       <p className="question">{turn.question}</p>
       {turn.status === "streaming" && !turn.answer && <p className="muted thinking">Thinking…</p>}
       {turn.answer && <div ref={answerRef} className="answer" aria-busy={turn.status === "streaming"} dangerouslySetInnerHTML={{ __html: html }} />}
@@ -285,7 +299,7 @@ function TurnView({ turn, latest, onRetry }: { turn: Turn; latest: boolean; onRe
           </div>
         </div>
       )}
-      {turn.answer && turn.status !== "streaming" && (
+      {turn.answer && turn.status !== "streaming" && !turn.local && (
         <div className="actions">
           <button type="button" className="link" onClick={copy} aria-label="Copy the answer. Hold Shift for plain text" title="Copy (Shift: plain text)">
             {copied ? "Copied" : "Copy"}
