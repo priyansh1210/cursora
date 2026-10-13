@@ -435,6 +435,9 @@ pub fn bare_host(h: &str) -> String {
     h.trim().trim_matches(['[', ']']).to_ascii_lowercase()
 }
 
+/// What the bubble and the Privacy tab say when local-only mode is on and no local model is set up (PRI-1.3).
+pub const NO_LOCAL_MODEL: &str = "No local model — set one up.";
+
 /// The model the next question goes to, or why there is none (LLM-9.1).
 pub fn availability(m: &ModelSettings, local_only: bool) -> Result<(&Provider, &str), String> {
     let Some(d) = &m.default else { return Err("No model is set up yet.".into()) };
@@ -442,9 +445,24 @@ pub fn availability(m: &ModelSettings, local_only: bool) -> Result<(&Provider, &
         return Err("The provider of the default model was removed.".into());
     };
     if local_only && p.locality(&m.trusted_hosts) == Locality::Cloud {
-        return Err(format!("Local-only mode is on, and {} runs in the cloud.", d.model));
+        return Err(match first_local(m) {
+            None => NO_LOCAL_MODEL.into(),
+            Some(_) => format!("Local-only mode is on, and {} runs in the cloud.", d.model),
+        });
     }
     Ok((p, &d.model))
+}
+
+/// The first chosen model of the first local or trusted-LAN provider.
+fn first_local(m: &ModelSettings) -> Option<ModelRef> {
+    m.providers.iter().filter(|p| p.locality(&m.trusted_hosts) != Locality::Cloud).find_map(|p| Some(ModelRef { provider: p.id.clone(), model: p.models.first()?.clone() }))
+}
+
+/// PRI-1.3: the model to switch to as local-only mode comes on, if the default is a cloud model and a local one exists.
+pub fn local_default(m: &ModelSettings) -> Option<ModelRef> {
+    let d = m.default.as_ref()?;
+    let cloud = m.providers.iter().find(|p| p.id == d.provider)?.locality(&m.trusted_hosts) == Locality::Cloud;
+    cloud.then(|| first_local(m)).flatten()
 }
 
 #[cfg(test)]
@@ -491,6 +509,24 @@ pub mod tests {
             let plain = chat_request(kind, "https://host/", "m", &conversation(), Some("k"), None).unwrap().body.unwrap();
             assert!(plain.get("temperature").is_none() && plain.get("generationConfig").is_none(), "{kind:?}");
         }
+    }
+
+    #[test]
+    fn pri_1_3_local_only_switches_a_cloud_default_to_the_first_local_model() {
+        let cloud = provider("c", Kind::Anthropic, "https://api.anthropic.com");
+        let mut empty = provider("o", Kind::OpenAiCompatible, "http://localhost:11434/v1");
+        empty.models.clear(); // set up, but no model chosen
+        let lan = provider("l", Kind::OpenAiCompatible, "http://192.168.1.20:1234/v1");
+        let to = |p: &str, m: &str| Some(ModelRef { provider: p.into(), model: m.into() });
+        let mut m = ModelSettings { providers: vec![cloud, empty, lan], default: to("c", "m"), trusted_hosts: vec!["192.168.1.20".into()], ..ModelSettings::default() };
+        assert_eq!(local_default(&m), to("l", "m"), "the first local or trusted-LAN provider with a chosen model");
+        m.default = to("l", "m");
+        assert_eq!(local_default(&m), None, "a local default stays");
+        // With no local model, the default stays and the bubble says so.
+        m = ModelSettings { trusted_hosts: vec![], default: to("c", "m"), ..m };
+        assert_eq!(local_default(&m), None);
+        assert_eq!(availability(&m, true).unwrap_err(), NO_LOCAL_MODEL);
+        assert!(availability(&m, false).is_ok());
     }
 
     #[test]

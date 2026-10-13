@@ -88,7 +88,7 @@ pub fn on_ask(app: &AppHandle) {
             Content::None => "nothing".into(),
         };
         log::info!("capture from {}: {:?}, {size}, {:?}, {} ms", result.app.exe, result.method, result.notice, started.elapsed().as_millis());
-        let previous = result.app.window;
+        let (previous, source) = (result.app.window, result.app.clone());
         let mut conv = chat::start(&app, result);
         // A check that finished during the capture decides before the bubble shows; a slower one swaps the input afterwards.
         let late = match health {
@@ -102,6 +102,7 @@ pub fn on_ask(app: &AppHandle) {
         };
         let id = conv.id;
         bubble::open(&app, cursor, previous, conv);
+        crate::tray::seen(&app, &source); // after the bubble, so a menu rebuild never delays it
         if let Some(Err(reason)) = late.map(|h| h.join().unwrap_or(Ok(()))) {
             if chat::set_unavailable(&app, id, reason).is_some() {
                 let _ = app.emit_to(bubble::LABEL, "chat-load", ());

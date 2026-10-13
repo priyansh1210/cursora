@@ -508,14 +508,14 @@ fn test(app: &AppHandle, skill: &Skill, sample: &str) -> Result<String, String> 
     if let Some(reason) = refusal(skill, &model.info()) {
         return Err(reason);
     }
-    let persona = persona_in_use(app);
+    let s = app.state::<crate::AppState>().settings.lock().unwrap().clone();
     let conv = crate::chat::sample(sample, &format!("/{}", skill.name));
-    let instructions = render(&skill.template, &Vars { input: "", app: &conv.app.name, language: &language(persona.as_ref()), date: &today() });
-    let (messages, _) = crate::chat::assemble(&conv, persona.as_ref(), Some(&instructions), false, usize::MAX);
+    let instructions = render(&skill.template, &Vars { input: "", app: &conv.app.name, language: &language(crate::persona::in_use(&s).as_ref()), date: &today() });
+    let req = crate::chat::request(&conv, &s, Some(&instructions), model.info().locality, usize::MAX)?; // redacted like any request (PRI-3)
     let mut answer = String::new();
-    match crate::chat::run_turn(&*model, &messages, &std::sync::atomic::AtomicBool::new(false), &mut |t| answer.push_str(t)) {
+    match crate::chat::run_turn(&*model, &req.messages, &std::sync::atomic::AtomicBool::new(false), &mut |t| answer.push_str(t)) {
         (_, Some(e)) => Err(e.message),
-        _ => Ok(note.map_or(answer.clone(), |n| format!("{n}\n\n{answer}"))),
+        _ => Ok(req.hidden.restore(&note.map_or(answer.clone(), |n| format!("{n}\n\n{answer}")))),
     }
 }
 
