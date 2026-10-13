@@ -1,16 +1,17 @@
 //! Selection capture (spec 02). Every decision lives here; the OS is reached only through `Platform`.
 pub mod files;
 #[cfg(not(windows))]
-mod other;
+mod linux;
 #[cfg(windows)]
 mod windows;
 
 pub use files::{FileContext, Kind};
 #[cfg(not(windows))]
-pub use other::NullPlatform as OsPlatform;
+pub use linux::LinuxPlatform as OsPlatform;
 #[cfg(windows)]
 pub use self::windows::WinPlatform as OsPlatform;
 
+use crate::session::Session;
 use crate::settings::CaptureSettings;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -47,7 +48,8 @@ impl SourceApp {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Method {
-    Uia,
+    /// Read without keys: UI Automation on Windows, PRIMARY on Linux.
+    Direct,
     Copy,
     None,
 }
@@ -70,6 +72,8 @@ pub enum Notice {
         #[serde(rename = "offerSnip")]
         offer_snip: bool,
     },
+    /// This session can't read any selection: Wayland without wl-paste (LNX-3.4).
+    Unreadable,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -81,7 +85,6 @@ pub struct Capture {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(not(windows), allow(dead_code))] // the Linux clipboard arrives with spec 08
 pub enum Clip {
     Text(String),
     Files(Vec<PathBuf>),
@@ -100,7 +103,23 @@ pub trait Platform {
     fn clipboard_restore(&self, snapshot: Self::Snapshot);
     fn clipboard_read(&self) -> Clip;
     fn send_copy(&self, key: CopyKey);
+    /// The selection is read from PRIMARY (Linux), so keys are only ever sent to file managers (LNX-3.1 to 3.3).
+    fn primary(&self) -> bool {
+        false
+    }
+    /// The app that owns the selection `accessible_selection` reads, where that can be another app than the
+    /// one in front (X11's PRIMARY is shared by every app). None where it can't be told (LNX-3.5).
+    fn selection_owner(&self) -> Option<SourceApp> {
+        None
+    }
+    /// False when this session can't read any selection (LNX-3.4).
+    fn selection_readable(&self) -> bool {
+        true
+    }
 }
+
+/// Linux file managers, by process name: their selection is files, copied with Ctrl+C (LNX-3.2).
+pub const FILE_MANAGERS: [&str; 7] = ["nautilus", "dolphin", "thunar", "nemo", "caja", "pcmanfm", "pcmanfm-qt"];
 
 /// `vision`: the active model reads images, so an empty capture can offer a snip (SEL-6.2).
 pub fn capture<P: Platform>(p: &P, cfg: &CaptureSettings, vision: bool) -> Capture {
@@ -112,15 +131,19 @@ pub fn capture<P: Platform>(p: &P, cfg: &CaptureSettings, vision: bool) -> Captu
     if app.elevated {
         return Capture { app, method: Method::None, content: Content::None, notice: Some(Notice::Elevated) };
     }
-    let (method, content) = match p.accessible_selection(cfg.max_chars).filter(|t| !t.trim().is_empty()) {
-        Some(text) => (Method::Uia, text_content(text, cfg.max_chars)),
-        None => match copy_selection(p, copy_key(&app.exe, cfg), cfg.copy_timeout_ms) {
+    // PRIMARY in a file manager is text selected earlier somewhere else, not the files. PRIMARY owned by a
+    // blocked app is that app's text, whichever app is in front (LNX-3.5).
+    let skip_direct = p.primary() && (file_manager(&app.exe) || p.selection_owner().is_some_and(|owner| blocked(&cfg.blocklist, &owner)));
+    let direct = if skip_direct { None } else { p.accessible_selection(cfg.max_chars).filter(|t| !t.trim().is_empty()) };
+    let (method, content) = match direct {
+        Some(text) => (Method::Direct, text_content(text, cfg.max_chars)),
+        None => match copy_selection(p, copy_key(&app.exe, cfg, p.primary()), cfg.copy_timeout_ms) {
             Clip::Text(text) if !text.trim().is_empty() => (Method::Copy, text_content(text, cfg.max_chars)),
             Clip::Files(paths) if !paths.is_empty() => (Method::Copy, Content::Files(files::file_context(&paths, cfg))),
             _ => (Method::None, Content::None),
         },
     };
-    let notice = matches!(content, Content::None).then_some(Notice::NoSelection { offer_snip: vision });
+    let notice = matches!(content, Content::None).then(|| if p.selection_readable() { Notice::NoSelection { offer_snip: vision } } else { Notice::Unreadable });
     Capture { app, method, content, notice }
 }
 
@@ -140,16 +163,23 @@ pub fn blocked(rules: &[Rule], app: &SourceApp) -> bool {
     })
 }
 
-/// Whether this session can tell which app is in front, so the blocklist can be enforced (PRI-2.5).
-/// Linux: spec 08 (X11 can, Wayland can't); the stub can't.
-pub fn identifies_apps() -> bool {
-    cfg!(windows)
+/// Whether this session can tell which app is in front, so the blocklist can be enforced (PRI-2.5, LNX-4.3).
+pub fn identifies_apps(session: Session) -> bool {
+    matches!(session, Session::Windows | Session::X11)
 }
 
-/// Per-app override first, then the Ctrl+C-unsafe list, else Ctrl+C (SEL-4).
-pub fn copy_key(exe: &str, cfg: &CaptureSettings) -> CopyKey {
+fn file_manager(exe: &str) -> bool {
+    FILE_MANAGERS.iter().any(|f| f.eq_ignore_ascii_case(exe))
+}
+
+/// Per-app override first (SEL-4.4). Where the platform reads PRIMARY, file managers get Ctrl+C and every
+/// other app no key at all, so no terminal can be interrupted (LNX-3.2, 3.3). Else the Ctrl+C-unsafe list, else Ctrl+C (SEL-4).
+pub fn copy_key(exe: &str, cfg: &CaptureSettings, primary: bool) -> CopyKey {
     if let Some((_, key)) = cfg.copy_shortcuts.iter().find(|(app, _)| app.eq_ignore_ascii_case(exe)) {
         return *key;
+    }
+    if primary {
+        return if file_manager(exe) { CopyKey::CtrlC } else { CopyKey::Never };
     }
     if cfg.unsafe_apps.iter().any(|app| app.eq_ignore_ascii_case(exe)) { CopyKey::CtrlInsert } else { CopyKey::CtrlC }
 }
@@ -202,6 +232,9 @@ mod tests {
     struct Fake {
         app: SourceApp,
         uia: Option<String>,
+        primary: bool,
+        owner: Option<SourceApp>,
+        readable: bool,
         modifiers_held: bool,
         clipboard_busy: bool,
         on_copy: RefCell<Option<Clip>>,
@@ -215,6 +248,9 @@ mod tests {
             Fake {
                 app: SourceApp { exe: exe.into(), name: exe.trim_end_matches(".exe").into(), title: "Secret doc".into(), elevated: false, window: 0 },
                 uia: None,
+                primary: false,
+                owner: None,
+                readable: true,
                 modifiers_held: false,
                 clipboard_busy: false,
                 on_copy: RefCell::new(None),
@@ -265,6 +301,15 @@ mod tests {
                 self.seq.set(self.seq.get() + 1);
             }
         }
+        fn primary(&self) -> bool {
+            self.primary
+        }
+        fn selection_owner(&self) -> Option<SourceApp> {
+            self.owner.clone()
+        }
+        fn selection_readable(&self) -> bool {
+            self.readable
+        }
     }
 
     fn cfg() -> CaptureSettings {
@@ -289,7 +334,7 @@ mod tests {
     fn sel_2_2_accessibility_hit_never_touches_the_clipboard() {
         let fake = Fake { uia: Some("hello".into()), ..Fake::new("chrome.exe") };
         let c = capture(&fake, &cfg(), false);
-        assert_eq!((c.method, text(&c)), (Method::Uia, "hello"));
+        assert_eq!((c.method, text(&c)), (Method::Direct, "hello"));
         assert!(!fake.called("send") && !fake.called("snapshot"));
     }
 
@@ -374,7 +419,7 @@ mod tests {
         let fake = Fake::new("WindowsTerminal.exe");
         capture(&fake, &cfg(), false);
         assert!(fake.called("send CtrlInsert"));
-        assert_eq!(copy_key("notepad.exe", &cfg()), CopyKey::CtrlC);
+        assert_eq!(copy_key("notepad.exe", &cfg(), false), CopyKey::CtrlC);
     }
 
     #[test]
@@ -390,8 +435,10 @@ mod tests {
         let mut c = cfg();
         c.copy_shortcuts.insert("Notepad.exe".into(), CopyKey::Never);
         c.copy_shortcuts.insert("code.exe".into(), CopyKey::CtrlShiftC);
-        assert_eq!(copy_key("notepad.exe", &c), CopyKey::Never);
-        assert_eq!(copy_key("Code.exe", &c), CopyKey::CtrlShiftC);
+        assert_eq!(copy_key("notepad.exe", &c, false), CopyKey::Never);
+        assert_eq!(copy_key("Code.exe", &c, false), CopyKey::CtrlShiftC);
+        c.copy_shortcuts.insert("wine".into(), CopyKey::CtrlC);
+        assert_eq!(copy_key("wine", &c, true), CopyKey::CtrlC, "also where PRIMARY is read, for apps that don't set it");
         let fake = Fake::new("notepad.exe");
         capture(&fake, &c, false);
         assert!(!fake.called("send"));
@@ -449,7 +496,69 @@ mod tests {
     fn sel_7_1_capture_records_source_app_and_method() {
         let fake = Fake { uia: Some("hi".into()), ..Fake::new("chrome.exe") };
         let c = capture(&fake, &cfg(), false);
-        assert_eq!((c.app.exe.as_str(), c.app.title.as_str(), c.method), ("chrome.exe", "Secret doc", Method::Uia));
+        assert_eq!((c.app.exe.as_str(), c.app.title.as_str(), c.method), ("chrome.exe", "Secret doc", Method::Direct));
+    }
+
+    #[test]
+    fn lnx_3_1_primary_is_read_first_and_no_key_is_sent() {
+        let fake = Fake { uia: Some("from primary".into()), primary: true, ..Fake::new("gnome-text-editor") };
+        let c = capture(&fake, &cfg(), false);
+        assert_eq!((c.method, text(&c)), (Method::Direct, "from primary"));
+        assert!(!fake.called("snapshot") && !fake.called("send"));
+    }
+
+    #[test]
+    fn lnx_3_2_a_file_manager_skips_primary_copies_the_files_and_restores_the_clipboard() {
+        let fake = Fake { uia: Some("text selected earlier in another app".into()), primary: true, ..Fake::new("nautilus") };
+        *fake.on_copy.borrow_mut() = Some(Clip::Files(vec![PathBuf::from(env!("CARGO_MANIFEST_DIR"))]));
+        let c = capture(&fake, &cfg(), false);
+        assert!(!fake.called("uia"), "PRIMARY is skipped");
+        assert!(fake.called("send CtrlC") && fake.called("restore"));
+        assert!(matches!(&c.content, Content::Files(f) if f.items.len() == 1), "{:?}", c.content);
+        assert_eq!(*fake.clipboard.borrow(), Clip::Text("what the user copied earlier".into()));
+        for exe in FILE_MANAGERS {
+            assert_eq!(copy_key(&exe.to_uppercase(), &cfg(), true), CopyKey::CtrlC, "{exe}");
+        }
+    }
+
+    #[test]
+    fn lnx_3_3_terminals_never_get_a_key() {
+        let terminals = ["gnome-terminal", "gnome-terminal-server", "konsole", "xterm", "alacritty", "kitty", "wezterm", "wezterm-gui", "tilix", "terminator", "xfce4-terminal", "ptyxis"];
+        for exe in terminals {
+            assert_eq!(copy_key(exe, &cfg(), true), CopyKey::Never, "{exe}");
+            for primary in [None, Some("make test".to_string())] {
+                let fake = Fake { uia: primary, primary: true, ..Fake::new(exe) };
+                *fake.on_copy.borrow_mut() = Some(Clip::Text("would have been ^C".into()));
+                capture(&fake, &cfg(), false);
+                assert!(!fake.called("send") && !fake.called("snapshot"), "{exe}");
+            }
+        }
+    }
+
+    #[test]
+    fn lnx_3_4_a_session_that_cannot_read_selections_says_so() {
+        let fake = Fake { primary: true, readable: false, ..Fake::new("") };
+        let c = capture(&fake, &cfg(), true);
+        assert_eq!((c.content, c.notice), (Content::None, Some(Notice::Unreadable)));
+        let nothing_selected = Fake { primary: true, ..Fake::new("") };
+        assert_eq!(capture(&nothing_selected, &cfg(), false).notice, Some(Notice::NoSelection { offer_snip: false }));
+    }
+
+    #[test]
+    fn lnx_3_5_a_selection_owned_by_a_blocked_app_is_not_read() {
+        let owned_by = |exe: &str| Some(SourceApp { exe: exe.into(), ..Default::default() });
+        let fake = Fake { uia: Some("vault note".into()), primary: true, owner: owned_by("bitwarden"), ..Fake::new("gnome-text-editor") };
+        let c = capture(&fake, &cfg(), false);
+        assert!(!fake.called("uia") && !fake.called("send") && !fake.called("snapshot"));
+        assert_eq!((c.content, c.notice, c.app.exe.as_str()), (Content::None, Some(Notice::NoSelection { offer_snip: false }), "gnome-text-editor"));
+        let fake = Fake { uia: Some("notes".into()), primary: true, owner: owned_by("mousepad"), ..Fake::new("gnome-text-editor") };
+        assert_eq!(text(&capture(&fake, &cfg(), false)), "notes");
+    }
+
+    #[test]
+    fn lnx_4_3_only_windows_and_x11_identify_the_app_in_front() {
+        assert!(identifies_apps(Session::Windows) && identifies_apps(Session::X11));
+        assert!(!identifies_apps(Session::Wayland) && !identifies_apps(Session::Unknown));
     }
 
     #[test]

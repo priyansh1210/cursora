@@ -42,6 +42,23 @@ export type Rule = { process: string } | { title: string };
 
 export type Save = (patch: Partial<Settings>) => Promise<void>;
 
+/** Mirrors `app_info` in src-tauri/src/lib.rs. */
+export type AppInfo = {
+  version: string;
+  os: string;
+  session: "windows" | "x11" | "wayland" | "unknown";
+  configDir: string;
+  logDir: string;
+  identifiesApps: boolean;
+  launcher: string;
+};
+
+export function useAppInfo() {
+  const [info, setInfo] = useState<AppInfo>();
+  useEffect(() => void invoke<AppInfo>("app_info").then(setInfo), []);
+  return info;
+}
+
 /** Changes one section starting from the latest saved settings, so changes made one after another don't undo each other. */
 export async function editSettings<K extends keyof Settings>(save: Save, key: K, f: (v: Settings[K]) => Settings[K]) {
   const s = await invoke<Settings>("get_settings");

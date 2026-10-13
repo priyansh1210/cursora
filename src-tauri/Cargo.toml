@@ -40,6 +40,10 @@ regex = "1"
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus-secret-service-keyring-store = { version = "1", features = ["crypto-openssl"] }
 libc = "0.2"
+# Already compiled for global-hotkey; the features add the clipboard owner events, simulated keys and client pids (spec 08).
+x11rb = { version = "0.13", features = ["xfixes", "xtest", "res"] }
+# Already compiled for Tauri: the bubble's X window, for focus.
+raw-window-handle = "0.6"
 
 [target.'cfg(windows)'.dependencies]
 clipboard-win = { version = "5", features = ["std"] }

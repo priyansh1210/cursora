@@ -6,4 +6,5 @@ set -euo pipefail
 src="$(cd "$(dirname "$0")/.." && pwd)"
 rsync -a --delete --exclude node_modules --exclude src-tauri/target --exclude src-tauri/llama --exclude .git "$src/" ~/cursora/
 cd ~/cursora
-~/.cargo/bin/cargo test --manifest-path src-tauri/Cargo.toml "$@"
+# The X11 tests (spec 08) take over the clipboard and press keys, so they get an X server of their own.
+CURSORA_XVFB=1 xvfb-run -a ~/.cargo/bin/cargo test --manifest-path src-tauri/Cargo.toml "$@"

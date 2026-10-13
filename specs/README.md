@@ -14,7 +14,7 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 05 | [Personality](05-personality/requirements.md) | PER | Approved | [Approved](05-personality/design.md) | [In progress](05-personality/tasks.md) | In progress |
 | 06 | [Skills](06-skills/requirements.md) | SKL | Approved | [Approved](06-skills/design.md) | [In progress](06-skills/tasks.md) | In progress |
 | 07 | [Privacy guard](07-privacy-guard/requirements.md) | PRI | Approved | [Approved](07-privacy-guard/design.md) | [In progress](07-privacy-guard/tasks.md) | In progress |
-| 08 | [Linux platform](08-linux-platform/requirements.md) | LNX | Approved | — | — | Approved (reqs) |
+| 08 | [Linux platform](08-linux-platform/requirements.md) | LNX | Approved | [Approved](08-linux-platform/design.md) | [In progress](08-linux-platform/tasks.md) | In progress |
 | 09 | [Voice in/out](09-voice/requirements.md) | VOC | Approved | — | — | Approved (reqs) |
 | 10 | [Vision snip](10-vision-snip/requirements.md) | VIS | Approved | — | — | Approved (reqs) |
 

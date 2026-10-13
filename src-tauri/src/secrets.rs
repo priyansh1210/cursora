@@ -73,11 +73,13 @@ fn ensure_store() -> Result<(), String> {
 }
 
 /// There is no plaintext fallback: without a keychain, keys can't be saved (LLM-6.3).
+/// On Linux the user gets what to do; the error itself ("Platform failure: zbus error: …") goes to the log.
 fn explain(e: &Error) -> String {
     if cfg!(windows) {
         format!("Windows Credential Manager refused the key: {e}")
     } else {
-        format!("Cursora keeps API keys in the system keyring, and none is available ({e}). Install and unlock GNOME Keyring or KWallet, then try again.")
+        log::warn!("keychain: {e}");
+        "Cursora keeps API keys in the system keyring, and none is available. Install and unlock GNOME Keyring or KWallet, then try again.".into()
     }
 }
 
@@ -110,5 +112,12 @@ mod tests {
         let json = serde_json::to_string(&status("p-62")).unwrap();
         assert_eq!(json, r#"{"hasKey":true,"keyHint":"9f3K"}"#);
         assert_eq!(status("p-62-none"), KeyStatus { has_key: false, key_hint: None });
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn llm_6_3_the_no_keyring_message_says_what_to_do_without_the_raw_error() {
+        let e = Error::PlatformFailure("zbus error: org.freedesktop.DBus.Error.ServiceUnknown".into());
+        assert_eq!(explain(&e), "Cursora keeps API keys in the system keyring, and none is available. Install and unlock GNOME Keyring or KWallet, then try again.");
     }
 }
