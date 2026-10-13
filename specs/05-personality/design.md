@@ -58,6 +58,8 @@ Personality tab, Setup step 2, tray "Persona ▸", bubble header toggle ─→ t
 
 All reply in the language of the question and have no custom instructions. Cursora is the default.
 
+A preset added by an update can have the name of a user's persona. Names must be unique, so every save would then be refused: when the settings load, the user's persona gets " 2", " 3"…, as an import does (`rename_clashes`, issue 22).
+
 ### Conversation
 - `Turn` gains `local: bool` (default false). A local turn is Cursora's own reply to a command such as `/persona`; it is shown and saved, but never sent to the model. History stores conversations as JSON, so old rows still load.
 - `Conversation.persona` (exists) holds the persona's name, or `null` while personality is off (BUB-7.1).

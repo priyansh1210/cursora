@@ -181,7 +181,7 @@ Hosts are compared exactly as typed, with no DNS lookup, so `localhost.example.c
 - **Storage:** keyring 4, service `cursora`, account = the provider id. That is Windows Credential Manager on Windows, and the Secret Service over D-Bus on Linux.
 - **One-way:** the UI sends a key with `key_set`. `providers_list` sends back only `hasKey` and the last 4 characters.
 - **Read per request:** the key is read from the keychain for each request and is not kept in memory.
-- **No keychain (LLM-6.3):** `key_set` fails with an explanation: "Cursora keeps API keys in the system keyring, and none is running. Install and unlock GNOME Keyring or KWallet, then try again." There is no plaintext fallback. Local providers, which need no key, still work.
+- **No keychain (LLM-6.3):** `key_set` fails with an explanation: "Cursora keeps API keys in the system keyring, and none is available. Install and unlock GNOME Keyring or KWallet, then try again." The error itself goes to the log, not the message (issue 19). There is no plaintext fallback. Local providers, which need no key, still work.
 
 ### Models and capabilities (LLM-5)
 - **Listing:** each kind uses its list call from the adapter table. If listing fails, the Models tab shows the error and a field to type a model ID (LLM-5.1).

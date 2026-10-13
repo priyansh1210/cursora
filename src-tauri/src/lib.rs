@@ -296,7 +296,8 @@ pub fn run() {
         ])
         .setup(|app| {
             let path = app.path().app_config_dir()?.join("settings.json");
-            let (settings, warning) = settings::load(&path);
+            let (mut settings, warning) = settings::load(&path);
+            persona::rename_clashes(&mut settings);
             if let Some(w) = warning {
                 log::warn!("{w}");
                 app.dialog().message(w).title("Cursora").show(|_| {});
