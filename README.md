@@ -4,6 +4,11 @@ Select text in any app, press **Ctrl+G**, and ask an AI about it in a small chat
 
 **Status:** pre-alpha. The specs are in [specs/](specs/README.md).
 
+## Linux
+- **X11** works as on Windows. The selected text is read without any simulated keys; only file managers get Ctrl+C, to copy the selected files.
+- **The tray icon** goes through AppIndicator. Ubuntu shows it; on other GNOME systems, install the AppIndicator extension. Everything also works without it: the hotkey asks, and `cursora --settings` opens Settings.
+- **Wayland:** apps can't listen for hotkeys there, so Settings → General shows the command to bind as a custom shortcut in GNOME or KDE. The selection is read with `wl-paste` (package `wl-clipboard`). Cursora can't tell which app is in front, so the app blocklist doesn't apply, and selected files can't be read.
+
 ## Develop (Windows)
 Prerequisites:
 - Rust (rustup, stable-msvc)

@@ -7,7 +7,7 @@ import ModelsTab from "./Models";
 import PersonalityTab from "./Personality";
 import SkillsTab from "./SkillsTab";
 import Privacy from "./Privacy";
-import { useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
+import { useAppInfo, useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
 
 const TABS = ["General", "Models", "Personality", "Skills", "Voice", "Privacy", "History", "About"] as const;
 type Tab = (typeof TABS)[number];
@@ -61,10 +61,11 @@ export default function Settings() {
 
 function General({ settings, save }: { settings: S; save: Save }) {
   const set = (patch: Partial<S>) => save(patch).catch(() => {});
+  const info = useAppInfo();
   return (
     <>
       <h2>Hotkeys</h2>
-      <HotkeyFields settings={settings} save={save} />
+      {info?.session === "wayland" ? <WaylandShortcut launcher={info.launcher} /> : info && <HotkeyFields settings={settings} save={save} />}
       <h2>General</h2>
       <label className="row">
         <input type="checkbox" checked={settings.startWithSystem} onChange={(e) => set({ startWithSystem: e.target.checked })} />
@@ -85,14 +86,39 @@ function General({ settings, save }: { settings: S; save: Save }) {
       <button type="button" onClick={() => invoke("open_setup")}>
         Re-run setup
       </button>
-      <Advanced settings={settings} save={save} />
+      <Advanced settings={settings} save={save} windows={info?.os === "windows"} />
+    </>
+  );
+}
+
+/** Wayland doesn't let apps listen for hotkeys, so the user binds `cursora --ask` in the desktop's settings (LNX-2.2). */
+function WaylandShortcut({ launcher }: { launcher: string }) {
+  const command = `${/^[\w/.+-]+$/.test(launcher) ? launcher : `'${launcher.replaceAll("'", "'\\''")}'`} --ask`;
+  const [copied, setCopied] = useState(false);
+  return (
+    <>
+      <p>Wayland doesn't let apps listen for hotkeys. Add a shortcut in your desktop's settings that runs:</p>
+      <div className="row">
+        <code>{command}</code>
+        <button type="button" onClick={() => void navigator.clipboard.writeText(command).then(() => setCopied(true))}>
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <ul>
+        <li>GNOME: Settings → Keyboard → View and Customize Shortcuts → Custom Shortcuts → +</li>
+        <li>KDE: System Settings → Keyboard → Shortcuts → Add New → Command or Script</li>
+      </ul>
+      <p>
+        Selections are read with <code>wl-paste</code>, from the wl-clipboard package.
+      </p>
     </>
   );
 }
 
 const COPY_KEYS: Record<CopyKey, string> = { ctrlC: "Ctrl+C", ctrlInsert: "Ctrl+Insert", ctrlShiftC: "Ctrl+Shift+C", never: "Never copy" };
 
-function Advanced({ settings, save }: { settings: S; save: Save }) {
+/** `windows`: the Ctrl+C-unsafe list applies only there; Linux sends keys to file managers only (LNX-3.3). */
+function Advanced({ settings, save, windows }: { settings: S; save: Save; windows: boolean }) {
   const capture = settings.capture;
   const set = (patch: Partial<S["capture"]>) => save({ capture: { ...capture, ...patch } }).catch(() => {});
   const setShortcut = (exe: string, key: CopyKey | null) => {
@@ -110,14 +136,16 @@ function Advanced({ settings, save }: { settings: S; save: Save }) {
         <input type="checkbox" checked={capture.shareWindowTitle} onChange={(e) => set({ shareWindowTitle: e.target.checked })} />
         Share the window title with the AI
       </label>
-      <label>
-        Apps where Ctrl+C may stop a running process (one per line). Cursora uses Ctrl+Insert there.
-        <textarea
-          rows={5}
-          defaultValue={capture.unsafeApps.join("\n")}
-          onBlur={(e) => set({ unsafeApps: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
-        />
-      </label>
+      {windows && (
+        <label>
+          Apps where Ctrl+C may stop a running process (one per line). Cursora uses Ctrl+Insert there.
+          <textarea
+            rows={5}
+            defaultValue={capture.unsafeApps.join("\n")}
+            onBlur={(e) => set({ unsafeApps: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })}
+          />
+        </label>
+      )}
       <p>Copy shortcut per app</p>
       {Object.entries(capture.copyShortcuts).map(([exe, key]) => (
         <div className="row" key={exe}>
@@ -142,18 +170,17 @@ function Advanced({ settings, save }: { settings: S; save: Save }) {
           setNewExe("");
         }}
       >
-        <input placeholder="app.exe" aria-label="App to add" value={newExe} onChange={(e) => setNewExe(e.target.value)} />
+        <input placeholder={windows ? "app.exe" : "process name"} aria-label="App to add" value={newExe} onChange={(e) => setNewExe(e.target.value)} />
         <button type="submit">Add</button>
       </form>
     </details>
   );
 }
 
-type AppInfo = { version: string; os: string; session: string; configDir: string; logDir: string };
+const SESSIONS = { windows: "", x11: " (X11)", wayland: " (Wayland)", unknown: " (unknown session)" };
 
 function About() {
-  const [info, setInfo] = useState<AppInfo>();
-  useEffect(() => void invoke<AppInfo>("app_info").then(setInfo), []);
+  const info = useAppInfo();
   if (!info) return null;
   const folder = (kind: string) => (
     <button type="button" onClick={() => invoke("open_folder", { kind })}>
@@ -166,8 +193,18 @@ function About() {
       <dd>{info.version}</dd>
       <dt>System</dt>
       <dd>
-        {info.os} ({info.session})
+        {info.os === "windows" ? "Windows" : "Linux"}
+        {SESSIONS[info.session]}
       </dd>
+      {info.os === "linux" && (
+        <>
+          <dt>Tray icon</dt>
+          <dd>
+            No Cursora icon in the top bar? GNOME needs the AppIndicator extension (Ubuntu includes it). Everything works without it: your hotkey or
+            shortcut asks, and <code>cursora --settings</code> opens this window.
+          </dd>
+        </>
+      )}
       <dt>Settings folder</dt>
       <dd>
         <code>{info.configDir}</code> {folder("config")}

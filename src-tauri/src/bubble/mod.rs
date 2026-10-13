@@ -1,10 +1,10 @@
 //! The chat bubble window (spec 03).
 #[cfg(not(windows))]
-mod other;
+mod linux;
 #[cfg(windows)]
 mod windows;
 #[cfg(not(windows))]
-use other as os;
+use linux as os;
 #[cfg(windows)]
 use self::windows as os;
 
@@ -148,6 +148,10 @@ pub fn open(app: &AppHandle, cursor: Option<(i32, i32)>, previous: isize, payloa
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(150));
             reapply(&app);
+            // The window manager ignores focusing a window it hasn't mapped yet, so focus again now (issue 18).
+            if let Some(window) = app.get_webview_window(LABEL).filter(|_| is_open(&app)) {
+                os::focus(&window);
+            }
         });
     }
     os::focus(&window);

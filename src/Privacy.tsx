@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState, type FormEvent } from "react";
-import type { Rule, Save, Settings as S } from "./useSettings";
+import { useAppInfo, type Rule, type Save, type Settings as S } from "./useSettings";
 
 type Detector = { id: string; name: string };
 type RuleKind = "process" | "title";
@@ -12,11 +12,10 @@ const rule = (kind: RuleKind, value: string): Rule => (kind === "process" ? { pr
 /** Settings → Privacy (spec 07). A refused save shows its reason at the top of the tab. */
 export default function Privacy({ settings, save }: { settings: S; save: Save }) {
   const [detectors, setDetectors] = useState<Detector[]>([]);
-  const [identifiesApps, setIdentifiesApps] = useState(true);
+  const identifiesApps = useAppInfo()?.identifiesApps ?? true;
   const [problem, setProblem] = useState<string | null>(null);
   useEffect(() => {
     void invoke<Detector[]>("privacy_detectors").then(setDetectors);
-    void invoke<{ identifiesApps: boolean }>("app_info").then((i) => setIdentifiesApps(i.identifiesApps));
   }, []);
   useEffect(() => {
     void invoke<string | null>("model_problem").then(setProblem);
