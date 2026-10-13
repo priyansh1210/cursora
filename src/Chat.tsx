@@ -3,11 +3,11 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import { errorText, formatSize, header, keyAction, type Conversation, type Delta, type Done, type Turn } from "./conversation";
+import { badge, errorText, formatSize, header, keyAction, marks, type Asked, type Conversation, type Delta, type Done, type Preview, type Turn } from "./conversation";
 import { render } from "./markdown";
 import { ModelSelect, modelValue, useEnabledModels } from "./Models";
 import { listKey, matches, typedCommand, type Entry } from "./skills";
-import { useSettings } from "./useSettings";
+import { useSettings, type Settings } from "./useSettings";
 
 const isBubble = getCurrentWindow().label === "bubble";
 
@@ -19,6 +19,8 @@ export default function Chat() {
   const convRef = useRef<Conversation | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string>();
+  // "What will be sent" (PRI-3.6); `pending`: a cloud request waiting for Send (PRI-3.7).
+  const [outgoing, setOutgoing] = useState<{ open: boolean; pending: { question: string; retry: boolean } | null }>({ open: false, pending: null });
   const rootRef = useRef<HTMLDivElement>(null);
   const turnsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -49,6 +51,7 @@ export default function Chat() {
         setConv(e.payload);
         setDraft("");
         setError(undefined);
+        setOutgoing({ open: false, pending: null });
       }),
       listen("bubble-hidden", () => setConv(null)), // the next open must not flash this conversation
       listen("chat-load", reload),
@@ -93,28 +96,46 @@ export default function Chat() {
   if (!conv) return <div ref={rootRef} className="chat" />;
 
   const streaming = conv.turns.at(-1)?.status === "streaming";
-  const h = header(conv);
+  const h = header(conv, settings?.localOnly);
 
-  const send = (question: string) => {
+  const send = (question: string, confirmed = false) => {
     const q = question.trim();
     if (!q || streaming) return;
     const turn: Turn = { question: q, answer: "", status: "streaming", error: null, asked: Date.now(), answered: null, local: false, note: null };
     setConv({ ...conv, turns: [...conv.turns, turn] }); // before the first delta can arrive
     setDraft("");
     setError(undefined);
-    invoke("ask", { question: q }).catch((e) => {
-      setConv(conv);
-      setDraft(q);
-      setError(String(e));
-    });
+    setOutgoing((o) => ({ ...o, pending: null }));
+    invoke<Asked>("ask", { question: q, confirmed }).then(
+      (asked) => {
+        if (asked !== "confirm") return;
+        setConv(conv);
+        setDraft(q);
+        setOutgoing({ open: true, pending: { question: q, retry: false } });
+      },
+      (e) => {
+        setConv(conv);
+        setDraft(q);
+        setError(String(e));
+      },
+    );
   };
 
-  const regenerate = () => {
+  const regenerate = (confirmed = false) => {
+    const question = conv.turns.at(-1)?.question ?? "";
     setConv(withLast(conv, { answer: "", status: "streaming", error: null }));
-    invoke("regenerate").catch((e) => {
-      setError(String(e));
-      reload();
-    });
+    setOutgoing((o) => ({ ...o, pending: null }));
+    invoke<Asked>("regenerate", { confirmed }).then(
+      (asked) => {
+        if (asked !== "confirm") return;
+        setConv(conv);
+        setOutgoing({ open: true, pending: { question, retry: true } });
+      },
+      (e) => {
+        setError(String(e));
+        reload();
+      },
+    );
   };
 
   // Links open in the default browser, and only on click (BUB-4.2).
@@ -176,10 +197,25 @@ export default function Chat() {
           <div ref={turnsRef} className="turns" role="log" aria-label="Conversation" onClick={onAnswerClick}>
             {conv.dropped > 0 && <p className="muted note">Earlier messages were left out to fit the model.</p>}
             {conv.turns.map((t, i) => (
-              <TurnView key={i} turn={t} latest={i === conv.turns.length - 1} onRetry={regenerate} />
+              <TurnView key={i} turn={t} latest={i === conv.turns.length - 1} onRetry={() => regenerate()} />
             ))}
           </div>
           {error && <p role="alert" className="error note">{error}</p>}
+          <Outgoing
+            settings={settings}
+            question={outgoing.pending?.question ?? draft}
+            retry={outgoing.pending?.retry ?? false}
+            open={outgoing.open}
+            pending={outgoing.pending !== null}
+            localOnly={settings?.localOnly ?? false}
+            onToggle={() => setOutgoing((o) => ({ open: !o.open, pending: null }))}
+            onSend={() => {
+              const p = outgoing.pending;
+              if (p?.retry) regenerate(true);
+              else if (p) send(p.question, true);
+            }}
+            onCancel={() => setOutgoing({ open: false, pending: null })}
+          />
           {list.length > 0 && (
             <ul id="skill-list" role="listbox" aria-label="Skills and commands" className="complete">
               {list.map((e, i) => (
@@ -214,6 +250,7 @@ export default function Chat() {
                 setDraft(e.target.value);
                 setSelected(0);
                 setListClosed(false);
+                setOutgoing((o) => ({ ...o, pending: null })); // editing the question cancels a waiting Send
               }}
               onKeyDown={(e) => {
                 const k = list.length && !e.shiftKey && !e.nativeEvent.isComposing ? listKey(e.key, active, list.length, list[active].name === typed) : null;
@@ -246,6 +283,63 @@ export default function Chat() {
   );
 }
 
+/** "What will be sent" (PRI-3.6), and the Send that a cloud request waits for while confirming is on (PRI-3.7). */
+function Outgoing(props: { settings?: Settings; question: string; retry: boolean; open: boolean; pending: boolean; localOnly: boolean; onToggle: () => void; onSend: () => void; onCancel: () => void }) {
+  const { question, retry, open, pending } = props;
+  const [preview, setPreview] = useState<Preview>();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(() => {
+      invoke<Preview>("send_preview", { question, retry }).then(
+        (p) => {
+          setPreview(p);
+          setError(undefined);
+        },
+        (e) => setError(String(e)),
+      );
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [open, question, retry, props.settings]); // the settings: another model, or other redaction, changes what goes out
+  const to = preview?.to;
+  // The selection and the question come last, and they are what the user checks.
+  const sentRef = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    if (sentRef.current) sentRef.current.scrollTop = sentRef.current.scrollHeight;
+  }, [preview]);
+
+  return (
+    <section className="outgoing" aria-label="What will be sent">
+      <button type="button" className="link" aria-expanded={open} onClick={props.onToggle}>
+        What will be sent {open ? "▾" : "▸"}
+      </button>
+      {open && error && <p className="error note">{error}</p>}
+      {open && !error && preview && !to && <p className="muted note">Cursora answers this itself; nothing is sent.</p>}
+      {open && !error && to && (
+        <>
+          <p className="muted note">
+            To {badge(to.locality, to.provider, props.localOnly)} · {to.name}
+          </p>
+          {preview.imageWarning && <p role="alert" className="error note">Images are sent as they are: redaction covers text only.</p>}
+          <pre ref={sentRef} className="sent">
+            {marks(preview.text, preview.placeholders).map((m, i) => (m.mark ? <mark key={i}>{m.text}</mark> : <span key={i}>{m.text}</span>))}
+          </pre>
+          {pending && (
+            <div className="row">
+              <button type="button" autoFocus onClick={props.onSend}>
+                Send to {to.provider}
+              </button>
+              <button type="button" onClick={props.onCancel}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 function withLast(c: Conversation, patch: Partial<Turn>): Conversation {
   const last = c.turns.at(-1);
   return last ? { ...c, turns: [...c.turns.slice(0, -1), { ...last, ...patch }] } : c;
@@ -269,6 +363,7 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
   const [open, setOpen] = useState(false);
   const { content, notice } = conv;
   const notes: string[] = [];
+  if (notice?.kind === "blocked") notes.push(`Cursora is blocked in ${conv.app.name || conv.app.exe}, so nothing was read.`);
   if (notice?.kind === "elevated") notes.push("Cursora can't read apps running as administrator. Run Cursora as administrator to use it there.");
   if (notice?.kind === "noSelection") notes.push("Nothing was selected, so ask anything.");
   if (content.kind === "text" && content.truncated) notes.push(`Only the first ${content.text.length.toLocaleString()} characters were captured.`);

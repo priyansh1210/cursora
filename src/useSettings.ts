@@ -24,7 +24,9 @@ export type Settings = {
     copyTimeoutMs: number;
     fileMaxBytes: number;
     filesTotalBytes: number;
+    blocklist: Rule[];
   };
+  privacy: { redact: boolean; redactLocal: boolean; detectorsOff: string[]; patterns: { label: string; regex: string }[]; confirmCloud: boolean };
   history: { save: boolean; retentionDays: number | null };
   models: {
     providers: Provider[];
@@ -35,6 +37,8 @@ export type Settings = {
 };
 
 export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";
+/** A blocklist rule (PRI-2.2). */
+export type Rule = { process: string } | { title: string };
 
 export type Save = (patch: Partial<Settings>) => Promise<void>;
 

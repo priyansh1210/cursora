@@ -6,6 +6,7 @@ mod history;
 mod hotkey;
 mod llm;
 mod persona;
+mod privacy;
 mod prompt;
 mod secrets;
 mod settings;
@@ -45,6 +46,8 @@ struct AppInfo {
     session: String,
     config_dir: String,
     log_dir: String,
+    /// Whether the blocklist can be enforced in this session (PRI-2.5).
+    identifies_apps: bool,
 }
 
 #[tauri::command]
@@ -57,6 +60,7 @@ fn app_info(app: AppHandle) -> AppInfo {
         session: if cfg!(windows) { "windows".into() } else { std::env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "unknown".into()) },
         config_dir: dir(app.path().app_config_dir()),
         log_dir: dir(app.path().app_log_dir()),
+        identifies_apps: capture::identifies_apps(),
     }
 }
 
@@ -91,11 +95,17 @@ fn open_settings(app: AppHandle, tab: String) {
 /// The first three features are wry's defaults, which setting any arguments replaces. Windows only.
 pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,DnsOverHttps --disable-background-networking --disable-component-update --disable-domain-reliability --no-pings";
 
-pub fn update_settings(app: &AppHandle, settings: Settings) -> Result<(), String> {
+pub fn update_settings(app: &AppHandle, mut settings: Settings) -> Result<(), String> {
     let state = app.state::<AppState>();
     let old = state.settings.lock().unwrap().clone();
     hotkey::validate(&settings.hotkeys, &old.hotkeys)?;
     persona::validate_all(&settings)?; // PER-1.1
+    privacy::validate(&settings.privacy)?; // PRI-3.4
+    if settings.local_only && !old.local_only {
+        if let Some(local) = llm::local_default(&settings.models) {
+            settings.models.default = Some(local); // PRI-1.3
+        }
+    }
     let hotkey_changed = old.hotkeys.ask != settings.hotkeys.ask || old.paused != settings.paused;
     if hotkey_changed {
         hotkey::apply(app, Some(&old), &settings)?;
@@ -228,6 +238,8 @@ pub fn run() {
             chat::get_conversation,
             chat::expand,
             chat::prompt_preview,
+            chat::send_preview,
+            privacy::privacy_detectors,
             persona::personas,
             persona::persona_preview,
             persona::persona_add,
@@ -259,6 +271,7 @@ pub fn run() {
             llm::commands::enabled_models,
             llm::commands::set_model,
             llm::commands::lan_host,
+            llm::commands::model_problem,
             llm::commands::pick_model_file,
         ])
         .setup(|app| {

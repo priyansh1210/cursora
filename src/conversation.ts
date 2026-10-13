@@ -9,7 +9,7 @@ export type TurnStatus = "streaming" | "done" | "cancelled" | "error";
 export type Turn = { question: string; answer: string; status: TurnStatus; error: ChatError | null; asked: number; answered: number | null; local: boolean; note?: string | null };
 export type FileItem = { path: string; name: string; kind: "file" | "folder" | "link"; size: number; modified: number; children: string[]; content: string | null; skipped: string | null };
 export type Content = { kind: "text"; text: string; truncated: boolean } | { kind: "files"; items: FileItem[]; omitted: number } | { kind: "none" };
-export type Notice = { kind: "elevated" } | { kind: "noSelection"; offerSnip: boolean };
+export type Notice = { kind: "blocked" } | { kind: "elevated" } | { kind: "noSelection"; offerSnip: boolean };
 export type Conversation = {
   id: number;
   app: { exe: string; name: string; title: string; elevated: boolean };
@@ -24,6 +24,10 @@ export type Conversation = {
 };
 export type Delta = { id: number; offset: number; text: string };
 export type Done = { id: number; status: TurnStatus; error: ChatError | null; dropped: number };
+/** What ask and regenerate did; "confirm": a cloud request waits for Send (PRI-3.7). */
+export type Asked = "sent" | "confirm";
+/** "What will be sent" (PRI-3.6). No receiver: Cursora answers it itself. */
+export type Preview = { to: ModelInfo | null; text: string; placeholders: string[]; imageWarning: boolean };
 
 /** Enter sends; Shift+Enter, or Enter while an IME is composing, makes a newline (BUB-4.1). */
 export function keyAction(e: { key: string; shiftKey: boolean; isComposing: boolean }): "send" | null {
@@ -48,13 +52,25 @@ export function errorText(kind: ErrorKind, message: string): { text: string; ope
 }
 
 /** BUB-7.1 */
-export function header(c: { persona: string | null; model: ModelInfo | null }): { persona: string; model: string; badge: string } {
+export function header(c: { persona: string | null; model: ModelInfo | null }, localOnly = false): { persona: string; model: string; badge: string } {
   const m = c.model;
-  return { persona: c.persona ?? "Personality off", model: m?.name ?? "No model", badge: m ? badge(m.locality, m.provider) : "" };
+  return { persona: c.persona ?? "Personality off", model: m?.name ?? "No model", badge: m ? badge(m.locality, m.provider, localOnly) : "" };
 }
 
-export function badge(l: Locality, provider: string): string {
+/** While local-only mode is on, every model that may answer says so (PRI-1.2). */
+export function badge(l: Locality, provider: string, localOnly = false): string {
+  if (localOnly && l !== "cloud") return "🔒 Local-only";
   return l === "local" ? "🔒 Local" : l === "lan" ? "🏠 LAN" : `☁ ${provider}`;
+}
+
+/** The text cut into plain parts and the given placeholders, so the preview can mark them (PRI-3.6). */
+export function marks(text: string, placeholders: string[]): { text: string; mark: boolean }[] {
+  if (!placeholders.length) return [{ text, mark: false }];
+  const any = new RegExp(`(${placeholders.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`);
+  return text
+    .split(any)
+    .map((part, i) => ({ text: part, mark: i % 2 === 1 }))
+    .filter((p) => p.text);
 }
 
 export function formatSize(bytes: number): string {

@@ -1,4 +1,4 @@
-use crate::capture::CopyKey;
+use crate::capture::{CopyKey, Rule};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -22,6 +22,7 @@ pub struct Settings {
     pub personas: Vec<crate::persona::Persona>,
     pub local_only: bool,
     pub capture: CaptureSettings,
+    pub privacy: crate::privacy::PrivacySettings,
     pub history: HistorySettings,
     pub models: crate::llm::ModelSettings,
 }
@@ -40,6 +41,7 @@ impl Default for Settings {
             personas: vec![],
             local_only: false,
             capture: CaptureSettings::default(),
+            privacy: crate::privacy::PrivacySettings::default(),
             history: HistorySettings::default(),
             models: crate::llm::ModelSettings::default(),
         }
@@ -59,6 +61,8 @@ pub struct CaptureSettings {
     pub copy_timeout_ms: u64,
     pub file_max_bytes: u64,
     pub files_total_bytes: u64,
+    /// Apps Cursora never reads from (PRI-2).
+    pub blocklist: Vec<Rule>,
 }
 
 impl Default for CaptureSettings {
@@ -66,6 +70,11 @@ impl Default for CaptureSettings {
         let unsafe_apps = [
             "WindowsTerminal.exe", "conhost.exe", "OpenConsole.exe", "cmd.exe", "powershell.exe", "pwsh.exe",
             "mintty.exe", "alacritty.exe", "wezterm-gui.exe", "Code.exe", "Cursor.exe", "idea64.exe", "pycharm64.exe",
+        ];
+        // PRI-2.3: password managers and the Windows credential prompts, then their Linux process names.
+        let blocked = [
+            "KeePass.exe", "KeePassXC.exe", "1Password.exe", "Bitwarden.exe", "Enpass.exe", "CredentialUIBroker.exe", "consent.exe",
+            "keepassxc", "bitwarden", "1password",
         ];
         Self {
             unsafe_apps: unsafe_apps.map(String::from).to_vec(),
@@ -75,6 +84,7 @@ impl Default for CaptureSettings {
             copy_timeout_ms: 150,
             file_max_bytes: 100_000,
             files_total_bytes: 300_000,
+            blocklist: blocked.map(|p| Rule::Process(p.into())).to_vec(),
         }
     }
 }
