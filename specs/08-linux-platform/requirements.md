@@ -25,7 +25,7 @@
   3. restore the clipboard (SEL-3)
 - LNX-3.3 (auto) THE SYSTEM SHALL never simulate Ctrl+C in terminal apps (gnome-terminal, konsole, xterm, alacritty, kitty, wezterm, tilix, terminator, xfce4-terminal, ptyxis). PRIMARY covers terminals.
 - LNX-3.4 (manual) On Wayland THE SYSTEM SHALL read PRIMARY via `wl-paste --primary` when it is available and supported. Otherwise the bubble SHALL open in general-chat mode with the hint "No selection could be read in this session."
-- LNX-3.5 (auto) On X11 WHEN the PRIMARY selection is owned by an app that matches a blocklist rule THE SYSTEM SHALL NOT read it, whichever app is in front; the capture goes on as if nothing were selected (PRI-2.1). (Added 2026-10-14, issue 30: X11 has one PRIMARY for every app, so text selected in a password manager could be read from another app.)
+- LNX-3.5 (auto) On X11 WHEN the PRIMARY selection is owned by an app that matches a blocklist rule THE SYSTEM SHALL NOT read it, whichever app is in front; the capture goes on as if nothing were selected (PRI-2.1). (Added and approved 2026-10-14, issue 30: X11 has one PRIMARY for every app, so text selected in a password manager could be read from another app.)
 
 ### LNX-4 Cursor position and active app
 - LNX-4.1 (manual) On X11 THE bubble SHALL open at the cursor (XQueryPointer) and be correct on multi-monitor setups (XRandR work areas).
