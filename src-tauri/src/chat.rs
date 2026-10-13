@@ -1,6 +1,7 @@
 //! Conversations in the bubble and the expanded window (spec 03). Rust owns them; the views only draw them.
 use crate::capture::{Capture, Content, Notice, SourceApp};
 use crate::history::History;
+use crate::persona::{self, Persona};
 use crate::{bubble, llm, prompt, AppState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -103,6 +104,9 @@ pub struct Turn {
     /// Unix ms.
     pub asked: i64,
     pub answered: Option<i64>,
+    /// Cursora's own reply to a command such as `/persona`: shown and saved, never sent to the model (PER-3.1).
+    #[serde(default)]
+    pub local: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -158,7 +162,7 @@ pub fn now_ms() -> i64 {
 
 /// Starts the bubble's conversation for a new capture (BUB-5.3). Any earlier one is already in history.
 pub fn start(app: &AppHandle, capture: Capture) -> Conversation {
-    let personality_on = app.state::<AppState>().settings.lock().unwrap().personality_on;
+    let persona = persona::in_use(&app.state::<AppState>().settings.lock().unwrap()).map(|p| p.name);
     let model = llm::active(app);
     let conv = Conversation {
         id: now_ms(),
@@ -166,7 +170,7 @@ pub fn start(app: &AppHandle, capture: Capture) -> Conversation {
         content: capture.content,
         notice: capture.notice,
         model: model.as_ref().ok().map(|m| m.info()),
-        persona: personality_on.then(|| "Cursora".into()), // shortcut: fixed persona name until spec 05 adds personas
+        persona,
         turns: vec![],
         dropped: 0,
         unavailable: model.err(),
@@ -251,16 +255,59 @@ pub fn ask(window: WebviewWindow, app: AppHandle, question: String) -> Result<()
     if question.is_empty() {
         return Ok(());
     }
+    if let Some(query) = command_arg(&question, "persona") {
+        let query = query.to_string();
+        return persona_command(&app, window.label(), question, &query);
+    }
     begin(&app, window.label(), |conv| {
-        conv.turns.push(Turn { question, answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None })
+        conv.turns.push(Turn { question, answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, local: false })
     })
 }
 
-/// Re-runs the latest question; Retry uses it too (BUB-4.4, BUB-6.1).
+/// The text after `/<name>`, if the question is that command.
+fn command_arg<'a>(question: &'a str, name: &str) -> Option<&'a str> {
+    let rest = question.strip_prefix('/')?.strip_prefix(name)?;
+    (rest.is_empty() || rest.starts_with(char::is_whitespace)).then(|| rest.trim())
+}
+
+/// `/persona <name>` is answered here, never by a model (PER-3.1). Switching also turns personality on.
+fn persona_command(app: &AppHandle, label: &str, question: String, query: &str) -> Result<(), String> {
+    if slots(app).get(label).ok_or("This conversation is closed.")?.conv.turns.last().is_some_and(|t| t.status == TurnStatus::Streaming) {
+        return Err("Wait for the current answer, or stop it.".into());
+    }
+    let mut s = app.state::<AppState>().settings.lock().unwrap().clone();
+    let all = persona::all(&s);
+    let (chosen, answer) = persona::command(&all, &persona::active(&s).id, query);
+    if let Some(p) = chosen {
+        (s.active_persona, s.personality_on) = (p.id.clone(), true);
+        crate::update_settings(app, s)?;
+    }
+    let now = now_ms();
+    let turn = Turn { question, answer, status: TurnStatus::Done, error: None, asked: now, answered: Some(now), local: true };
+    let conv = {
+        let mut slots = slots(app);
+        let conv = &mut slots.get_mut(label).ok_or("This conversation is closed.")?.conv;
+        conv.turns.push(turn);
+        conv.clone()
+    };
+    save(app, &conv);
+    let _ = app.emit_to(label, "chat-load", ());
+    Ok(())
+}
+
+/// The persona or the personality switch changed: open conversations show it now and use it from their next message (PER-2.2).
+pub fn persona_changed(app: &AppHandle, name: Option<String>) {
+    for slot in slots(app).values_mut() {
+        slot.conv.persona = name.clone();
+    }
+    let _ = app.emit("chat-persona", name);
+}
+
+/// Re-runs the latest question; Retry uses it too (BUB-4.4, BUB-6.1). A local reply stays as it is.
 #[tauri::command]
 pub fn regenerate(window: WebviewWindow, app: AppHandle) -> Result<(), String> {
     begin(&app, window.label(), |conv| {
-        if let Some(t) = conv.turns.last_mut() {
+        if let Some(t) = conv.turns.last_mut().filter(|t| !t.local) {
             *t = Turn { answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, ..t.clone() };
         }
     })
@@ -298,7 +345,9 @@ pub fn expand(app: AppHandle) -> Result<(), String> {
 }
 
 /// Opens a saved conversation in the expanded window, where it can be continued (BUB-9.2).
-pub fn open_in_chat(app: &AppHandle, conv: Conversation) -> Result<(), String> {
+/// The header shows today's persona, which answers from the next message.
+pub fn open_in_chat(app: &AppHandle, mut conv: Conversation) -> Result<(), String> {
+    conv.persona = persona::in_use(&app.state::<AppState>().settings.lock().unwrap()).map(|p| p.name);
     put(app, CHAT_LABEL, conv);
     show_chat_window(app)
 }
@@ -323,7 +372,8 @@ fn show_chat_window(app: &AppHandle) -> Result<(), String> {
 /// Marks the turn as streaming via `change`, then answers it on a worker thread.
 fn begin(app: &AppHandle, label: &str, change: impl FnOnce(&mut Conversation)) -> Result<(), String> {
     let model = llm::active(app)?;
-    let share_title = app.state::<AppState>().settings.lock().unwrap().capture.share_window_title;
+    let s = app.state::<AppState>().settings.lock().unwrap().clone();
+    let (share_title, persona) = (s.capture.share_window_title, persona::in_use(&s));
     let (id, messages, dropped, cancel, too_long) = {
         let mut slots = slots(app);
         let slot = slots.get_mut(label).ok_or("This conversation is closed.")?;
@@ -331,13 +381,13 @@ fn begin(app: &AppHandle, label: &str, change: impl FnOnce(&mut Conversation)) -
             return Err("Wait for the current answer, or stop it.".into());
         }
         change(&mut slot.conv);
-        if slot.conv.turns.is_empty() {
-            return Ok(());
+        if !slot.conv.turns.last().is_some_and(|t| t.status == TurnStatus::Streaming) {
+            return Ok(()); // nothing to answer
         }
         let info = model.info();
         // Unknown sizes: no current cloud chat model has less than 32k.
         let assumed = info.context_tokens.or((info.locality == Locality::Cloud).then_some(CLOUD_CONTEXT_TOKENS));
-        let (messages, dropped) = assemble(&slot.conv, share_title, budget(assumed));
+        let (messages, dropped) = assemble(&slot.conv, persona.as_ref(), share_title, budget(assumed));
         let too_long = info.context_tokens.and_then(|ctx| too_long(&messages, ctx));
         (slot.conv.model, slot.conv.dropped) = (Some(info), dropped); // a reopened conversation answers with today's model
         slot.cancel = Arc::default();
@@ -415,12 +465,13 @@ pub fn too_long(messages: &[Message], context_tokens: u32) -> Option<ChatError> 
 /// The request for the latest question (BUB-5.1, 5.2):
 /// system prompt, then the context on the oldest kept question (so exactly once), then the turns.
 /// Oldest pairs go first when over budget; the system prompt, context and latest question always stay.
-/// Errored turns and empty answers aren't sent back; a cancelled partial answer is.
-pub fn assemble(conv: &Conversation, share_title: bool, budget: usize) -> (Vec<Message>, usize) {
-    let system = prompt::system();
+/// Errored turns, empty answers and local replies aren't sent back; a cancelled partial answer is.
+/// `persona` is None while personality is off (PER-2.1).
+pub fn assemble(conv: &Conversation, persona: Option<&Persona>, share_title: bool, budget: usize) -> (Vec<Message>, usize) {
+    let system = prompt::system(persona);
     let context = prompt::context(&conv.app, &conv.content, share_title);
     let Some((latest, earlier)) = conv.turns.split_last() else { return (vec![], 0) };
-    let pairs: Vec<&Turn> = earlier.iter().filter(|t| t.status != TurnStatus::Error && !t.answer.is_empty()).collect();
+    let pairs: Vec<&Turn> = earlier.iter().filter(|t| t.status != TurnStatus::Error && !t.answer.is_empty() && !t.local).collect();
     let pair_tokens = |t: &Turn| tokens(&t.question) + tokens(&t.answer);
     let mut total = tokens(&system) + context.as_deref().map_or(0, tokens) + tokens(&latest.question) + pairs.iter().map(|t| pair_tokens(t)).sum::<usize>();
     let mut start = 0;
@@ -437,6 +488,25 @@ pub fn assemble(conv: &Conversation, share_title: bool, budget: usize) -> (Vec<M
     }
     messages.push(user(&latest.question));
     (messages, start)
+}
+
+/// The exact messages for a sample selection and question with the current settings (PER-4.4).
+#[tauri::command]
+pub fn prompt_preview(app: AppHandle) -> String {
+    let s = app.state::<AppState>().settings.lock().unwrap().clone();
+    let conv = Conversation {
+        id: 0,
+        app: SourceApp { name: "Notepad".into(), title: "plan.txt - Notepad".into(), ..Default::default() },
+        content: Content::Text { text: "Step 1: write the draft.
+Step 2: send it to Priya by Friday.".into(), truncated: false },
+        notice: None,
+        model: None,
+        persona: None,
+        turns: vec![Turn { question: "What is due on Friday?".into(), answer: String::new(), status: TurnStatus::Streaming, error: None, asked: 0, answered: None, local: false }],
+        dropped: 0,
+        unavailable: None,
+    };
+    prompt::render(&assemble(&conv, persona::in_use(&s).as_ref(), s.capture.share_window_title, usize::MAX).0)
 }
 
 /// Debug builds with CURSORA_ECHO set: streams a canned Markdown answer, so the bubble can be tried without a model.
@@ -478,7 +548,7 @@ mod tests {
     use super::*;
 
     fn turn(q: &str, a: &str, status: TurnStatus) -> Turn {
-        Turn { question: q.into(), answer: a.into(), status, error: None, asked: 0, answered: None }
+        Turn { question: q.into(), answer: a.into(), status, error: None, asked: 0, answered: None, local: false }
     }
 
     fn conv(turns: Vec<Turn>) -> Conversation {
@@ -496,13 +566,13 @@ mod tests {
     }
 
     fn context_count(messages: &[Message]) -> usize {
-        messages.iter().map(|m| m.text.matches("<context source=").count()).sum()
+        messages.iter().map(|m| m.text.matches("<selected_text source=").count()).sum()
     }
 
     #[test]
     fn bub_5_1_follow_ups_send_the_conversation_with_the_context_once() {
         let c = conv(vec![turn("q1", "a1", TurnStatus::Done), turn("q2", "a2", TurnStatus::Done), turn("q3", "", TurnStatus::Streaming)]);
-        let (m, dropped) = assemble(&c, false, budget(None));
+        let (m, dropped) = assemble(&c, None, false, budget(None));
         assert_eq!(dropped, 0);
         let roles: Vec<Role> = m.iter().map(|m| m.role).collect();
         assert_eq!(roles, [Role::System, Role::User, Role::Assistant, Role::User, Role::Assistant, Role::User]);
@@ -511,12 +581,26 @@ mod tests {
         assert_eq!(m[5].text, "q3");
         // Errored turns aren't sent back; a cancelled partial answer is.
         let c = conv(vec![turn("bad", "", TurnStatus::Error), turn("half", "partial", TurnStatus::Cancelled), turn("q", "", TurnStatus::Streaming)]);
-        let (m, _) = assemble(&c, false, budget(None));
+        let (m, _) = assemble(&c, None, false, budget(None));
         assert_eq!(m.iter().map(|m| m.text.lines().last().unwrap()).collect::<Vec<_>>()[1..], ["half", "partial", "q"]);
         // No context: nothing is wrapped.
         let mut c = conv(vec![turn("q", "", TurnStatus::Streaming)]);
         c.content = Content::None;
-        assert_eq!(context_count(&assemble(&c, false, budget(None)).0), 0);
+        assert_eq!(context_count(&assemble(&c, None, false, budget(None)).0), 0);
+    }
+
+    #[test]
+    fn per_3_1_persona_replies_are_never_sent_to_the_model() {
+        let local = Turn { local: true, ..turn("/persona ada", "Now speaking as **Ada**.", TurnStatus::Done) };
+        let c = conv(vec![local, turn("q1", "a1", TurnStatus::Done), turn("q2", "", TurnStatus::Streaming)]);
+        let (m, _) = assemble(&c, None, false, budget(None));
+        assert_eq!(m.len(), 4);
+        assert!(m.iter().all(|m| !m.text.contains("/persona") && !m.text.contains("Ada")));
+        assert!(m[1].text.contains("SELECTED") && m[1].text.ends_with("q1"), "the context moves to the first real question");
+        assert_eq!(command_arg("/persona ada", "persona"), Some("ada"));
+        assert_eq!(command_arg("/persona", "persona"), Some(""));
+        assert_eq!(command_arg("/personas", "persona"), None);
+        assert_eq!(command_arg("what does /persona do", "persona"), None);
     }
 
     #[test]
@@ -527,14 +611,14 @@ mod tests {
             turn("middle question", &long, TurnStatus::Done),
             turn("latest", "", TurnStatus::Streaming),
         ]);
-        let fixed = tokens(&prompt::system()) + tokens(&prompt::context(&c.app, &c.content, false).unwrap()) + tokens("latest");
-        let (m, dropped) = assemble(&c, false, fixed + 110); // room for one pair only
+        let fixed = tokens(&prompt::system(None)) + tokens(&prompt::context(&c.app, &c.content, false).unwrap()) + tokens("latest");
+        let (m, dropped) = assemble(&c, None, false, fixed + 110); // room for one pair only
         assert_eq!(dropped, 1);
         assert!(m.iter().all(|m| !m.text.contains("old question")));
         assert!(m[1].text.contains("SELECTED") && m[1].text.ends_with("middle question"), "context moves to the oldest kept question");
         assert_eq!((m[0].role, m.last().unwrap().text.as_str()), (Role::System, "latest"));
         // Even a budget too small for the essentials keeps them.
-        let (m, dropped) = assemble(&c, false, 1);
+        let (m, dropped) = assemble(&c, None, false, 1);
         assert_eq!(dropped, 2);
         assert_eq!(m.len(), 2);
         assert_eq!(context_count(&m), 1);

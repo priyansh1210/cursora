@@ -1,5 +1,5 @@
 //! Selection capture (spec 02). Every decision lives here; the OS is reached only through `Platform`.
-mod files;
+pub mod files;
 #[cfg(not(windows))]
 mod other;
 #[cfg(windows)]

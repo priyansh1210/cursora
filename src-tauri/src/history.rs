@@ -170,7 +170,7 @@ mod tests {
             notice: None,
             model: None,
             persona: Some("Cursora".into()),
-            turns: vec![Turn { question: question.into(), answer: answer.into(), status, error: None, asked: id, answered: Some(id + 5) }],
+            turns: vec![Turn { question: question.into(), answer: answer.into(), status, error: None, asked: id, answered: Some(id + 5), local: false }],
             dropped: 0,
             unavailable: None,
         }
