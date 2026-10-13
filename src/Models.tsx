@@ -3,15 +3,11 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import { badge, errorText } from "./conversation";
 import { engineProvider, LIFETIMES, newProvider, PRESETS, type ChatError, type Detected, type Enabled, type EngineStatus, type Lifetime, type ModelView, type Provider, type ProviderView } from "./providers";
-import type { Save, Settings } from "./useSettings";
+import { editSettings, type Save, type Settings } from "./useSettings";
 
 type Models = Settings["models"];
 
-/** Changes the models settings starting from the latest saved ones, so changes made one after another don't undo each other. */
-export async function editModels(save: Save, f: (m: Models) => Models) {
-  const s = await invoke<Settings>("get_settings");
-  await save({ models: f(s.models) });
-}
+export const editModels = (save: Save, f: (m: Models) => Models) => editSettings(save, "models", f);
 
 /** A provider error in plain words, plus the provider's own message (LLM-1.4). */
 export function describe(e: unknown): string {

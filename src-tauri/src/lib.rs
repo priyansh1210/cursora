@@ -5,6 +5,7 @@ mod cli;
 mod history;
 mod hotkey;
 mod llm;
+mod persona;
 mod prompt;
 mod secrets;
 mod settings;
@@ -93,6 +94,7 @@ pub fn update_settings(app: &AppHandle, settings: Settings) -> Result<(), String
     let state = app.state::<AppState>();
     let old = state.settings.lock().unwrap().clone();
     hotkey::validate(&settings.hotkeys, &old.hotkeys)?;
+    persona::validate_all(&settings)?; // PER-1.1
     let hotkey_changed = old.hotkeys.ask != settings.hotkeys.ask || old.paused != settings.paused;
     if hotkey_changed {
         hotkey::apply(app, Some(&old), &settings)?;
@@ -112,6 +114,10 @@ pub fn update_settings(app: &AppHandle, settings: Settings) -> Result<(), String
     let always = |s: &Settings| s.models.providers.iter().filter_map(|p| p.engine.as_ref()).filter(|e| e.lifetime == llm::Lifetime::Always).map(|e| e.gguf.clone()).collect::<Vec<_>>();
     if always(&settings).iter().any(|g| !always(&old).contains(g)) {
         llm::engine::preload(app);
+    }
+    let speaker = |s: &Settings| persona::in_use(s).map(|p| p.name);
+    if speaker(&old) != speaker(&settings) {
+        chat::persona_changed(app, speaker(&settings));
     }
     let _ = app.emit("settings-changed", &settings);
     Ok(())
@@ -220,6 +226,12 @@ pub fn run() {
             chat::remove_context,
             chat::get_conversation,
             chat::expand,
+            chat::prompt_preview,
+            persona::personas,
+            persona::persona_preview,
+            persona::persona_add,
+            persona::persona_import,
+            persona::persona_export,
             history::history_list,
             history::history_open,
             history::history_delete,
