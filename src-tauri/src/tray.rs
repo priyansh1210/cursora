@@ -1,14 +1,21 @@
+use crate::capture::{self, Rule, SourceApp};
 use crate::{settings::Settings, AppState};
+use std::sync::Mutex;
 use tauri::image::Image;
 use tauri::menu::{CheckMenuItem, IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Wry};
 
 const ID: &str = "main";
+/// The tray's word for local-only mode while it is on (PRI-1.2).
+const LOCAL_ONLY: &str = "🔒 Local-only";
+
+/// The app the bubble last opened over. While the tray menu is open, the app in front is the taskbar (PRI-2.4).
+static LAST_APP: Mutex<Option<SourceApp>> = Mutex::new(None);
 
 pub fn create(app: &AppHandle, s: &Settings) -> tauri::Result<()> {
     TrayIconBuilder::with_id(ID)
-        .tooltip("Cursora")
+        .tooltip(tooltip(s))
         .icon(icon(app, s.paused))
         .menu(&menu(app, s)?)
         .show_menu_on_left_click(true)
@@ -24,6 +31,21 @@ pub fn refresh(app: &AppHandle, s: &Settings) {
             log::error!("tray menu: {e}");
         }
         let _ = tray.set_icon(Some(icon(app, s.paused)));
+        let _ = tray.set_tooltip(Some(tooltip(s)));
+    }
+}
+
+fn tooltip(s: &Settings) -> String {
+    if s.local_only { format!("Cursora · {LOCAL_ONLY}") } else { "Cursora".into() }
+}
+
+/// After each capture. The menu is rebuilt only when the app changed, so "Block Cursora in <app>" names it.
+pub fn seen(app: &AppHandle, source: &SourceApp) {
+    let changed = LAST_APP.lock().unwrap().replace(source.clone()).is_none_or(|last| last.exe != source.exe);
+    if changed {
+        // A copy: the lock must not be held while the menu waits for the main thread, which may want it too.
+        let s = app.state::<AppState>().settings.lock().unwrap().clone();
+        refresh(app, &s);
     }
 }
 
@@ -37,12 +59,18 @@ fn menu(app: &AppHandle, s: &Settings) -> tauri::Result<Menu<Wry>> {
     let personas = Submenu::with_items(app, "Persona", true, &choices.iter().map(|c| c as &dyn IsMenuItem<Wry>).collect::<Vec<_>>())?;
     let open = MenuItem::with_id(app, "settings", "Open Settings", true, None::<&str>)?;
     let personality = CheckMenuItem::with_id(app, "personality", "Personality", true, s.personality_on, None::<&str>)?;
-    let local_only = CheckMenuItem::with_id(app, "local_only", "Local-only", true, s.local_only, None::<&str>)?;
+    let local_only = CheckMenuItem::with_id(app, "local_only", if s.local_only { LOCAL_ONLY } else { "Local-only" }, true, s.local_only, None::<&str>)?;
+    // PRI-2.4: unless the app is unknown or already blocked.
+    let last = LAST_APP.lock().unwrap().clone().filter(|a| !a.exe.is_empty() && !capture::blocked(&s.capture.blocklist, a));
+    let block = last.map(|a| MenuItem::with_id(app, "block", format!("Block Cursora in {}", if a.name.is_empty() { &a.exe } else { &a.name }), true, None::<&str>)).transpose()?;
     let pause = CheckMenuItem::with_id(app, "pause", "Pause Cursora", true, s.paused, None::<&str>)?;
     let stop = MenuItem::with_id(app, "stop_model", "Stop the model", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let mut items: Vec<&dyn IsMenuItem<Wry>> = vec![&open, &personas, &personality, &local_only, &pause];
+    if let Some(block) = &block {
+        items.push(block);
+    }
     // Only with a built-in model set up (LLM-3.5).
     if s.models.providers.iter().any(|p| p.engine.is_some()) {
         items.push(&stop);
@@ -59,6 +87,10 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
         "stop_model" => return crate::llm::engine::stop_by_hand(app),
         "personality" => s.personality_on = !s.personality_on,
         "local_only" => s.local_only = !s.local_only,
+        "block" => match LAST_APP.lock().unwrap().clone() {
+            Some(a) => s.capture.blocklist.push(Rule::Process(a.exe)),
+            None => return,
+        },
         "pause" => s.paused = !s.paused,
         // Choosing a persona means wanting it, so personality comes on too (like `/persona`).
         id if id.starts_with("persona:") => (s.active_persona, s.personality_on) = (id["persona:".len()..].into(), true),

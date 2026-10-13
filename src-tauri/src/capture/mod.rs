@@ -63,6 +63,8 @@ pub enum Content {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum Notice {
+    /// A blocklist rule matched, so nothing was read (PRI-2.1).
+    Blocked,
     Elevated,
     NoSelection {
         #[serde(rename = "offerSnip")]
@@ -102,7 +104,11 @@ pub trait Platform {
 
 /// `vision`: the active model reads images, so an empty capture can offer a snip (SEL-6.2).
 pub fn capture<P: Platform>(p: &P, cfg: &CaptureSettings, vision: bool) -> Capture {
-    let app = p.foreground(); // before any Cursora window can take focus (SEL-2.1)
+    let mut app = p.foreground(); // before any Cursora window can take focus (SEL-2.1)
+    if blocked(&cfg.blocklist, &app) {
+        app.title.clear(); // not shown, not saved
+        return Capture { app, method: Method::None, content: Content::None, notice: Some(Notice::Blocked) };
+    }
     if app.elevated {
         return Capture { app, method: Method::None, content: Content::None, notice: Some(Notice::Elevated) };
     }
@@ -116,6 +122,28 @@ pub fn capture<P: Platform>(p: &P, cfg: &CaptureSettings, vision: bool) -> Captu
     };
     let notice = matches!(content, Content::None).then_some(Notice::NoSelection { offer_snip: vision });
     Capture { app, method, content, notice }
+}
+
+/// A blocklist rule (PRI-2.2): a process name, whole and ignoring case, or a keyword anywhere in the window title, ignoring case.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum Rule {
+    Process(String),
+    Title(String),
+}
+
+pub fn blocked(rules: &[Rule], app: &SourceApp) -> bool {
+    let (exe, title) = (app.exe.to_lowercase(), app.title.to_lowercase());
+    rules.iter().any(|r| match r {
+        Rule::Process(p) => !p.trim().is_empty() && p.trim().to_lowercase() == exe,
+        Rule::Title(k) => !k.trim().is_empty() && title.contains(&k.trim().to_lowercase()),
+    })
+}
+
+/// Whether this session can tell which app is in front, so the blocklist can be enforced (PRI-2.5).
+/// Linux: spec 08 (X11 can, Wayland can't); the stub can't.
+pub fn identifies_apps() -> bool {
+    cfg!(windows)
 }
 
 /// Per-app override first, then the Ctrl+C-unsafe list, else Ctrl+C (SEL-4).
@@ -384,6 +412,37 @@ mod tests {
         assert_eq!(capture(&Fake::new("x.exe"), &cfg(), false).notice, Some(Notice::NoSelection { offer_snip: false }));
         let found = Fake { uia: Some("text".into()), ..Fake::new("x.exe") };
         assert_eq!(capture(&found, &cfg(), true).notice, None);
+    }
+
+    #[test]
+    fn pri_2_1_a_blocked_app_is_never_read_and_its_title_is_dropped() {
+        let fake = Fake { uia: Some("secret".into()), ..Fake::new("KeePass.exe") };
+        *fake.on_copy.borrow_mut() = Some(Clip::Text("secret".into()));
+        let c = capture(&fake, &cfg(), true);
+        assert_eq!(*fake.calls.borrow(), ["foreground"], "no accessibility read, no keys, no clipboard");
+        assert_eq!((c.notice, c.content, c.app.exe.as_str(), c.app.title.as_str()), (Some(Notice::Blocked), Content::None, "KeePass.exe", ""));
+        let title_rule = CaptureSettings { blocklist: vec![Rule::Title("secret DOC".into())], ..cfg() };
+        assert_eq!(capture(&Fake::new("notepad.exe"), &title_rule, false).notice, Some(Notice::Blocked));
+    }
+
+    #[test]
+    fn pri_2_2_rules_match_the_whole_process_name_or_a_title_keyword_ignoring_case() {
+        let app = |exe: &str, title: &str| SourceApp { exe: exe.into(), title: title.into(), ..Default::default() };
+        let process = [Rule::Process(" keepass.EXE ".into())];
+        assert!(blocked(&process, &app("KeePass.exe", "")));
+        assert!(!blocked(&process, &app("KeePass.exe.bak", "")) && !blocked(&process, &app("notepad.exe", "KeePass.exe")), "whole name, process only");
+        let title = [Rule::Title("Net Banking".into())];
+        assert!(blocked(&title, &app("chrome.exe", "HDFC NET BANKING - Google Chrome")));
+        assert!(!blocked(&title, &app("Net Banking.exe", "Inbox")), "title only");
+        assert!(!blocked(&[Rule::Process(" ".into()), Rule::Title("".into())], &app("", "anything")), "an empty rule matches nothing");
+    }
+
+    #[test]
+    fn pri_2_3_password_managers_and_credential_prompts_are_blocked_by_default() {
+        let rules = CaptureSettings::default().blocklist;
+        for exe in ["KeePass.exe", "KeePassXC.exe", "1Password.exe", "Bitwarden.exe", "Enpass.exe", "CredentialUIBroker.exe", "consent.exe", "keepassxc", "bitwarden", "1password"] {
+            assert!(rules.contains(&Rule::Process(exe.into())), "{exe} missing");
+        }
     }
 
     #[test]

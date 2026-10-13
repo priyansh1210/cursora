@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ERROR_KINDS, errorText, header, keyAction } from "./conversation";
+import { ERROR_KINDS, errorText, header, keyAction, marks } from "./conversation";
 
 describe("chat helpers", () => {
   it("BUB-4.1 Enter sends; Shift+Enter and IME composition insert a newline", () => {
@@ -29,5 +29,23 @@ describe("chat helpers", () => {
     expect(header({ persona: null, model }).persona).toBe("Personality off");
     expect(header({ persona: null, model: { ...model, locality: "lan" } }).badge).toBe("🏠 LAN");
     expect(header({ persona: null, model: { ...model, provider: "OpenAI", locality: "cloud" } }).badge).toBe("☁ OpenAI");
+  });
+
+  it("PRI-1.2 while local-only mode is on, the badge says so", () => {
+    const model = { name: "llama3.2", provider: "Ollama", locality: "local" as const, contextTokens: null };
+    expect(header({ persona: null, model }, true).badge).toBe("🔒 Local-only");
+    expect(header({ persona: null, model: { ...model, locality: "lan" } }, true).badge).toBe("🔒 Local-only");
+  });
+
+  it("PRI-3.6 the preview marks each placeholder, and only those", () => {
+    expect(marks("Mail [EMAIL_1] or [EMAIL_10], not [EMAIL_9].", ["[EMAIL_1]", "[EMAIL_10]"])).toEqual([
+      { text: "Mail ", mark: false },
+      { text: "[EMAIL_1]", mark: true },
+      { text: " or ", mark: false },
+      { text: "[EMAIL_10]", mark: true },
+      { text: ", not [EMAIL_9].", mark: false },
+    ]);
+    expect(marks("[CARD_1]", ["[CARD_1]"])).toEqual([{ text: "[CARD_1]", mark: true }]);
+    expect(marks("nothing hidden", [])).toEqual([{ text: "nothing hidden", mark: false }]);
   });
 });

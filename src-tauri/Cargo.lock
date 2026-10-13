@@ -678,6 +678,7 @@ dependencies = [
  "keyring-core",
  "libc",
  "log",
+ "regex",
  "reqwest",
  "rusqlite",
  "serde",
