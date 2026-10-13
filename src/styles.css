@@ -344,6 +344,12 @@ button.link {
   list-style: none;
   padding: 0;
 }
+/* Wide enough for its placeholder (issue 12), like the text areas. */
+input[type="search"] {
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
+}
 .history li {
   display: flex;
   gap: 8px;

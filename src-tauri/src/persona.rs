@@ -140,16 +140,35 @@ pub fn validate_all(s: &Settings) -> Result<(), String> {
     Ok(())
 }
 
-/// Adds a copy of `p` with a new id; a name already taken gets " 2", " 3"…
-fn add(s: &mut Settings, mut p: Persona) -> Persona {
+/// `name`, or `name 2`, `name 3`… whichever no persona has yet, ignoring case.
+fn free_name(s: &Settings, name: &str) -> String {
     let taken: Vec<String> = all(s).iter().map(|q| q.name.to_lowercase()).collect();
-    let base = p.name.clone();
+    let mut free = name.to_string();
     for n in 2.. {
-        if !taken.contains(&p.name.to_lowercase()) {
+        if !taken.contains(&free.to_lowercase()) {
             break;
         }
-        p.name = format!("{base} {n}");
+        free = format!("{name} {n}");
     }
+    free
+}
+
+/// A preset added by an update can take the name of a user's persona, and then every save would be refused:
+/// the user's persona gets " 2", " 3"… as an import does. Run on load (PER-1.3, issue 22).
+pub fn rename_clashes(s: &mut Settings) {
+    for i in 0..s.personas.len() {
+        let name = s.personas[i].name.to_lowercase();
+        if presets().iter().any(|p| p.name.to_lowercase() == name) {
+            let new = free_name(s, &s.personas[i].name);
+            log::info!("persona: {:?} renamed to {new:?}, a built-in persona has its name now", s.personas[i].name);
+            s.personas[i].name = new;
+        }
+    }
+}
+
+/// Adds a copy of `p` with a new id; a name already taken gets " 2", " 3"…
+fn add(s: &mut Settings, mut p: Persona) -> Persona {
+    p.name = free_name(s, &p.name);
     let mut t = crate::chat::now_ms();
     while s.personas.iter().any(|q| q.id == format!("p-{t}")) {
         t += 1;
@@ -318,6 +337,17 @@ mod tests {
         assert_eq!(active(&s).id, DEFAULT);
         s.personality_on = false;
         assert_eq!(in_use(&s), None);
+    }
+
+    #[test]
+    fn per_1_3_a_user_persona_named_like_a_new_preset_is_renamed_on_load() {
+        // The user had their own "sage" before an update shipped the Sage preset, and a "Sage 2" too.
+        let mut s = with(vec![persona("sage"), persona("Sage 2"), persona("Maya")]);
+        assert!(validate_all(&s).is_err(), "every save would be refused");
+        rename_clashes(&mut s);
+        assert_eq!(s.personas.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["sage 3", "Sage 2", "Maya"]);
+        assert_eq!(s.personas[0].id, "p-sage", "the same persona, so the active one stays active");
+        assert_eq!(validate_all(&s), Ok(()));
     }
 
     #[test]
