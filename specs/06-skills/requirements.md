@@ -35,7 +35,7 @@
 
 ### SKL-2 Using skills
 User story: As a user, I want to type `/summary` and get a summary of my selection.
-- SKL-2.1 (auto) WHEN the input starts with `/` THE bubble SHALL show an autocomplete list of available skills and system commands (name, args hint, description), filtered by prefix and then fuzzy match as the user types. ↑/↓ moves the selection, Tab or Enter completes, and Esc closes the list.
+- SKL-2.1 (auto) WHEN the input starts with `/` THE bubble SHALL show an autocomplete list of available skills and system commands (name, args hint, description), filtered by prefix and then fuzzy match as the user types. ↑/↓ moves the selection, Tab or Enter completes, and Esc closes the list. Enter on a name already typed in full runs it, so a command needs one Enter (amended 2026-10-13).
 - SKL-2.2 (auto) WHEN the user submits `/<name> <rest>` THE SYSTEM SHALL run skill `<name>` with `{{input}}` set to the trimmed `<rest>`.
 - SKL-2.3 (auto) WHEN `/<name>` matches no skill or command THE SYSTEM SHALL show "Unknown skill" with the closest names, and SHALL send nothing to the model.
 - SKL-2.4 (auto) Skills whose `requires` the active model doesn't meet SHALL be hidden from autocomplete. If typed anyway, they SHALL be rejected with the reason (e.g. "needs a vision model").

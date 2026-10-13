@@ -5,6 +5,7 @@ import History from "./History";
 import { HotkeyFields } from "./HotkeyInput";
 import ModelsTab from "./Models";
 import PersonalityTab from "./Personality";
+import SkillsTab from "./SkillsTab";
 import { useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
 
 const TABS = ["General", "Models", "Personality", "Skills", "Voice", "Privacy", "History", "About"] as const;
@@ -41,6 +42,8 @@ export default function Settings() {
           <ModelsTab settings={settings} save={save} />
         ) : tab === "Personality" ? (
           <PersonalityTab settings={settings} save={save} />
+        ) : tab === "Skills" ? (
+          <SkillsTab settings={settings} />
         ) : tab === "History" ? (
           <History settings={settings} save={save} />
         ) : tab === "About" ? (
@@ -124,7 +127,7 @@ function Advanced({ settings, save }: { settings: S; save: Save }) {
             ))}
           </select>
           <button type="button" aria-label={`Remove ${exe}`} onClick={() => setShortcut(exe, null)}>
-            ×
+            Ã—
           </button>
         </div>
       ))}

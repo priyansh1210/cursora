@@ -9,6 +9,7 @@ mod persona;
 mod prompt;
 mod secrets;
 mod settings;
+mod skills;
 mod tray;
 
 use bubble::BubbleState;
@@ -62,11 +63,11 @@ fn app_info(app: AppHandle) -> AppInfo {
 #[tauri::command]
 fn open_folder(app: AppHandle, kind: String) -> Result<(), String> {
     let dir = match kind.as_str() {
-        "config" => app.path().app_config_dir(),
-        "log" => app.path().app_log_dir(),
-        _ => return Err(format!("unknown folder {kind:?}")),
-    }
-    .map_err(|e| e.to_string())?;
+        "config" => app.path().app_config_dir().map_err(|e| e.to_string()),
+        "log" => app.path().app_log_dir().map_err(|e| e.to_string()),
+        "skills" => skills::dir(&app),
+        _ => Err(format!("unknown folder {kind:?}")),
+    }?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     app.opener().open_path(dir.to_string_lossy(), None::<&str>).map_err(|e| e.to_string())
 }
@@ -151,7 +152,7 @@ pub fn open_window(app: &AppHandle, label: &str) {
 }
 
 /// `tab` (Settings only) is passed as the URL fragment, or as an event when the window is already open.
-fn open_window_at(app: &AppHandle, label: &str, tab: &str) {
+pub(crate) fn open_window_at(app: &AppHandle, label: &str, tab: &str) {
     if let Some(w) = app.get_webview_window(label) {
         if !tab.is_empty() {
             let _ = w.emit_to(label, "settings-tab", tab);
@@ -232,6 +233,16 @@ pub fn run() {
             persona::persona_add,
             persona::persona_import,
             persona::persona_export,
+            skills::skills_available,
+            skills::skills_list,
+            skills::skill_check,
+            skills::skill_save,
+            skills::skill_test,
+            skills::skill_delete,
+            skills::skill_import,
+            skills::skill_export,
+            skills::skill_draft,
+            skills::skill_new,
             history::history_list,
             history::history_open,
             history::history_delete,
@@ -271,6 +282,7 @@ pub fn run() {
             app.manage(history);
             app.manage(AppState { settings: Mutex::new(settings), path });
             app.manage(ChatState::default());
+            app.manage(skills::Draft::default());
             app.manage(BubbleState::default());
             app.manage(llm::engine::Engine::default());
             llm::engine::watch_idle(app.handle().clone());

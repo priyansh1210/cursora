@@ -2,7 +2,7 @@
 use crate::capture::{Capture, Content, Notice, SourceApp};
 use crate::history::History;
 use crate::persona::{self, Persona};
-use crate::{bubble, llm, prompt, AppState};
+use crate::{bubble, llm, prompt, skills, AppState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,6 +10,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 pub const CHAT_LABEL: &str = "chat";
+const CLOSED: &str = "This conversation is closed.";
+/// The app of the sample conversation in previews and the skill form's Test.
+pub const SAMPLE_APP: &str = "Notepad";
 /// Used when the model doesn't report its context size (BUB-5.2).
 const DEFAULT_CONTEXT_TOKENS: u32 = 8192;
 const CLOUD_CONTEXT_TOKENS: u32 = 32_768;
@@ -29,6 +32,9 @@ pub struct ModelInfo {
     pub provider: String,
     pub locality: Locality,
     pub context_tokens: Option<u32>,
+    /// Whether it can see images (SKL-2.4; spec 10's snip).
+    #[serde(default)]
+    pub vision: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -107,6 +113,9 @@ pub struct Turn {
     /// Cursora's own reply to a command such as `/persona`: shown and saved, never sent to the model (PER-3.1).
     #[serde(default)]
     pub local: bool,
+    /// Said about the answer, e.g. that a skill's own model wasn't available (SKL-2.5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -255,26 +264,70 @@ pub fn ask(window: WebviewWindow, app: AppHandle, question: String) -> Result<()
     if question.is_empty() {
         return Ok(());
     }
-    if let Some(query) = command_arg(&question, "persona") {
-        let query = query.to_string();
-        return persona_command(&app, window.label(), question, &query);
+    let label = window.label();
+    let Some((name, rest)) = command(&question) else { return answer(&app, label, question) };
+    let rest = rest.to_string();
+    match name.as_str() {
+        skills::PERSONA => persona_command(&app, label, question, &rest),
+        skills::HELP => local(&app, label, question, skills::help(&skills::available(&app))),
+        skills::CLEAR => clear(&app, label),
+        skills::NEW_SKILL => new_skill(&app, label),
+        skills::SNIP => local(&app, label, question, "Snipping isn't available yet.".into()), // spec 10
+        _ => match skills::find(&app, &name) {
+            None => local(&app, label, question, skills::unknown(&skills::load(skills::dir(&app).ok().as_deref()).0, &name)),
+            Some(s) => {
+                let (model, _) = llm::for_skill(&app, s.model.as_deref(), s.temperature)?;
+                match skills::refusal(&s, &model.info()) {
+                    Some(reason) => local(&app, label, question, reason),
+                    None => answer(&app, label, question),
+                }
+            }
+        },
     }
-    begin(&app, window.label(), |conv| {
-        conv.turns.push(Turn { question, answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, local: false })
+}
+
+/// Sends a question to the model as a new turn.
+fn answer(app: &AppHandle, label: &str, question: String) -> Result<(), String> {
+    let q = question.clone();
+    begin(app, label, &q, move |conv| {
+        conv.turns.push(Turn { question, answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, local: false, note: None })
     })
 }
 
-/// The text after `/<name>`, if the question is that command.
-fn command_arg<'a>(question: &'a str, name: &str) -> Option<&'a str> {
-    let rest = question.strip_prefix('/')?.strip_prefix(name)?;
-    (rest.is_empty() || rest.starts_with(char::is_whitespace)).then(|| rest.trim())
+/// `/name rest`: the name in lower case and the trimmed rest, if the question is a command (SKL-2.2).
+/// A name is letters, digits and hyphens, so a question such as "/etc/hosts?" isn't one.
+pub fn command(question: &str) -> Option<(String, &str)> {
+    let rest = question.strip_prefix('/')?;
+    let end = rest.find(char::is_whitespace).unwrap_or(rest.len());
+    let name = &rest[..end];
+    (!name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')).then(|| (name.to_ascii_lowercase(), rest[end..].trim()))
 }
 
-/// `/persona <name>` is answered here, never by a model (PER-3.1). Switching also turns personality on.
-fn persona_command(app: &AppHandle, label: &str, question: String, query: &str) -> Result<(), String> {
-    if slots(app).get(label).ok_or("This conversation is closed.")?.conv.turns.last().is_some_and(|t| t.status == TurnStatus::Streaming) {
-        return Err("Wait for the current answer, or stop it.".into());
+fn idle(conv: &Conversation) -> Result<(), String> {
+    match conv.turns.last() {
+        Some(t) if t.status == TurnStatus::Streaming => Err("Wait for the current answer, or stop it.".into()),
+        _ => Ok(()),
     }
+}
+
+/// Cursora's own reply: shown and saved, never sent to a model (PER-3.1, SKL-2.3).
+fn local(app: &AppHandle, label: &str, question: String, answer: String) -> Result<(), String> {
+    let now = now_ms();
+    let conv = {
+        let mut slots = slots(app);
+        let conv = &mut slots.get_mut(label).ok_or(CLOSED)?.conv;
+        idle(conv)?;
+        conv.turns.push(Turn { question, answer, status: TurnStatus::Done, error: None, asked: now, answered: Some(now), local: true, note: None });
+        conv.clone()
+    };
+    save(app, &conv);
+    let _ = app.emit_to(label, "chat-load", ());
+    Ok(())
+}
+
+/// `/persona <name>` (PER-3.1). Switching also turns personality on.
+fn persona_command(app: &AppHandle, label: &str, question: String, query: &str) -> Result<(), String> {
+    idle(&slots(app).get(label).ok_or(CLOSED)?.conv)?;
     let mut s = app.state::<AppState>().settings.lock().unwrap().clone();
     let all = persona::all(&s);
     let (chosen, answer) = persona::command(&all, &persona::active(&s).id, query);
@@ -282,16 +335,31 @@ fn persona_command(app: &AppHandle, label: &str, question: String, query: &str) 
         (s.active_persona, s.personality_on) = (p.id.clone(), true);
         crate::update_settings(app, s)?;
     }
-    let now = now_ms();
-    let turn = Turn { question, answer, status: TurnStatus::Done, error: None, asked: now, answered: Some(now), local: true };
-    let conv = {
+    local(app, label, question, answer)
+}
+
+/// `/clear` (SKL-2.7). The old conversation is already in history.
+fn clear(app: &AppHandle, label: &str) -> Result<(), String> {
+    {
         let mut slots = slots(app);
-        let conv = &mut slots.get_mut(label).ok_or("This conversation is closed.")?.conv;
-        conv.turns.push(turn);
-        conv.clone()
-    };
-    save(app, &conv);
+        let slot = slots.get_mut(label).ok_or(CLOSED)?;
+        idle(&slot.conv)?;
+        slot.conv = cleared(&slot.conv, now_ms());
+    }
     let _ = app.emit_to(label, "chat-load", ());
+    Ok(())
+}
+
+/// A new conversation with the same capture, model and persona.
+pub fn cleared(c: &Conversation, id: i64) -> Conversation {
+    Conversation { id, turns: vec![], dropped: 0, ..c.clone() }
+}
+
+/// `/new-skill` (SKL-4.2): the skill form, with this conversation's previous question as the template.
+fn new_skill(app: &AppHandle, label: &str) -> Result<(), String> {
+    let previous = slots(app).get(label).and_then(|s| s.conv.turns.iter().rev().find(|t| !t.local && command(&t.question).is_none()).map(|t| t.question.clone()));
+    skills::draft(app, previous.unwrap_or_default());
+    let _ = app.emit_to(label, "chat-load", ()); // drops the view's placeholder turn
     Ok(())
 }
 
@@ -303,12 +371,14 @@ pub fn persona_changed(app: &AppHandle, name: Option<String>) {
     let _ = app.emit("chat-persona", name);
 }
 
-/// Re-runs the latest question; Retry uses it too (BUB-4.4, BUB-6.1). A local reply stays as it is.
+/// Re-runs the latest question, a skill too; Retry uses it as well (BUB-4.4, BUB-6.1). A local reply stays as it is.
 #[tauri::command]
 pub fn regenerate(window: WebviewWindow, app: AppHandle) -> Result<(), String> {
-    begin(&app, window.label(), |conv| {
-        if let Some(t) = conv.turns.last_mut().filter(|t| !t.local) {
-            *t = Turn { answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, ..t.clone() };
+    let label = window.label();
+    let Some(question) = slots(&app).get(label).and_then(|s| s.conv.turns.last()).filter(|t| !t.local).map(|t| t.question.clone()) else { return Ok(()) };
+    begin(&app, label, &question, |conv| {
+        if let Some(t) = conv.turns.last_mut() {
+            *t = Turn { answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, note: None, ..t.clone() };
         }
     })
 }
@@ -369,25 +439,33 @@ fn show_chat_window(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Marks the turn as streaming via `change`, then answers it on a worker thread.
-fn begin(app: &AppHandle, label: &str, change: impl FnOnce(&mut Conversation)) -> Result<(), String> {
-    let model = llm::active(app)?;
+/// Marks the turn as streaming via `change`, then answers `question` on a worker thread.
+/// A question that names a skill runs it, with the skill's model if it has one (SKL-2.2, 2.5).
+fn begin(app: &AppHandle, label: &str, question: &str, change: impl FnOnce(&mut Conversation)) -> Result<(), String> {
+    let skill = command(question).and_then(|(name, input)| skills::find(app, &name).map(|s| (s, input.to_string())));
+    let (model, note) = match &skill {
+        Some((s, _)) => llm::for_skill(app, s.model.as_deref(), s.temperature)?,
+        None => (llm::active(app)?, None),
+    };
+    if let Some(reason) = skill.as_ref().and_then(|(s, _)| skills::refusal(s, &model.info())) {
+        return Err(reason);
+    }
     let s = app.state::<AppState>().settings.lock().unwrap().clone();
     let (share_title, persona) = (s.capture.share_window_title, persona::in_use(&s));
+    let language = skills::language(persona.as_ref());
     let (id, messages, dropped, cancel, too_long) = {
         let mut slots = slots(app);
-        let slot = slots.get_mut(label).ok_or("This conversation is closed.")?;
-        if slot.conv.turns.last().is_some_and(|t| t.status == TurnStatus::Streaming) {
-            return Err("Wait for the current answer, or stop it.".into());
-        }
+        let slot = slots.get_mut(label).ok_or(CLOSED)?;
+        idle(&slot.conv)?;
         change(&mut slot.conv);
-        if !slot.conv.turns.last().is_some_and(|t| t.status == TurnStatus::Streaming) {
-            return Ok(()); // nothing to answer
-        }
+        let Some(last) = slot.conv.turns.last_mut().filter(|t| t.status == TurnStatus::Streaming) else { return Ok(()) }; // nothing to answer
+        last.note = note;
+        let date = skills::today();
+        let instructions = skill.map(|(s, input)| skills::render(&s.template, &skills::Vars { input: &input, app: &slot.conv.app.name, language: &language, date: &date }));
         let info = model.info();
         // Unknown sizes: no current cloud chat model has less than 32k.
         let assumed = info.context_tokens.or((info.locality == Locality::Cloud).then_some(CLOUD_CONTEXT_TOKENS));
-        let (messages, dropped) = assemble(&slot.conv, persona.as_ref(), share_title, budget(assumed));
+        let (messages, dropped) = assemble(&slot.conv, persona.as_ref(), instructions.as_deref(), share_title, budget(assumed));
         let too_long = info.context_tokens.and_then(|ctx| too_long(&messages, ctx));
         (slot.conv.model, slot.conv.dropped) = (Some(info), dropped); // a reopened conversation answers with today's model
         slot.cancel = Arc::default();
@@ -466,9 +544,9 @@ pub fn too_long(messages: &[Message], context_tokens: u32) -> Option<ChatError> 
 /// system prompt, then the context on the oldest kept question (so exactly once), then the turns.
 /// Oldest pairs go first when over budget; the system prompt, context and latest question always stay.
 /// Errored turns, empty answers and local replies aren't sent back; a cancelled partial answer is.
-/// `persona` is None while personality is off (PER-2.1).
-pub fn assemble(conv: &Conversation, persona: Option<&Persona>, share_title: bool, budget: usize) -> (Vec<Message>, usize) {
-    let system = prompt::system(persona);
+/// `persona` is None while personality is off (PER-2.1); `skill` is the rendered instructions of a skill, if one runs.
+pub fn assemble(conv: &Conversation, persona: Option<&Persona>, skill: Option<&str>, share_title: bool, budget: usize) -> (Vec<Message>, usize) {
+    let system = prompt::system(persona, skill);
     let context = prompt::context(&conv.app, &conv.content, share_title);
     let Some((latest, earlier)) = conv.turns.split_last() else { return (vec![], 0) };
     let pairs: Vec<&Turn> = earlier.iter().filter(|t| t.status != TurnStatus::Error && !t.answer.is_empty() && !t.local).collect();
@@ -494,19 +572,23 @@ pub fn assemble(conv: &Conversation, persona: Option<&Persona>, share_title: boo
 #[tauri::command]
 pub fn prompt_preview(app: AppHandle) -> String {
     let s = app.state::<AppState>().settings.lock().unwrap().clone();
-    let conv = Conversation {
+    let conv = sample("Step 1: write the draft.\nStep 2: send it to Priya by Friday.", "What is due on Friday?");
+    prompt::render(&assemble(&conv, persona::in_use(&s).as_ref(), None, s.capture.share_window_title, usize::MAX).0)
+}
+
+/// A conversation about `text` selected in Notepad, waiting for the answer to `question`: for previews and tests.
+pub fn sample(text: &str, question: &str) -> Conversation {
+    Conversation {
         id: 0,
-        app: SourceApp { name: "Notepad".into(), title: "plan.txt - Notepad".into(), ..Default::default() },
-        content: Content::Text { text: "Step 1: write the draft.
-Step 2: send it to Priya by Friday.".into(), truncated: false },
+        app: SourceApp { name: SAMPLE_APP.into(), title: format!("plan.txt - {SAMPLE_APP}"), ..Default::default() },
+        content: Content::Text { text: text.into(), truncated: false },
         notice: None,
         model: None,
         persona: None,
-        turns: vec![Turn { question: "What is due on Friday?".into(), answer: String::new(), status: TurnStatus::Streaming, error: None, asked: 0, answered: None, local: false }],
+        turns: vec![Turn { question: question.into(), answer: String::new(), status: TurnStatus::Streaming, error: None, asked: 0, answered: None, local: false, note: None }],
         dropped: 0,
         unavailable: None,
-    };
-    prompt::render(&assemble(&conv, persona::in_use(&s).as_ref(), s.capture.share_window_title, usize::MAX).0)
+    }
 }
 
 /// Debug builds with CURSORA_ECHO set: streams a canned Markdown answer, so the bubble can be tried without a model.
@@ -517,7 +599,7 @@ pub struct Echo;
 #[cfg(debug_assertions)]
 impl Model for Echo {
     fn info(&self) -> ModelInfo {
-        ModelInfo { name: "echo".into(), provider: "Debug".into(), locality: Locality::Local, context_tokens: Some(DEFAULT_CONTEXT_TOKENS) }
+        ModelInfo { name: "echo".into(), provider: "Debug".into(), locality: Locality::Local, context_tokens: Some(DEFAULT_CONTEXT_TOKENS), vision: false }
     }
 
     fn stream(&self, messages: &[Message], cancel: &AtomicBool, on_delta: &mut dyn FnMut(&str)) -> Result<(), ChatError> {
@@ -548,7 +630,7 @@ mod tests {
     use super::*;
 
     fn turn(q: &str, a: &str, status: TurnStatus) -> Turn {
-        Turn { question: q.into(), answer: a.into(), status, error: None, asked: 0, answered: None, local: false }
+        Turn { question: q.into(), answer: a.into(), status, error: None, asked: 0, answered: None, local: false, note: None }
     }
 
     fn conv(turns: Vec<Turn>) -> Conversation {
@@ -572,7 +654,7 @@ mod tests {
     #[test]
     fn bub_5_1_follow_ups_send_the_conversation_with_the_context_once() {
         let c = conv(vec![turn("q1", "a1", TurnStatus::Done), turn("q2", "a2", TurnStatus::Done), turn("q3", "", TurnStatus::Streaming)]);
-        let (m, dropped) = assemble(&c, None, false, budget(None));
+        let (m, dropped) = assemble(&c, None, None, false, budget(None));
         assert_eq!(dropped, 0);
         let roles: Vec<Role> = m.iter().map(|m| m.role).collect();
         assert_eq!(roles, [Role::System, Role::User, Role::Assistant, Role::User, Role::Assistant, Role::User]);
@@ -581,26 +663,42 @@ mod tests {
         assert_eq!(m[5].text, "q3");
         // Errored turns aren't sent back; a cancelled partial answer is.
         let c = conv(vec![turn("bad", "", TurnStatus::Error), turn("half", "partial", TurnStatus::Cancelled), turn("q", "", TurnStatus::Streaming)]);
-        let (m, _) = assemble(&c, None, false, budget(None));
+        let (m, _) = assemble(&c, None, None, false, budget(None));
         assert_eq!(m.iter().map(|m| m.text.lines().last().unwrap()).collect::<Vec<_>>()[1..], ["half", "partial", "q"]);
         // No context: nothing is wrapped.
         let mut c = conv(vec![turn("q", "", TurnStatus::Streaming)]);
         c.content = Content::None;
-        assert_eq!(context_count(&assemble(&c, None, false, budget(None)).0), 0);
+        assert_eq!(context_count(&assemble(&c, None, None, false, budget(None)).0), 0);
     }
 
     #[test]
     fn per_3_1_persona_replies_are_never_sent_to_the_model() {
         let local = Turn { local: true, ..turn("/persona ada", "Now speaking as **Ada**.", TurnStatus::Done) };
         let c = conv(vec![local, turn("q1", "a1", TurnStatus::Done), turn("q2", "", TurnStatus::Streaming)]);
-        let (m, _) = assemble(&c, None, false, budget(None));
+        let (m, _) = assemble(&c, None, None, false, budget(None));
         assert_eq!(m.len(), 4);
         assert!(m.iter().all(|m| !m.text.contains("/persona") && !m.text.contains("Ada")));
         assert!(m[1].text.contains("SELECTED") && m[1].text.ends_with("q1"), "the context moves to the first real question");
-        assert_eq!(command_arg("/persona ada", "persona"), Some("ada"));
-        assert_eq!(command_arg("/persona", "persona"), Some(""));
-        assert_eq!(command_arg("/personas", "persona"), None);
-        assert_eq!(command_arg("what does /persona do", "persona"), None);
+    }
+
+    #[test]
+    fn skl_2_2_a_command_is_its_name_in_any_case_and_the_trimmed_rest() {
+        assert_eq!(command("/translate  French "), Some(("translate".into(), "French")));
+        assert_eq!(command("/Persona Ada"), Some(("persona".into(), "Ada")), "issue 23");
+        assert_eq!(command("/help"), Some(("help".into(), "")));
+        assert_eq!(command("/new-skill\nnow"), Some(("new-skill".into(), "now")));
+        for not_one in ["/etc/hosts?", "/ summary", "/", "what does /persona do", "summary"] {
+            assert_eq!(command(not_one), None, "{not_one}");
+        }
+    }
+
+    #[test]
+    fn skl_2_7_clear_keeps_the_capture_and_starts_with_no_turns() {
+        let mut c = conv(vec![turn("q1", "a1", TurnStatus::Done)]);
+        c.dropped = 1;
+        let fresh = cleared(&c, 99);
+        assert_eq!((fresh.id, fresh.turns.len(), fresh.dropped), (99, 0, 0));
+        assert_eq!((&fresh.app, &fresh.content, &fresh.model, &fresh.persona), (&c.app, &c.content, &c.model, &c.persona));
     }
 
     #[test]
@@ -611,14 +709,14 @@ mod tests {
             turn("middle question", &long, TurnStatus::Done),
             turn("latest", "", TurnStatus::Streaming),
         ]);
-        let fixed = tokens(&prompt::system(None)) + tokens(&prompt::context(&c.app, &c.content, false).unwrap()) + tokens("latest");
-        let (m, dropped) = assemble(&c, None, false, fixed + 110); // room for one pair only
+        let fixed = tokens(&prompt::system(None, None)) + tokens(&prompt::context(&c.app, &c.content, false).unwrap()) + tokens("latest");
+        let (m, dropped) = assemble(&c, None, None, false, fixed + 110); // room for one pair only
         assert_eq!(dropped, 1);
         assert!(m.iter().all(|m| !m.text.contains("old question")));
         assert!(m[1].text.contains("SELECTED") && m[1].text.ends_with("middle question"), "context moves to the oldest kept question");
         assert_eq!((m[0].role, m.last().unwrap().text.as_str()), (Role::System, "latest"));
         // Even a budget too small for the essentials keeps them.
-        let (m, dropped) = assemble(&c, None, false, 1);
+        let (m, dropped) = assemble(&c, None, None, false, 1);
         assert_eq!(dropped, 2);
         assert_eq!(m.len(), 2);
         assert_eq!(context_count(&m), 1);
@@ -638,7 +736,7 @@ mod tests {
 
     impl Model for Scripted {
         fn info(&self) -> ModelInfo {
-            ModelInfo { name: "fake".into(), provider: "Test".into(), locality: Locality::Local, context_tokens: None }
+            ModelInfo { name: "fake".into(), provider: "Test".into(), locality: Locality::Local, context_tokens: None, vision: false }
         }
         fn stream(&self, _: &[Message], _: &AtomicBool, on_delta: &mut dyn FnMut(&str)) -> Result<(), ChatError> {
             for p in &self.0 {

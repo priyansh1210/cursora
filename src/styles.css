@@ -397,3 +397,19 @@ pre.detail {
   max-height: 24em;
   overflow: auto;
 }
+ul.complete {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+ul.complete li {
+  padding: 3px 10px;
+  cursor: pointer;
+}
+ul.complete li[aria-selected="true"] {
+  background: var(--line);
+}
