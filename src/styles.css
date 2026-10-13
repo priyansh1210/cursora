@@ -69,6 +69,14 @@ h2 {
 .row > .badge {
   min-width: 0;
 }
+/* WebKitGTK leaves the text of a plain flex item out of the accessibility tree, so Linux screen readers
+   skipped these; a span that is itself a flex container keeps its text (issue 20). Only text-only spans:
+   inside a flex container, text next to an element loses the space between them. */
+.row > span:not(:has(*)),
+.chat > header > span,
+.badge {
+  display: inline-flex;
+}
 .muted {
   color: var(--muted);
 }

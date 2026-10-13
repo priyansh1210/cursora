@@ -678,6 +678,7 @@ dependencies = [
  "keyring-core",
  "libc",
  "log",
+ "raw-window-handle",
  "regex",
  "reqwest",
  "rusqlite",
@@ -694,6 +695,7 @@ dependencies = [
  "url",
  "windows",
  "windows-native-keyring-store",
+ "x11rb",
  "zbus-secret-service-keyring-store",
 ]
 

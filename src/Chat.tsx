@@ -366,6 +366,7 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
   if (notice?.kind === "blocked") notes.push(`Cursora is blocked in ${conv.app.name || conv.app.exe}, so nothing was read.`);
   if (notice?.kind === "elevated") notes.push("Cursora can't read apps running as administrator. Run Cursora as administrator to use it there.");
   if (notice?.kind === "noSelection") notes.push("Nothing was selected, so ask anything.");
+  if (notice?.kind === "unreadable") notes.push("No selection could be read in this session."); // LNX-3.4
   if (content.kind === "text" && content.truncated) notes.push(`Only the first ${content.text.length.toLocaleString()} characters were captured.`);
   if (content.kind === "files" && content.omitted > 0) notes.push(`${content.omitted} more items were left out.`);
 

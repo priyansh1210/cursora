@@ -14,7 +14,7 @@
 
 ### LNX-2 Hotkey
 - LNX-2.1 (manual) On X11 THE global hotkeys SHALL work as they do on Windows (SEL-1).
-- LNX-2.2 (manual) On Wayland THE SYSTEM SHALL use the XDG Desktop Portal *GlobalShortcuts* interface where the desktop supports it. Otherwise Settings SHALL show copy-paste-ready steps to bind `cursora --ask` (and `cursora --snip`) as GNOME or KDE custom shortcuts.
+- LNX-2.2 (manual) On Wayland THE Settings window SHALL show copy-paste-ready steps to bind `cursora --ask` as a GNOME or KDE custom shortcut. (Amended 2026-10-13: the XDG Desktop Portal *GlobalShortcuts* interface moved to the backlog; the `cursora --snip` line arrives with spec 10.)
 - LNX-2.3 (manual) WHEN `cursora --ask` runs while Cursora is running THE capture flow SHALL start within 150 ms (APP-2.2).
 
 ### LNX-3 Selection capture
@@ -25,6 +25,7 @@
   3. restore the clipboard (SEL-3)
 - LNX-3.3 (auto) THE SYSTEM SHALL never simulate Ctrl+C in terminal apps (gnome-terminal, konsole, xterm, alacritty, kitty, wezterm, tilix, terminator, xfce4-terminal, ptyxis). PRIMARY covers terminals.
 - LNX-3.4 (manual) On Wayland THE SYSTEM SHALL read PRIMARY via `wl-paste --primary` when it is available and supported. Otherwise the bubble SHALL open in general-chat mode with the hint "No selection could be read in this session."
+- LNX-3.5 (auto) On X11 WHEN the PRIMARY selection is owned by an app that matches a blocklist rule THE SYSTEM SHALL NOT read it, whichever app is in front; the capture goes on as if nothing were selected (PRI-2.1). (Added 2026-10-14, issue 30: X11 has one PRIMARY for every app, so text selected in a password manager could be read from another app.)
 
 ### LNX-4 Cursor position and active app
 - LNX-4.1 (manual) On X11 THE bubble SHALL open at the cursor (XQueryPointer) and be correct on multi-monitor setups (XRandR work areas).

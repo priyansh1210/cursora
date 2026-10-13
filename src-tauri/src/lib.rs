@@ -9,9 +9,12 @@ mod persona;
 mod privacy;
 mod prompt;
 mod secrets;
+mod session;
 mod settings;
 mod skills;
 mod tray;
+#[cfg(not(windows))]
+mod x11;
 
 use bubble::BubbleState;
 use chat::ChatState;
@@ -43,11 +46,13 @@ fn set_settings(app: AppHandle, settings: Settings) -> Result<(), String> {
 struct AppInfo {
     version: String,
     os: &'static str,
-    session: String,
+    session: session::Session,
     config_dir: String,
     log_dir: String,
     /// Whether the blocklist can be enforced in this session (PRI-2.5).
     identifies_apps: bool,
+    /// The command the Wayland shortcut steps show (LNX-2.2).
+    launcher: String,
 }
 
 #[tauri::command]
@@ -56,11 +61,11 @@ fn app_info(app: AppHandle) -> AppInfo {
     AppInfo {
         version: app.package_info().version.to_string(),
         os: std::env::consts::OS,
-        // Spec 08 (LNX-1.1) refines Linux session detection.
-        session: if cfg!(windows) { "windows".into() } else { std::env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "unknown".into()) },
+        session: session::current(),
         config_dir: dir(app.path().app_config_dir()),
         log_dir: dir(app.path().app_log_dir()),
-        identifies_apps: capture::identifies_apps(),
+        identifies_apps: capture::identifies_apps(session::current()),
+        launcher: launcher(&app).map(|p| p.display().to_string()).unwrap_or_default(),
     }
 }
 
@@ -138,11 +143,11 @@ pub fn update_settings(app: &AppHandle, mut settings: Settings) -> Result<(), St
 /// auto-launch is used directly because tauri-plugin-autostart writes the machine-wide (HKLM)
 /// Run key whenever it has the rights; this is a per-user setting.
 fn sync_autostart(app: &AppHandle, settings: &Settings) {
-    let Ok(exe) = std::env::current_exe() else { return };
-    #[cfg(target_os = "linux")]
-    let exe = app.env().appimage.map(PathBuf::from).unwrap_or(exe);
+    let Some(exe) = launcher(app) else { return };
+    // Linux names the file after it, so that is ~/.config/autostart/cursora.desktop (LNX-5.2); Windows keeps the Run entry's old name.
+    let name = if cfg!(windows) { app.package_info().name.clone() } else { app.package_info().crate_name.to_string() };
     let launcher = auto_launch::AutoLaunchBuilder::new()
-        .set_app_name(&app.package_info().name)
+        .set_app_name(&name)
         .set_app_path(&exe.display().to_string())
         .set_windows_enable_mode(auto_launch::WindowsEnableMode::CurrentUser)
         .build();
@@ -154,6 +159,17 @@ fn sync_autostart(app: &AppHandle, settings: &Settings) {
     if let Err(e) = result {
         log::warn!("autostart: {e}");
     }
+}
+
+/// The file that starts Cursora: the AppImage when run from one, else this executable.
+fn launcher(app: &AppHandle) -> Option<PathBuf> {
+    #[cfg(target_os = "linux")]
+    if let Some(appimage) = app.env().appimage {
+        return Some(appimage.into());
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = app;
+    std::env::current_exe().ok()
 }
 
 /// Settings and Setup windows are created on demand and destroyed on close, to keep idle RAM low.
@@ -181,6 +197,8 @@ fn handle(app: &AppHandle, action: cli::Action) {
     match action {
         cli::Action::Settings => open_window(app, "settings"),
         cli::Action::Quit => app.exit(0),
+        // On Wayland the desktop shortcut runs this, and Cursora can't unregister it, so pausing must stop it here (APP-1.3).
+        cli::Action::Ask if app.state::<AppState>().settings.lock().unwrap().paused => log::info!("paused: --ask ignored"),
         cli::Action::Ask => hotkey::on_ask(app),
         cli::Action::Snip => log::info!("snip is not available yet (spec 10)"),
     }
@@ -188,6 +206,8 @@ fn handle(app: &AppHandle, action: cli::Action) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    session::prefer_xwayland();
     tauri::Builder::default()
         // Must be first: a second launch hands its arguments to this instance and exits (APP-2.2).
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {

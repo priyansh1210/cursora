@@ -1,5 +1,6 @@
 use crate::capture::{self, Content, Platform};
 use crate::settings::{Hotkeys, Settings};
+use crate::session::{self, Session};
 use crate::{bubble, chat, llm, AppState};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -40,7 +41,8 @@ pub fn validate(new: &Hotkeys, old: &Hotkeys) -> Result<(), String> {
 pub fn apply(app: &AppHandle, old: Option<&Settings>, new: &Settings) -> Result<(), String> {
     let shortcuts = app.global_shortcut();
     let _ = shortcuts.unregister_all();
-    if new.paused {
+    // On Wayland the desktop shortcut runs `cursora --ask` instead (LNX-2.2); through XWayland a hotkey would only fire over X11 apps.
+    if new.paused || session::current() == Session::Wayland {
         return Ok(());
     }
     if let Err(e) = shortcuts.register(new.hotkeys.ask.as_str()) {
@@ -62,8 +64,9 @@ pub fn on_ask(app: &AppHandle) {
     if CAPTURING.swap(true, Ordering::SeqCst) {
         return;
     }
-    // Read at the keypress, before the capture can take any time (BUB-1.1).
-    let cursor = app.cursor_position().ok().map(|p| (p.x.round() as i32, p.y.round() as i32));
+    // Read at the keypress, before the capture can take any time (BUB-1.1). Under XWayland it is stale
+    // while a Wayland app has focus, so on Wayland the bubble is centered instead (LNX-4.2).
+    let cursor = app.cursor_position().ok().filter(|_| session::current() != Session::Wayland).map(|p| (p.x.round() as i32, p.y.round() as i32));
     let app = app.clone();
     let s = app.state::<AppState>().settings.lock().unwrap().clone();
     std::thread::spawn(move || {
