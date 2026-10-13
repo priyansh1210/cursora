@@ -149,7 +149,7 @@ Local replies are spec 05's local turns: shown and saved, never sent.
 | `code` | | What the code does, step by step, and the language. |
 | `bugs` | | Each bug: where, what goes wrong, how to fix it; says so plainly if there are none. |
 
-The full wording is in the files. SKL-3.2's evaluation sheet is `specs/06-skills/evaluation.md`: for each skill, a sample input with one local and one cloud model's answer, judged as sensible or not.
+The full wording is in the files. `specs/06-skills/evaluation.md` records each skill's answer on a sample input with the 0.5B test model, for reference (SKL-3.2 is retired: answer quality depends on the user's model).
 
 ## Changes to earlier specs' code
 - **Spec 05:**
@@ -194,7 +194,7 @@ None new: a small frontmatter parser instead of a YAML crate, and reading on use
 | SKL-4.4 | `skill_save` writes `<name>.md`, and the next `load()` has it. |
 | SKL-4.5 | A temporary folder: a file added, changed and deleted between two loads shows each change. |
 
-Manual: SKL-3.2 (the evaluation sheet), SKL-4.1, 4.2, 4.3, 4.6, and the autocomplete with a screen reader.
+Manual: SKL-4.1, 4.2, 4.3, 4.6, and the autocomplete with a screen reader.
 
 ## Changes during implementation
 - **2026-10-13, build:**

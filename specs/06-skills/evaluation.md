@@ -1,6 +1,6 @@
-# 06: Skills (evaluation sheet, SKL-3.2)
+# 06: Skills (evaluation sheet)
 
-Each built-in skill on a sample input, judged as sensible or not. SKL-3.2 asks for one local and one cloud model; it passes when both columns are filled and sensible.
+Each built-in skill on a sample input, judged as sensible or not. This is a reference, not a gate: SKL-3.2 is retired, because how good an answer is depends on the model the user picks.
 
 ## Local: qwen2.5-0.5b-instruct (Q4_K_M), built-in engine, personality off (2026-10-13, Windows)
 A 0.5B model is far below what the skills are written for; this run mainly shows the plumbing works. The test text was selected in a PowerShell window, so the source app is "powershell", which the model sometimes takes for the language of the text.
@@ -16,7 +16,3 @@ A 0.5B model is far below what the skills are written for; this run mainly shows
 | `/rewrite formal` | "hey, can u send me the report asap? thx" | "Hey, can you send me the report ASAP? Thank you!" | No (not formal) |
 | `/code` | `for (let i = 0; i < arr.length; i++) { sum += arr[i]; }` | "Sums the elements of an array", but calls it PowerShell | Partly |
 | `/bugs` | `avg()` with `i <= a.length` | Repeats the code; no bug named | No |
-
-## Still to do
-- **Local:** a 3B or larger model (issue 26).
-- **Cloud:** one cloud model (issue 16).

@@ -50,7 +50,7 @@ User story: As a user, I want to type `/summary` and get a summary of my selecti
   - `fix` (grammar and spelling)
   - `rewrite` (args: `<tone>`)
   - `code` (explain code), `bugs` (find bugs)
-- SKL-3.2 (manual) Each built-in skill SHALL produce a sensible result on its sample input, recorded in an evaluation sheet, with one local model and one cloud model.
+- SKL-3.2 (retired) Each built-in skill producing a sensible result with one local and one cloud model. Removed 2026-10-13: how good the answer is depends on the model the user picks, which Cursora doesn't control. Cursora's part, the skill's instructions reaching the model as written, is SKL-2.2 and SKL-3.1. [evaluation.md](evaluation.md) keeps the run with the 0.5B test model for reference.
 
 ### SKL-4 Creating your own skills
 User story: As a user, I want to make my own commands (like `/eli5` or `/to-sql`) and use them immediately.
