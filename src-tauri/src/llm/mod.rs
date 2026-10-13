@@ -26,13 +26,36 @@ pub fn echo() -> bool {
 
 /// The configured default model, ready to answer, or why there is none (LLM-9.1).
 pub fn active(app: &AppHandle) -> Result<Arc<dyn Model>, String> {
+    for_skill(app, None, None).map(|(m, _)| m)
+}
+
+/// A skill's own model when it names one that is available, else the active model and a note saying so (SKL-2.5).
+pub fn for_skill(app: &AppHandle, reference: Option<&str>, temperature: Option<f64>) -> Result<(Arc<dyn Model>, Option<String>), String> {
     #[cfg(debug_assertions)]
     if echo() {
-        return Ok(Arc::new(crate::chat::Echo));
+        return Ok((Arc::new(crate::chat::Echo), None));
     }
     let s = app.state::<AppState>().settings.lock().unwrap().clone();
-    let (p, model) = availability(&s.models, s.local_only)?;
-    Ok(Arc::new(ProviderModel { app: app.clone(), provider: p.clone(), model: model.into(), policy: Policy::of(&s) }))
+    let (p, model, note) = match reference.map(|r| (r, pick(&s.models, s.local_only, r))) {
+        Some((_, Ok((p, m)))) => (p, m, None),
+        other => {
+            let (p, m) = availability(&s.models, s.local_only)?;
+            (p, m, other.and_then(|(r, why)| why.err().map(|why| format!("{r} isn't available ({why}), so {m} answered."))))
+        }
+    };
+    Ok((Arc::new(ProviderModel { app: app.clone(), provider: p.clone(), model: model.into(), policy: Policy::of(&s), temperature }), note))
+}
+
+/// A skill's `model: <provider>/<model>`: the provider by name (ignoring case) or id, one of the models chosen for it,
+/// and allowed in local-only mode. The error says why not.
+pub fn pick<'a>(m: &'a ModelSettings, local_only: bool, reference: &'a str) -> Result<(&'a Provider, &'a str), String> {
+    let (provider, model) = reference.split_once('/').map(|(p, m)| (p.trim(), m.trim())).ok_or("it isn't written as <provider>/<model>")?;
+    let p = m.providers.iter().find(|p| p.id == provider || p.name.to_lowercase() == provider.to_lowercase()).ok_or_else(|| format!("no provider is called {provider}"))?;
+    let model = p.models.iter().find(|x| *x == model).ok_or_else(|| format!("{model} isn't one of {}'s chosen models", p.name))?;
+    if local_only && p.locality(&m.trusted_hosts) == Locality::Cloud {
+        return Err("local-only mode is on".into());
+    }
+    Ok((p, model))
 }
 
 /// A configured provider and model, behind spec 03's `Model` seam.
@@ -41,6 +64,8 @@ pub struct ProviderModel {
     provider: Provider,
     model: String,
     policy: Policy,
+    /// A skill's temperature; None leaves the provider's default.
+    temperature: Option<f64>,
 }
 
 impl Model for ProviderModel {
@@ -50,6 +75,7 @@ impl Model for ProviderModel {
             provider: self.provider.name.clone(),
             locality: self.provider.locality(&self.policy.trusted),
             context_tokens: context_size(&self.provider, &self.model),
+            vision: vision(&self.provider, &self.model),
         }
     }
 
@@ -61,7 +87,7 @@ impl Model for ProviderModel {
             Kind::Builtin => engine::ensure_running(&self.app, p, &self.policy, cancel)?,
             _ => p.base_url.clone(),
         };
-        let req = chat_request(p.kind, &base, &self.model, messages, key.as_deref())?;
+        let req = chat_request(p.kind, &base, &self.model, messages, key.as_deref(), self.temperature)?;
         let (mut usage, mut done, mut first) = (Usage::default(), false, None);
         let result = tauri::async_runtime::block_on(net::stream(req, &self.policy, cancel, &mut |name, data| {
             for event in parse(p.kind, &mut usage, name, data) {
@@ -218,12 +244,19 @@ fn join(base: &str, path: &str) -> Result<Url, ChatError> {
 }
 
 /// The streaming chat request for this kind of provider (LLM-1.1). The built-in engine speaks the OpenAI format.
-pub fn chat_request(kind: Kind, base: &str, model: &str, messages: &[Message], key: Option<&str>) -> Result<net::Request, ChatError> {
-    match kind {
+pub fn chat_request(kind: Kind, base: &str, model: &str, messages: &[Message], key: Option<&str>, temperature: Option<f64>) -> Result<net::Request, ChatError> {
+    let mut req = match kind {
         Kind::OpenAiCompatible | Kind::Builtin => openai::chat(base, model, messages, key),
         Kind::Anthropic => anthropic::chat(base, model, messages, key),
         Kind::Gemini => gemini::chat(base, model, messages, key),
+    }?;
+    if let (Some(t), Some(body)) = (temperature, req.body.as_mut()) {
+        match kind {
+            Kind::Gemini => body["generationConfig"] = serde_json::json!({ "temperature": t }),
+            _ => body["temperature"] = serde_json::json!(t),
+        }
     }
+    Ok(req)
 }
 
 pub fn list_request(kind: Kind, base: &str, key: Option<&str>) -> Result<net::Request, ChatError> {
@@ -438,6 +471,29 @@ pub mod tests {
     }
 
     #[test]
+    fn skl_2_5_a_skill_names_its_model_and_temperature() {
+        let mut ollama = provider("p-1", Kind::OpenAiCompatible, "http://localhost:11434/v1");
+        (ollama.name, ollama.models) = ("Ollama".into(), vec!["llama3.2".into(), "meta/llama-3".into()]);
+        let mut cloud = provider("p-2", Kind::OpenAiCompatible, "https://api.openai.com/v1");
+        (cloud.name, cloud.models) = ("OpenAI".into(), vec!["gpt-4o-mini".into()]);
+        let m = ModelSettings { providers: vec![ollama, cloud], ..ModelSettings::default() };
+        let got = |r: &str, local_only| pick(&m, local_only, r).map(|(p, model)| format!("{}/{model}", p.id));
+        assert_eq!(got("ollama/llama3.2", false), Ok("p-1/llama3.2".into()), "provider names ignore case");
+        assert_eq!(got("p-1/meta/llama-3", false), Ok("p-1/meta/llama-3".into()), "by id, and the model id keeps its '/'");
+        assert_eq!(got("Ollama/mistral", false), Err("mistral isn't one of Ollama's chosen models".into()));
+        assert_eq!(got("LM Studio/x", false), Err("no provider is called LM Studio".into()));
+        assert_eq!(got("OpenAI/gpt-4o-mini", false), Ok("p-2/gpt-4o-mini".into()));
+        assert_eq!(got("OpenAI/gpt-4o-mini", true), Err("local-only mode is on".into()));
+        // The temperature goes where each format expects it, and only when the skill sets one.
+        for (kind, path) in [(Kind::OpenAiCompatible, "/temperature"), (Kind::Anthropic, "/temperature"), (Kind::Gemini, "/generationConfig/temperature")] {
+            let body = chat_request(kind, "https://host/", "m", &conversation(), Some("k"), Some(0.25)).unwrap().body.unwrap();
+            assert_eq!(body.pointer(path), Some(&serde_json::json!(0.25)), "{kind:?}");
+            let plain = chat_request(kind, "https://host/", "m", &conversation(), Some("k"), None).unwrap().body.unwrap();
+            assert!(plain.get("temperature").is_none() && plain.get("generationConfig").is_none(), "{kind:?}");
+        }
+    }
+
+    #[test]
     fn llm_8_1_only_this_machine_is_local() {
         for url in ["http://localhost:1234/v1", "http://LOCALHOST", "http://127.0.0.1:8080", "http://127.45.0.9", "http://[::1]:11434"] {
             assert_eq!(loc(url, &[]), Locality::Local, "{url}");
@@ -486,7 +542,7 @@ pub mod tests {
     }
 
     fn body(kind: Kind) -> (net::Request, Value) {
-        let r = chat_request(kind, "https://host/base/", "m-1", &conversation(), Some("k-123")).unwrap();
+        let r = chat_request(kind, "https://host/base/", "m-1", &conversation(), Some("k-123"), None).unwrap();
         let b = r.body.clone().unwrap();
         (r, b)
     }
@@ -577,10 +633,10 @@ pub mod tests {
     fn llm_2_2_custom_servers_take_any_base_url_and_an_optional_key() {
         assert_eq!(normalize_base_url(" http://192.168.1.5:8080/v1/ "), "http://192.168.1.5:8080/v1");
         assert_eq!(normalize_base_url("http://localhost:8000/v1/chat/completions"), "http://localhost:8000/v1");
-        let r = chat_request(Kind::OpenAiCompatible, "http://localhost:8000/v1/chat/completions", "local", &conversation(), None).unwrap();
+        let r = chat_request(Kind::OpenAiCompatible, "http://localhost:8000/v1/chat/completions", "local", &conversation(), None, None).unwrap();
         assert_eq!(r.url.as_str(), "http://localhost:8000/v1/chat/completions");
         assert!(r.headers.is_empty(), "no key, no Authorization header");
-        assert!(chat_request(Kind::OpenAiCompatible, "not a url", "m", &[], None).is_err());
+        assert!(chat_request(Kind::OpenAiCompatible, "not a url", "m", &[], None, None).is_err());
     }
 
     #[test]

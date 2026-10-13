@@ -35,7 +35,7 @@
 
 ### SKL-2 Using skills
 User story: As a user, I want to type `/summary` and get a summary of my selection.
-- SKL-2.1 (auto) WHEN the input starts with `/` THE bubble SHALL show an autocomplete list of available skills and system commands (name, args hint, description), filtered by prefix and then fuzzy match as the user types. ↑/↓ moves the selection, Tab or Enter completes, and Esc closes the list.
+- SKL-2.1 (auto) WHEN the input starts with `/` THE bubble SHALL show an autocomplete list of available skills and system commands (name, args hint, description), filtered by prefix and then fuzzy match as the user types. ↑/↓ moves the selection, Tab or Enter completes, and Esc closes the list. Enter on a name already typed in full runs it, so a command needs one Enter (amended 2026-10-13).
 - SKL-2.2 (auto) WHEN the user submits `/<name> <rest>` THE SYSTEM SHALL run skill `<name>` with `{{input}}` set to the trimmed `<rest>`.
 - SKL-2.3 (auto) WHEN `/<name>` matches no skill or command THE SYSTEM SHALL show "Unknown skill" with the closest names, and SHALL send nothing to the model.
 - SKL-2.4 (auto) Skills whose `requires` the active model doesn't meet SHALL be hidden from autocomplete. If typed anyway, they SHALL be rejected with the reason (e.g. "needs a vision model").
@@ -50,7 +50,7 @@ User story: As a user, I want to type `/summary` and get a summary of my selecti
   - `fix` (grammar and spelling)
   - `rewrite` (args: `<tone>`)
   - `code` (explain code), `bugs` (find bugs)
-- SKL-3.2 (manual) Each built-in skill SHALL produce a sensible result on its sample input, recorded in an evaluation sheet, with one local model and one cloud model.
+- SKL-3.2 (retired) Each built-in skill producing a sensible result with one local and one cloud model. Removed 2026-10-13: how good the answer is depends on the model the user picks, which Cursora doesn't control. Cursora's part, the skill's instructions reaching the model as written, is SKL-2.2 and SKL-3.1. [evaluation.md](evaluation.md) keeps the run with the 0.5B test model for reference.
 
 ### SKL-4 Creating your own skills
 User story: As a user, I want to make my own commands (like `/eli5` or `/to-sql`) and use them immediately.

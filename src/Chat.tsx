@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { errorText, formatSize, header, keyAction, type Conversation, type Delta, type Done, type Turn } from "./conversation";
 import { render } from "./markdown";
 import { ModelSelect, modelValue, useEnabledModels } from "./Models";
+import { listKey, matches, typedCommand, type Entry } from "./skills";
 import { useSettings } from "./useSettings";
 
 const isBubble = getCurrentWindow().label === "bubble";
@@ -21,6 +22,20 @@ export default function Chat() {
   const rootRef = useRef<HTMLDivElement>(null);
   const turnsRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // The / autocomplete (SKL-2.1): Rust gives the entries once a command starts; filtering is local.
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [selected, setSelected] = useState(0);
+  const [listClosed, setListClosed] = useState(false);
+  const typed = typedCommand(draft);
+  useEffect(() => {
+    if (typed !== null) void invoke<Entry[]>("skills_available").then(setEntries);
+  }, [typed !== null]);
+  const list = typed !== null && !listClosed ? matches(entries, typed) : [];
+  const active = Math.min(selected, Math.max(list.length - 1, 0));
+  useEffect(() => {
+    // A block body: newer WebView2 returns a Promise from scrollIntoView, which React would take for a cleanup function.
+    document.getElementById(`skill-${list[active]?.name}`)?.scrollIntoView({ block: "nearest" });
+  }, [active, list.length]);
 
   const setConv = (c: Conversation | null) => {
     convRef.current = c;
@@ -83,7 +98,7 @@ export default function Chat() {
   const send = (question: string) => {
     const q = question.trim();
     if (!q || streaming) return;
-    const turn: Turn = { question: q, answer: "", status: "streaming", error: null, asked: Date.now(), answered: null, local: false };
+    const turn: Turn = { question: q, answer: "", status: "streaming", error: null, asked: Date.now(), answered: null, local: false, note: null };
     setConv({ ...conv, turns: [...conv.turns, turn] }); // before the first delta can arrive
     setDraft("");
     setError(undefined);
@@ -165,6 +180,26 @@ export default function Chat() {
             ))}
           </div>
           {error && <p role="alert" className="error note">{error}</p>}
+          {list.length > 0 && (
+            <ul id="skill-list" role="listbox" aria-label="Skills and commands" className="complete">
+              {list.map((e, i) => (
+                <li
+                  key={e.name}
+                  id={`skill-${e.name}`}
+                  role="option"
+                  aria-selected={i === active}
+                  onMouseDown={(ev) => {
+                    ev.preventDefault(); // keeps the focus in the input
+                    setDraft(`/${e.name} `);
+                  }}
+                >
+                  <strong>/{e.name}</strong>
+                  {e.args && <span className="muted"> {e.args}</span>}
+                  <span className="muted"> {e.description}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           <footer>
             <textarea
               ref={inputRef}
@@ -172,8 +207,23 @@ export default function Chat() {
               value={draft}
               placeholder={conv.content.kind === "none" ? "Ask anything" : "Ask about the selection"}
               aria-label="Your question"
-              onChange={(e) => setDraft(e.target.value)}
+              aria-autocomplete="list"
+              aria-controls={list.length ? "skill-list" : undefined}
+              aria-activedescendant={list.length ? `skill-${list[active].name}` : undefined}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setSelected(0);
+                setListClosed(false);
+              }}
               onKeyDown={(e) => {
+                const k = list.length && !e.shiftKey && !e.nativeEvent.isComposing ? listKey(e.key, active, list.length, list[active].name === typed) : null;
+                if (k !== null) {
+                  e.preventDefault();
+                  if (k === "complete") setDraft(`/${list[active].name} `);
+                  else if (k === "close") setListClosed(true);
+                  else setSelected(k);
+                  return;
+                }
                 if (keyAction({ key: e.key, shiftKey: e.shiftKey, isComposing: e.nativeEvent.isComposing }) === "send") {
                   e.preventDefault();
                   send(draft);
@@ -281,6 +331,7 @@ function TurnView({ turn, latest, onRetry }: { turn: Turn; latest: boolean; onRe
   return (
     <article className={turn.local ? "turn local" : "turn"}>
       <p className="question">{turn.question}</p>
+      {turn.note && <p className="muted note">{turn.note}</p>}
       {turn.status === "streaming" && !turn.answer && <p className="muted thinking">Thinking…</p>}
       {turn.answer && <div ref={answerRef} className="answer" aria-busy={turn.status === "streaming"} dangerouslySetInnerHTML={{ __html: html }} />}
       {turn.status === "cancelled" && <p className="muted note">Cancelled</p>}
@@ -307,6 +358,12 @@ function TurnView({ turn, latest, onRetry }: { turn: Turn; latest: boolean; onRe
           {latest && (
             <button type="button" className="link" onClick={onRetry} aria-label="Regenerate the answer">
               Regenerate
+            </button>
+          )}
+          {/* SKL-4.3: the question becomes a skill's instructions in Settings → Skills. */}
+          {!turn.question.startsWith("/") && (
+            <button type="button" className="link" onClick={() => void invoke("skill_new", { question: turn.question })}>
+              Save as skill
             </button>
           )}
         </div>
