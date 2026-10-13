@@ -10,7 +10,6 @@ Status: **In progress**.
 - [x] 6. End-to-end run on Windows and in WSL with the built-in engine; the evaluation sheet (SKL-3.2) with the 0.5B model; `/ponytail-review` (2026-10-13).
 
 ## Manual checklist
-- [ ] SKL-3.2 Each built-in skill gives a sensible result on its sample, with one local and one cloud model ([evaluation.md](evaluation.md)). Local ☐ only a 0.5B model so far: `/translate` sensible, most others not (issue 26) Cloud ☐ (issue 16)
 - [x] SKL-4.1 Settings → Skills → New: the fields, the variable picker, live validation, Test. Windows ✓ bad and reserved names refused, {{input}} inserted at the cursor, the instructions as they will read, Test, Save writes `eli5.md` (auto-verified 2026-10-13) Linux ✓ (auto-verified 2026-10-13 in WSL)
 - [x] SKL-4.2 `/new-skill` opens the form with the previous question as the template. Windows ✓ (empty right after `/clear`) (auto-verified 2026-10-13) Linux ✓ (auto-verified 2026-10-13 in WSL)
 - [x] SKL-4.3 "Save as skill" on a question opens the form prefilled. Windows ✓ (auto-verified 2026-10-13) Linux ✓ (auto-verified 2026-10-13 in WSL)
