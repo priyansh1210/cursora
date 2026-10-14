@@ -10,6 +10,8 @@ pub use files::{FileContext, Kind};
 pub use linux::{wl_paste, LinuxPlatform as OsPlatform};
 #[cfg(windows)]
 pub use self::windows::WinPlatform as OsPlatform;
+#[cfg(windows)]
+pub(crate) use self::windows::is_elevated;
 
 use crate::chat::Image;
 use crate::session::Session;

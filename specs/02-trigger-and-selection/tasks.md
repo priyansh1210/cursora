@@ -20,5 +20,5 @@ Most of these need spec 03's bubble to *see* the captured text. Until then, the 
 - [x] SEL-3.5 Copy X, select Y, hotkey, paste → X. Windows ✓ (auto-verified: clipboard "ORIGINAL" survived two copy-path captures) · X11 ✓ the copy path in pcmanfm gave the clipboard back, every target (auto-verified in WSL, spec 08)
 - [x] SEL-4.5 Windows Terminal with a running process: not interrupted, text captured. Windows ✓ (auto-verified 2026-10-13): read through UI Automation, no keys sent, the process kept writing
 - [x] SEL-5.1 Files and folders from Explorer and the Desktop. Windows: Explorer ✓ (auto-verified: 3 files) ✓ Desktop ✓ folders (auto-verified 2026-10-13)
-- [ ] SEL-6.1 Admin app → clear message, no keys sent. Windows ☐
+- [x] SEL-6.1 Admin app → clear message, no keys sent. Windows ✓ (2026-10-14, with UAC on: an elevated Notepad, the user pressed Ctrl+G; the bubble showed the message, and the log showed method None, notice Elevated)
 - [ ] SEL-8.1 The app compatibility matrix. Windows ✓ Notepad, Chrome, Edge, Edge PDF, Word, Excel, Windows Terminal, Explorer, Desktop (auto-verified 2026-10-13) ☐ Firefox, VS Code, an Electron app, IntelliJ (not installed on the test PC)
