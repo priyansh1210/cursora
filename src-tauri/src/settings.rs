@@ -25,6 +25,7 @@ pub struct Settings {
     pub privacy: crate::privacy::PrivacySettings,
     pub history: HistorySettings,
     pub models: crate::llm::ModelSettings,
+    pub snip: SnipSettings,
 }
 
 impl Default for Settings {
@@ -44,6 +45,7 @@ impl Default for Settings {
             privacy: crate::privacy::PrivacySettings::default(),
             history: HistorySettings::default(),
             models: crate::llm::ModelSettings::default(),
+            snip: SnipSettings::default(),
         }
     }
 }
@@ -101,6 +103,20 @@ pub struct HistorySettings {
 impl Default for HistorySettings {
     fn default() -> Self {
         Self { save: true, retention_days: Some(90) }
+    }
+}
+
+/// Spec 10. No UI; editable in settings.json, like the capture limits.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SnipSettings {
+    /// The long side of an image sent to the model, snips and image files alike (VIS-2.2, 2.7).
+    pub max_side: u32,
+}
+
+impl Default for SnipSettings {
+    fn default() -> Self {
+        Self { max_side: 2048 }
     }
 }
 

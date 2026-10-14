@@ -11,8 +11,9 @@ pub const PERSONA: &str = "persona";
 pub const NEW_SKILL: &str = "new-skill";
 pub const CLEAR: &str = "clear";
 pub const HELP: &str = "help";
-/// Reserved now; it works from spec 10, and until then it is left out of /help and the autocomplete.
+/// Listed in /help and the autocomplete only while the active model can see (VIS-1.1).
 pub const SNIP: &str = "snip";
+const SNIP_COMMAND: (&str, &str, &str) = (SNIP, "[question]", "Pick a part of the screen and ask about it");
 /// The commands that work today: name, args hint, description.
 const COMMANDS: [(&str, &str, &str); 4] = [
     (PERSONA, "<name>", "Switch to another persona"),
@@ -337,10 +338,10 @@ pub struct Entry {
     pub command: bool,
 }
 
-/// The skills the model can run (SKL-2.4), then the commands.
-pub fn entries(skills: &[Skill], can_see: impl Fn(&Skill) -> bool) -> Vec<Entry> {
+/// The skills the model can run (SKL-2.4), then the commands; `/snip` only if the active model can see (VIS-1.1).
+pub fn entries(skills: &[Skill], can_see: impl Fn(&Skill) -> bool, snip: bool) -> Vec<Entry> {
     let skills = skills.iter().filter(|s| !s.vision || can_see(s)).map(|s| Entry { name: s.name.clone(), args: s.args.clone().unwrap_or_default(), description: s.description.clone(), command: false });
-    let commands = COMMANDS.iter().map(|(n, a, d)| Entry { name: n.to_string(), args: a.to_string(), description: d.to_string(), command: true });
+    let commands = COMMANDS.iter().chain(snip.then_some(&SNIP_COMMAND)).map(|(n, a, d)| Entry { name: n.to_string(), args: a.to_string(), description: d.to_string(), command: true });
     skills.chain(commands).collect()
 }
 
@@ -457,7 +458,8 @@ pub struct Listing {
 /// What the answering model can run, then the commands (SKL-2.4): the autocomplete and `/help`.
 pub fn available(app: &AppHandle) -> Vec<Entry> {
     let (skills, _) = load(dir(app).ok().as_deref());
-    entries(&skills, |s| crate::llm::for_skill(app, s.model.as_deref(), None).is_ok_and(|(m, _)| m.info().vision))
+    let sees = crate::llm::active(app).is_ok_and(|m| m.info().vision);
+    entries(&skills, |s| crate::llm::for_skill(app, s.model.as_deref(), None).is_ok_and(|(m, _)| m.info().vision), sees)
 }
 
 /// The bubble's autocomplete (SKL-2.1).
@@ -678,12 +680,19 @@ mod tests {
         let d = temp_dir("vision");
         std::fs::write(d.join("look.md"), file("name: look\ndescription: d\nrequires: [vision]", "Describe it.")).unwrap();
         let (skills, _) = load(Some(&d));
-        let names = |sees: bool| entries(&skills, |_| sees).into_iter().map(|e| e.name).collect::<Vec<_>>();
+        let names = |sees: bool| entries(&skills, |_| sees, false).into_iter().map(|e| e.name).collect::<Vec<_>>();
         assert!(!names(false).contains(&"look".into()) && names(true).contains(&"look".into()));
         let look = skills.iter().find(|s| s.name == "look").unwrap();
         let model = |vision| ModelInfo { name: "qwen".into(), provider: "Built-in".into(), locality: crate::chat::Locality::Local, context_tokens: None, vision };
         assert_eq!(refusal(look, &model(false)).unwrap(), "`/look` needs a vision model, and qwen can't see images.");
         assert_eq!(refusal(look, &model(true)), None);
+    }
+
+    #[test]
+    fn vis_1_1_snip_is_listed_only_while_the_active_model_can_see() {
+        let names = |snip| entries(&[], |_| true, snip).into_iter().map(|e| e.name).collect::<Vec<_>>();
+        assert!(names(true).contains(&"snip".into()) && !names(false).contains(&"snip".into()));
+        assert!(help(&entries(&[], |_| true, true)).contains("- `/snip [question]` Pick a part of the screen and ask about it"));
     }
 
     #[test]
@@ -696,7 +705,7 @@ mod tests {
 
     #[test]
     fn skl_2_7_help_lists_the_skills_and_the_working_commands() {
-        let help = help(&entries(&load(None).0, |_| false));
+        let help = help(&entries(&load(None).0, |_| false, false));
         assert!(help.starts_with("**Skills**\n- `/summary` Summarize"), "{help}");
         assert!(help.contains("- `/translate <language>` Translate the selection"));
         assert!(help.contains("**Commands**\n- `/persona <name>`") && help.contains("`/clear`") && help.contains("`/new-skill`") && help.contains("`/help`"));

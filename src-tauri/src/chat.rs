@@ -4,6 +4,7 @@ use crate::history::History;
 use crate::persona::{self, Persona};
 use crate::privacy::{Hidden, Restorer};
 use crate::settings::Settings;
+use crate::llm::ModelRef;
 use crate::{bubble, llm, privacy, prompt, skills, AppState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -60,7 +61,7 @@ impl Message {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Image {
     pub mime: String,
     pub base64: String,
@@ -169,6 +170,9 @@ pub struct Conversation {
     /// Why no model can answer; the bubble then shows "No AI model is available" (LLM-9.1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unavailable: Option<String>,
+    /// The model this conversation answers with instead of the default: a snip's one-time switch (VIS-1.2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub own_model: Option<ModelRef>,
 }
 
 /// One conversation per window label: the bubble's and the expanded window's.
@@ -218,6 +222,7 @@ pub fn start(app: &AppHandle, capture: Capture) -> Conversation {
         turns: vec![],
         dropped: 0,
         unavailable: model.err(),
+        own_model: None,
     };
     put(app, bubble::LABEL, conv.clone());
     conv
@@ -231,7 +236,29 @@ pub fn switch_model(app: &AppHandle, label: &str, info: Result<ModelInfo, String
         Ok(i) => (Some(i), None),
         Err(reason) => (None, Some(reason)),
     };
+    conv.own_model = None; // the switcher's choice is the new default
     Some(conv.clone())
+}
+
+/// A snip's one-time switch (VIS-1.2): this conversation answers with `m`, and the default model stays as it was.
+pub fn own_model(app: &AppHandle, label: &str, m: ModelRef) -> Option<Conversation> {
+    let info = llm::for_skill(app, Some(&reference(&m)), None).ok().map(|(model, _)| model.info()); // before the slots lock
+    let mut slots = slots(app);
+    let conv = &mut slots.get_mut(label)?.conv;
+    conv.model = info.or(conv.model.take());
+    conv.own_model = Some(m);
+    Some(conv.clone())
+}
+
+/// "<provider>/<model>", as a skill names its model (SKL-2.5).
+fn reference(m: &ModelRef) -> String {
+    format!("{}/{}", m.provider, m.model)
+}
+
+/// The model that answers, as a reference: a skill's own (SKL-2.5), else the conversation's own (a snip's one-time
+/// switch, VIS-1.2), so a skill without a model still answers a snip with the model that can see. None: the default.
+fn answering_model(skill_model: Option<&str>, own: Option<&ModelRef>) -> Option<String> {
+    skill_model.map(str::to_string).or_else(|| own.map(reference))
 }
 
 /// The health check failed: the bubble's conversation shows why instead of its input (LLM-9.1).
@@ -308,7 +335,12 @@ pub fn ask(window: WebviewWindow, app: AppHandle, question: String, confirmed: b
         skills::HELP => local(&app, label, question, skills::help(&skills::available(&app))),
         skills::CLEAR => clear(&app, label),
         skills::NEW_SKILL => new_skill(&app, label),
-        skills::SNIP => local(&app, label, question, "Snipping isn't available yet.".into()), // spec 10
+        // A new conversation with the snip; `/snip <question>` asks it at once. Without a model that can see,
+        // the bubble opens with the hint instead (VIS-1.2).
+        skills::SNIP => {
+            crate::snip::start(&app, crate::snip::Start { model: None, question: Some(rest) });
+            Ok(())
+        }
         _ => match skills::find(&app, &name) {
             None => local(&app, label, question, skills::unknown(&skills::load(skills::dir(&app).ok().as_deref()).0, &name)),
             Some(s) => {
@@ -475,12 +507,12 @@ fn show_chat_window(app: &AppHandle) -> Result<(), String> {
 }
 
 /// The question's skill, if it names one, and the model that answers it (SKL-2.2, 2.5).
-fn resolve(app: &AppHandle, question: &str) -> Result<Resolved, String> {
+fn resolve(app: &AppHandle, label: &str, question: &str) -> Result<Resolved, String> {
     let skill = command(question).and_then(|(name, input)| skills::find(app, &name).map(|s| (s, input.to_string())));
-    let (model, note) = match &skill {
-        Some((s, _)) => llm::for_skill(app, s.model.as_deref(), s.temperature)?,
-        None => (llm::active(app)?, None),
-    };
+    let own = slots(app).get(label).and_then(|s| s.conv.own_model.clone());
+    let wanted = answering_model(skill.as_ref().and_then(|(s, _)| s.model.as_deref()), own.as_ref());
+    // A model that's gone falls back to the default, which says so (SKL-2.5).
+    let (model, note) = llm::for_skill(app, wanted.as_deref(), skill.as_ref().and_then(|(s, _)| s.temperature))?;
     if let Some(reason) = skill.as_ref().and_then(|(s, _)| skills::refusal(s, &model.info())) {
         return Err(reason);
     }
@@ -500,7 +532,7 @@ fn build(conv: &Conversation, s: &Settings, skill: Option<&(skills::Skill, Strin
 /// A question that names a skill runs it, with the skill's model if it has one (SKL-2.2, 2.5).
 /// A cloud request waits for an explicit Send while confirming is on (PRI-3.7); nothing changes until then.
 fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: impl FnOnce(&mut Conversation)) -> Result<Asked, String> {
-    let Resolved { model, note, skill } = resolve(app, question)?;
+    let Resolved { model, note, skill } = resolve(app, label, question)?;
     let info = model.info();
     let s = app.state::<AppState>().settings.lock().unwrap().clone();
     if privacy::must_confirm(&s.privacy, info.locality, confirmed) {
@@ -597,7 +629,7 @@ pub fn send_preview(window: WebviewWindow, app: AppHandle, question: String, ret
     if command(&question).is_some_and(|(name, _)| skills::find(&app, &name).is_none()) {
         return Ok(Preview { to: None, text: String::new(), placeholders: vec![], image_warning: false });
     }
-    let r = resolve(&app, &question)?;
+    let r = resolve(&app, window.label(), &question)?;
     let info = r.model.info();
     let s = app.state::<AppState>().settings.lock().unwrap().clone();
     let mut conv = slots(&app).get(window.label()).ok_or(CLOSED)?.conv.clone();
@@ -667,8 +699,11 @@ pub fn assemble(conv: &Conversation, persona: Option<&Persona>, skill: Option<&s
         total -= pair_tokens(pairs[start]);
         start += 1;
     }
-    let mut context = context;
-    let mut user = |q: &str| Message::new(Role::User, context.take().map_or_else(|| q.to_string(), |c| format!("{c}\n\n{q}")));
+    let mut context = context.map(|c| (c, conv.content.images())); // a snip travels with its context, so in every request
+    let mut user = |q: &str| match context.take() {
+        Some((c, images)) => Message { role: Role::User, text: format!("{c}\n\n{q}"), images },
+        None => Message::new(Role::User, q),
+    };
     let mut messages = vec![Message::new(Role::System, system)];
     for t in &pairs[start..] {
         messages.push(user(&t.question));
@@ -699,21 +734,27 @@ pub fn sample(text: &str, question: &str) -> Conversation {
         turns: vec![Turn::asking(question.into())],
         dropped: 0,
         unavailable: None,
+        own_model: None,
     }
 }
 
 /// Debug builds with CURSORA_ECHO set: streams a canned Markdown answer, so the bubble can be tried without a model.
 /// "error: <kind>" (e.g. "error: auth") answers with that error. CURSORA_ECHO=cloud makes it pose as a cloud model,
 /// so redaction and confirming can be tried without API keys; it never touches the network either way.
+/// With "vision" in the list (CURSORA_ECHO=vision or cloud,vision) it can see, and reports the images it got.
 #[cfg(debug_assertions)]
 pub struct Echo;
 
 #[cfg(debug_assertions)]
+fn echo_has(flag: &str) -> bool {
+    std::env::var("CURSORA_ECHO").is_ok_and(|v| v.split(',').any(|f| f.trim() == flag))
+}
+
+#[cfg(debug_assertions)]
 impl Model for Echo {
     fn info(&self) -> ModelInfo {
-        let cloud = std::env::var("CURSORA_ECHO").is_ok_and(|v| v == "cloud");
-        let locality = if cloud { Locality::Cloud } else { Locality::Local };
-        ModelInfo { name: "echo".into(), provider: "Debug".into(), locality, context_tokens: Some(DEFAULT_CONTEXT_TOKENS), vision: false }
+        let locality = if echo_has("cloud") { Locality::Cloud } else { Locality::Local };
+        ModelInfo { name: "echo".into(), provider: "Debug".into(), locality, context_tokens: Some(DEFAULT_CONTEXT_TOKENS), vision: echo_has("vision") }
     }
 
     fn stream(&self, messages: &[Message], cancel: &AtomicBool, on_delta: &mut dyn FnMut(&str)) -> Result<(), ChatError> {
@@ -722,8 +763,10 @@ impl Model for Echo {
             let kind = serde_json::from_value(serde_json::Value::String(kind.trim().into())).unwrap_or(ErrorKind::Unknown);
             return Err(ChatError { kind, message: "Echo test error".into() });
         }
+        let images: Vec<String> = messages.iter().flat_map(|m| &m.images).map(echo_image).collect();
+        let images = if images.is_empty() { String::new() } else { format!(" Images: {}.", images.join(", ")) };
         let answer = format!(
-            "You asked: **{question}**\n\nThe request had {} messages ({} characters).\n\n```rust\nfn main() {{\n    println!(\"hello\");\n}}\n```\n\n- one\n- two\n",
+            "You asked: **{question}**\n\nThe request had {} messages ({} characters).{images}\n\n```rust\nfn main() {{\n    println!(\"hello\");\n}}\n```\n\n- one\n- two\n",
             messages.len(),
             messages.iter().map(|m| m.text.chars().count()).sum::<usize>()
         );
@@ -737,6 +780,15 @@ impl Model for Echo {
         }
         Ok(())
     }
+}
+
+/// "1280×720 image/png", from the image's own header: Echo's report of what it got.
+#[cfg(debug_assertions)]
+fn echo_image(i: &Image) -> String {
+    use base64::Engine as _;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(&i.base64).ok();
+    let size = bytes.and_then(|b| image::ImageReader::new(std::io::Cursor::new(b)).with_guessed_format().ok()?.into_dimensions().ok());
+    size.map_or_else(|| format!("? {}", i.mime), |(w, h)| format!("{w}×{h} {}", i.mime))
 }
 
 #[cfg(test)]
@@ -758,7 +810,42 @@ mod tests {
             turns,
             dropped: 0,
             unavailable: None,
+            own_model: None,
         }
+    }
+
+    fn snip(full: bool) -> Content {
+        let image = |b: &str| Image { mime: "image/png".into(), base64: b.into() };
+        Content::Snip(crate::capture::Snip { thumbnail: image("THUMB"), width: 1280, height: 720, full: full.then(|| image("FULL")) })
+    }
+
+    #[test]
+    fn vis_2_6_only_the_thumbnail_is_ever_serialized_and_a_reopened_snip_sends_it() {
+        let c = Conversation { content: snip(true), ..conv(vec![turn("q1", "a1", TurnStatus::Done), turn("q2", "", TurnStatus::Streaming)]) };
+        let json = serde_json::to_string(&c).unwrap();
+        assert!(json.contains("THUMB") && !json.contains("FULL"), "the page and history get the thumbnail only");
+        let images = |c: &Conversation| assemble(c, None, None, false, usize::MAX).0.iter().map(|m| m.images.iter().map(|i| i.base64.clone()).collect::<Vec<_>>()).collect::<Vec<_>>();
+        let none = Vec::<String>::new;
+        assert_eq!(images(&c), [none(), vec!["FULL".to_string()], none(), none()], "once, with the context, in a follow-up too");
+        let reopened: Conversation = serde_json::from_str(&json).unwrap();
+        assert_eq!(images(&reopened)[1], ["THUMB"]);
+    }
+
+    #[test]
+    fn vis_1_2_a_snips_one_time_model_answers_unless_a_skill_names_its_own() {
+        let own = ModelRef { provider: "p-lm".into(), model: "llava-1.6".into() };
+        assert_eq!(answering_model(None, Some(&own)).as_deref(), Some("p-lm/llava-1.6"), "a question, or a skill without a model of its own");
+        assert_eq!(answering_model(Some("p-cloud/gpt-4o"), Some(&own)).as_deref(), Some("p-cloud/gpt-4o"), "a skill's own model wins");
+        assert_eq!(answering_model(None, None), None, "the default");
+    }
+
+    #[test]
+    fn vis_3_2_a_snip_for_a_cloud_model_is_warned_about() {
+        let c = Conversation { content: snip(true), ..conv(vec![turn("what is this?", "", TurnStatus::Streaming)]) };
+        let req = request(&c, &Settings::default(), None, Locality::Cloud, usize::MAX).unwrap();
+        assert!(req.messages[1].text.starts_with("<snip width=\"1280\" height=\"720\">"));
+        assert!(privacy::image_warning(&req.messages, Locality::Cloud));
+        assert!(!privacy::image_warning(&req.messages, Locality::Local));
     }
 
     fn context_count(messages: &[Message]) -> usize {

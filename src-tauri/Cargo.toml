@@ -36,6 +36,10 @@ keyring-core = "1"
 url = "2"
 # Already built for Tauri; needed for the user's own redaction patterns (PRI-3.4).
 regex = "1"
+# Snips and image files: crop, downscale, PNG; decoding the formats VIS-2.7 accepts (spec 10).
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
+# Already in the build (0.22); images travel to the providers as base64.
+base64 = "0.22"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus-secret-service-keyring-store = { version = "1", features = ["crypto-openssl"] }
@@ -51,6 +55,7 @@ windows-native-keyring-store = "1"
 # Same version Tauri already compiles, so this only adds features.
 windows = { version = "0.62", features = [
   "Win32_Foundation",
+ "Win32_Graphics_Gdi",
   "Win32_Security",
   "Win32_System_Com",
   "Win32_System_JobObjects",

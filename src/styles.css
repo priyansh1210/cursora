@@ -454,3 +454,51 @@ fieldset {
   padding: 0;
   margin: 0;
 }
+
+/* The snip overlay (VIS-2.1): the frozen screen at 1:1, dimmed except inside the rectangle. */
+.snip {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  cursor: crosshair;
+  user-select: none;
+  background: #000;
+}
+.snip img {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+.snip .shade {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 45%);
+}
+.snip .pick {
+  position: absolute;
+  outline: 1px solid #fff;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 45%);
+}
+.snip .pick span {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  margin-bottom: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #fff;
+  background: rgb(0 0 0 / 70%);
+  white-space: nowrap;
+}
+/* A snip in the bubble: its thumbnail (VIS-2.6). */
+.snip-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 128px;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
