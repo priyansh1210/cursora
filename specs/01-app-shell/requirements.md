@@ -54,7 +54,7 @@ User story: As a user (especially on Linux Wayland), I want to trigger Cursora f
 ### APP-5 Settings window
 - APP-5.1 (manual) THE Settings window SHALL have these tabs: General · Models · Personality · Skills · Voice · Privacy · History · About.
 - APP-5.2 (manual) THE General tab SHALL contain:
-  - hotkeys (ask, snip, push-to-talk)
+  - hotkeys (ask, snip, push-to-talk). (Amended 2026-10-14: snip and push-to-talk appear once spec 10 and spec 09 are built; until then they would do nothing, issue 37.)
   - Start with system
   - theme (system / light / dark)
   - Pause
@@ -68,7 +68,7 @@ User story: As a new user, I want a short setup, so that my first Ctrl+G just wo
 - APP-6.1 (manual) WHEN Cursora runs for the first time THE SYSTEM SHALL show onboarding with three steps:
   1. Choose an AI source: detected local runtimes, the built-in engine (pick a `.gguf`), or a cloud API key. Setup SHALL NOT continue past this step until the chosen model passes Test connection (LLM-7.1). For the built-in engine, the user also picks how long the model stays loaded (LLM-3.5), with "Always on" preselected.
   2. Choose a persona, or turn personality off.
-  3. Choose the hotkeys: ask (default Ctrl+G), snip (default Ctrl+Shift+G), and push-to-talk (optional, unset by default).
+  3. Choose the hotkeys: ask (default Ctrl+G), snip (default Ctrl+Shift+G), and push-to-talk (optional, unset by default). (Amended 2026-10-14: snip and push-to-talk appear once spec 10 and spec 09 are built, as in APP-5.2.)
   4. A "try it" page with sample text and the hotkey.
 
   In step 1, adding a LAN provider asks whether to trust that host (LLM-8.3).
