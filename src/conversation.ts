@@ -1,4 +1,5 @@
 // Types mirror src-tauri/src/chat.rs and capture/mod.rs.
+import type { ModelRef } from "./useSettings";
 export type Locality = "local" | "lan" | "cloud";
 export type ModelInfo = { name: string; provider: string; locality: Locality; contextTokens: number | null };
 export const ERROR_KINDS = ["auth", "rate_limit", "model_not_found", "context_too_long", "network", "server", "blocked_local_only", "unknown"] as const;
@@ -7,9 +8,21 @@ export type ChatError = { kind: ErrorKind; message: string };
 export type TurnStatus = "streaming" | "done" | "cancelled" | "error";
 /** `local`: Cursora's own reply to a command such as /persona, never sent to the model (PER-3.1). */
 export type Turn = { question: string; answer: string; status: TurnStatus; error: ChatError | null; asked: number; answered: number | null; local: boolean; note?: string | null };
-export type FileItem = { path: string; name: string; kind: "file" | "folder" | "link"; size: number; modified: number; children: string[]; content: string | null; skipped: string | null };
-export type Content = { kind: "text"; text: string; truncated: boolean } | { kind: "files"; items: FileItem[]; omitted: number } | { kind: "none" };
-export type Notice = { kind: "blocked" } | { kind: "elevated" } | { kind: "noSelection"; offerSnip: boolean } | { kind: "unreadable" };
+export type FileItem = { path: string; name: string; kind: "file" | "folder" | "link"; size: number; modified: number; children: string[]; content: string | null; skipped: string | null; image?: boolean };
+export type Image = { mime: string; base64: string };
+/** `snip`: a screen region; the page only ever gets its thumbnail (VIS-2.6). */
+export type Content =
+  | { kind: "text"; text: string; truncated: boolean }
+  | { kind: "files"; items: FileItem[]; omitted: number }
+  | { kind: "snip"; thumbnail: Image; width: number; height: number }
+  | { kind: "none" };
+export type Notice =
+  | { kind: "blocked" }
+  | { kind: "elevated" }
+  | { kind: "noSelection"; offerSnip: boolean }
+  | { kind: "unreadable" }
+  | { kind: "needsVision"; offer: { model: ModelRef; label: string } | null } // VIS-1.2
+  | { kind: "snipFailed"; reason: string };
 export type Conversation = {
   id: number;
   app: { exe: string; name: string; title: string; elevated: boolean };
@@ -21,6 +34,8 @@ export type Conversation = {
   dropped: number;
   /** Why no model can answer (LLM-9.1). */
   unavailable?: string;
+  /** The model this conversation answers with instead of the default: a snip's one-time switch (VIS-1.2). */
+  ownModel?: ModelRef;
 };
 export type Delta = { id: number; offset: number; text: string };
 export type Done = { id: number; status: TurnStatus; error: ChatError | null; dropped: number };

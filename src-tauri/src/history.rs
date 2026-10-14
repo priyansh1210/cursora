@@ -173,6 +173,7 @@ mod tests {
             turns: vec![Turn { question: question.into(), answer: answer.into(), status, error: None, asked: id, answered: Some(id + 5), local: false, note: None }],
             dropped: 0,
             unavailable: None,
+            own_model: None,
         }
     }
 

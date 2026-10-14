@@ -20,7 +20,7 @@ User story: As a user, I want Cursora to run quietly in the background, so that 
   - Pause Cursora
   - Stop the model (when a built-in model is set up, LLM-3.5)
   - Quit
-- APP-1.3 (manual) WHILE Cursora is paused THE SYSTEM SHALL unregister all global hotkeys, SHALL ignore `cursora --ask`, and SHALL show a distinct "paused" tray icon. (Amended 2026-10-13: on Wayland the desktop shortcut is the hotkey, and Cursora can't unregister it.)
+- APP-1.3 (manual) WHILE Cursora is paused THE SYSTEM SHALL unregister all global hotkeys, SHALL ignore `cursora --ask`, and SHALL show a distinct "paused" tray icon. (Amended 2026-10-13: on Wayland the desktop shortcut is the hotkey, and Cursora can't unregister it. Amended 2026-10-14: `cursora --snip` is ignored too.)
 - APP-1.4 (manual) WHEN the user chooses Quit THE SYSTEM SHALL unregister hotkeys, stop all child processes (built-in engine, speech), and exit.
 
 ### APP-2 Single instance and CLI

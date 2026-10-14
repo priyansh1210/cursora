@@ -157,6 +157,11 @@ pub fn open(app: &AppHandle, cursor: Option<(i32, i32)>, previous: isize, payloa
     os::focus(&window);
 }
 
+/// Gives a Cursora window the keyboard: on X11 through the window manager (issue 18). The snip overlay uses it too.
+pub fn focus(window: &WebviewWindow) {
+    os::focus(window);
+}
+
 /// Hides the bubble and cancels its running answer (BUB-2.6); if it had focus, focus goes back to the app it opened over (BUB-2.3).
 pub fn close(app: &AppHandle) {
     crate::chat::cancel(app, LABEL);

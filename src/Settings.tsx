@@ -91,27 +91,36 @@ function General({ settings, save }: { settings: S; save: Save }) {
   );
 }
 
-/** Wayland doesn't let apps listen for hotkeys, so the user binds `cursora --ask` in the desktop's settings (LNX-2.2). */
+/** Wayland doesn't let apps listen for hotkeys, so the user binds `cursora --ask` and `--snip` in the desktop's settings (LNX-2.2, VIS-4.2). */
 function WaylandShortcut({ launcher }: { launcher: string }) {
-  const command = `${/^[\w/.+-]+$/.test(launcher) ? launcher : `'${launcher.replaceAll("'", "'\\''")}'`} --ask`;
-  const [copied, setCopied] = useState(false);
+  const app = /^[\w/.+-]+$/.test(launcher) ? launcher : `'${launcher.replaceAll("'", "'\\''")}'`;
   return (
     <>
-      <p>Wayland doesn't let apps listen for hotkeys. Add a shortcut in your desktop's settings that runs:</p>
-      <div className="row">
-        <code>{command}</code>
-        <button type="button" onClick={() => void navigator.clipboard.writeText(command).then(() => setCopied(true))}>
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
+      <p>Wayland doesn't let apps listen for hotkeys. Add shortcuts in your desktop's settings that run:</p>
+      <CommandRow label="Ask" command={`${app} --ask`} />
+      <CommandRow label="Snip" command={`${app} --snip`} />
       <ul>
         <li>GNOME: Settings → Keyboard → View and Customize Shortcuts → Custom Shortcuts → +</li>
         <li>KDE: System Settings → Keyboard → Shortcuts → Add New → Command or Script</li>
       </ul>
       <p>
-        Selections are read with <code>wl-paste</code>, from the wl-clipboard package.
+        Selections are read with <code>wl-paste</code>, from the wl-clipboard package. To snip, copy part of the screen with your desktop's
+        screenshot tool first (on GNOME, the Print key), then press the Snip shortcut.
       </p>
     </>
+  );
+}
+
+function CommandRow({ label, command }: { label: string; command: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="row">
+      <span>{label}</span>
+      <code>{command}</code>
+      <button type="button" aria-label={`Copy the ${label} command`} onClick={() => void navigator.clipboard.writeText(command).then(() => setCopied(true))}>
+        {copied ? "Copied" : "Copy"}
+      </button>
+    </div>
   );
 }
 

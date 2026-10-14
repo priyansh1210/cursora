@@ -54,7 +54,10 @@ impl Platform for LinuxPlatform {
     fn accessible_selection(&self, max_chars: usize) -> Option<String> {
         match &self.x11 {
             Some(x) => x.convert(AtomEnum::PRIMARY.into(), x.atoms.UTF8_STRING, deadline(READ_MS)).ok()?.map(|i| String::from_utf8_lossy(&i.data).into_owned()),
-            None if self.wl_paste => wl_paste(max_chars),
+            None if self.wl_paste => {
+                let text = wl_paste(&["--primary", "--no-newline", "--type", "text"], (max_chars as u64).saturating_mul(4), Duration::from_millis(WL_PASTE_MS))?;
+                Some(String::from_utf8_lossy(&text).into_owned())
+            }
             None => None,
         }
     }
@@ -224,10 +227,11 @@ fn on_path(program: &str) -> bool {
     std::env::var_os("PATH").is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(program).is_file()))
 }
 
-/// The Wayland PRIMARY selection, through `wl-paste`. Killed after `WL_PASTE_MS`; at most `max_chars` × 4 bytes are read.
-fn wl_paste(max_chars: usize) -> Option<String> {
+/// Wayland's selections, through `wl-paste` with `args`: the PRIMARY text (LNX-3.4) or a copied screenshot (VIS-4.2).
+/// Killed after `wait`; at most `limit` bytes are read. None: nothing of that type, or no wl-paste.
+pub fn wl_paste(args: &[&str], limit: u64, wait: Duration) -> Option<Vec<u8>> {
     let mut child = Command::new("wl-paste")
-        .args(["--primary", "--no-newline", "--type", "text"])
+        .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -235,17 +239,16 @@ fn wl_paste(max_chars: usize) -> Option<String> {
         .map_err(|e| log::warn!("wl-paste: {e}"))
         .ok()?;
     let stdout = child.stdout.take()?;
-    let limit = (max_chars as u64).saturating_mul(4);
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         let mut bytes = Vec::new();
         let _ = stdout.take(limit).read_to_end(&mut bytes);
         let _ = tx.send(bytes);
     });
-    let bytes = rx.recv_timeout(Duration::from_millis(WL_PASTE_MS)).ok();
+    let bytes = rx.recv_timeout(wait).ok();
     let _ = child.kill(); // also ends a wl-paste still waiting to write past the limit
     let _ = child.wait();
-    bytes.map(|b| String::from_utf8_lossy(&b).into_owned()).filter(|t| !t.is_empty())
+    bytes.filter(|b| !b.is_empty())
 }
 
 #[cfg(test)]

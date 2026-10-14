@@ -12,6 +12,7 @@ mod secrets;
 mod session;
 mod settings;
 mod skills;
+mod snip;
 mod tray;
 #[cfg(not(windows))]
 mod x11;
@@ -200,7 +201,7 @@ fn handle(app: &AppHandle, action: cli::Action) {
         // On Wayland the desktop shortcut runs this, and Cursora can't unregister it, so pausing must stop it here (APP-1.3).
         cli::Action::Ask if app.state::<AppState>().settings.lock().unwrap().paused => log::info!("paused: --ask ignored"),
         cli::Action::Ask => hotkey::on_ask(app),
-        cli::Action::Snip => log::info!("snip is not available yet (spec 10)"),
+        cli::Action::Snip => snip::start(app, snip::Start::default()), // ignored while paused (APP-1.3)
     }
 }
 
@@ -225,9 +226,9 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _shortcut, event| {
+                .with_handler(|app, shortcut, event| {
                     if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        hotkey::on_ask(app); // ask is the only hotkey registered so far
+                        hotkey::on_press(app, shortcut);
                     }
                 })
                 .build(),
@@ -243,7 +244,18 @@ pub fn run() {
                 _ => {}
             }
         })
+        // The snip overlay's frozen screen, from memory (VIS-2.6); no other window gets it.
+        .register_asynchronous_uri_scheme_protocol("snip", |ctx, _request, responder| {
+            let body = (ctx.webview_label() == snip::LABEL).then(snip::screen_bmp).flatten();
+            let response = match body {
+                Some(bmp) => tauri::http::Response::builder().header("Content-Type", "image/bmp").header("Cache-Control", "no-store").body(bmp),
+                None => tauri::http::Response::builder().status(404).body(Vec::new()),
+            };
+            responder.respond(response.unwrap());
+        })
         .invoke_handler(tauri::generate_handler![
+            snip::snip_start,
+            snip::snip_done,
             get_settings,
             set_settings,
             app_info,
