@@ -177,7 +177,7 @@ unsafe fn image_path(process: HANDLE) -> String {
 }
 
 /// A token we may not open belongs to a higher-integrity process, which is exactly the elevated case.
-unsafe fn is_elevated(process: HANDLE) -> bool {
+pub(crate) unsafe fn is_elevated(process: HANDLE) -> bool {
     let mut token = HANDLE::default();
     if unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token) }.is_err() {
         return true;

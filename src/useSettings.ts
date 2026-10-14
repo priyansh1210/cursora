@@ -13,6 +13,7 @@ export type Settings = {
   setupDone: boolean;
   paused: boolean;
   startWithSystem: boolean;
+  runAsAdmin: boolean;
   theme: "system" | "light" | "dark";
   hotkeys: { ask: string; snip: string; pushToTalk: string | null };
   personalityOn: boolean;
@@ -54,6 +55,8 @@ export type AppInfo = {
   logDir: string;
   identifiesApps: boolean;
   launcher: string;
+  canRunAsAdmin: boolean;
+  runningAsAdmin: boolean;
 };
 
 export function useAppInfo() {

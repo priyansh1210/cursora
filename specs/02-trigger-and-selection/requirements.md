@@ -68,7 +68,7 @@ User story: As a user, I want to select files in File Explorer and ask about the
 - SEL-5.6 (auto) THE SYSTEM SHALL NOT recurse into subfolders and SHALL NOT follow symlinks or junctions.
 
 ### SEL-6 Special cases
-- SEL-6.1 (manual) *Windows:* WHEN the foreground window belongs to an elevated (admin) process and Cursora is not elevated THE SYSTEM SHALL NOT attempt simulated input. It SHALL show "Cursora can't read from apps running as administrator", with a "Restart Cursora as administrator" action.
+- SEL-6.1 (manual) *Windows:* WHEN the foreground window belongs to an elevated (admin) process and Cursora is not elevated THE SYSTEM SHALL NOT attempt simulated input. It SHALL show "Cursora can't read apps running as administrator. Turn on Settings → General → Run as administrator to use it there." (Amended 2026-10-14: no restart action; the message names the lasting setting, APP-3.3. A Cursora running as administrator also runs its engine and cloud requests with admin rights, so it is the user's choice.)
 - SEL-6.2 (auto) WHEN nothing could be captured:
   - AND the active model supports vision THE bubble SHALL offer "Snip an area instead" (VIS).
   - Otherwise THE bubble SHALL open in general-chat mode with the hint "No selectable text found."
