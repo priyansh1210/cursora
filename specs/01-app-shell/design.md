@@ -1,6 +1,6 @@
 # 01: App shell (design)
 
-Status: **Approved** (2026-10-11). Implements [requirements.md](requirements.md).
+Status: **Approved** (2026-10-11). Implements [requirements.md](requirements.md). **Amended 2026-10-14, approved:** Run as administrator (APP-3.3–3.7).
 
 ## Overview
 A windowless Tauri app that lives in the tray:
@@ -29,6 +29,7 @@ main.rs → lib.rs::run()
 | `src/Settings.tsx` | Tab frame and the General and About tabs. Each other tab shows a placeholder line until its spec lands. |
 | `src/Setup.tsx` | The setup wizard. It is a list of step components, and later specs add their own steps. |
 | `src/HotkeyInput.tsx` | Records a key combination as `"Ctrl+Shift+G"`. Validation comes from SEL-1.2. |
+| `src-tauri/src/admin.rs` | Run as administrator (APP-3.3–3.7): `startup(on, elevated) -> Startup` and `task_xml(exe, user)` are OS-independent and unit-tested; running the task, the UAC prompt and the `--after` wait are `#[cfg(windows)]`. |
 
 ### Settings (schemaVersion 1)
 ```rust
@@ -66,6 +67,20 @@ struct Settings {
   - `Ask` and `Snip` log "not available yet" until specs 02 and 10 exist.
 - **Corrupt settings (APP-4.2):** rename the file to `settings.bak-<unix-ts>.json`, use defaults, and show one native message (dialog plugin).
 - **Autostart (APP-3.1):** `sync_autostart()` runs at startup and on every settings change. It uses the `auto-launch` crate directly in `CurrentUser` mode, which writes the per-user Run key.
+- **Run as administrator (APP-3.3–3.7, Windows):** a `run_as_admin: bool` setting, default false.
+  - **Why a task:** Windows doesn't let a normal app read or send keys to an admin app (SEL-6.1). It silently skips Run entries that need admin rights at login, and a UAC prompt at every start was rejected by the user. A Task Scheduler task registered with the highest privileges starts Cursora as administrator with no prompt. There is one task per Windows account, named `Cursora (administrator, <user name>)`, so two administrators on one PC don't overwrite each other's.
+  - **The task (APP-3.6)** is registered from XML, in memory, through the Task Scheduler COM API (`RegisterTask`): no trigger, the current user, `InteractiveToken`, `HighestAvailable`. Task Scheduler's own defaults would break Cursora, so the XML overrides them: no 72-hour time limit (`PT0S`), not "AC power only", priority 5 instead of 7 (below normal), and `MultipleInstancesPolicy` Parallel so a relaunch can reach the running copy.
+  - **At start (APP-3.7),** first thing in `run()`, before the single-instance plugin (a normal-rights copy can't open an admin copy's lock, so it would run alongside it):
+    - on, not admin: run the task (`GetTask(…).Run`) if its XML starts this exe (`starts`): Task Scheduler reports success even when the exe is gone, and a task left by a copy installed elsewhere would start that copy. If there is no such task, `ShellExecuteW("runas")`. When either starts a copy, exit at once. If both fail, run as a normal app and log why (APP-3.3).
+    - on, admin: create or update the task, so it always points at the current exe.
+    - off, admin: delete the task if it exists.
+    - off, not admin: nothing.
+    - Whether this copy is admin comes from `capture::is_elevated` on the current process: the one check SEL-6.1 already uses.
+  - **Turning it on (APP-3.4),** from a normal copy: `ShellExecuteW("runas", exe, "--after=<pid> --settings")`. Cancelled → `set_settings` fails with "Windows didn't allow it." and the setting isn't saved. Yes → save the setting and `app.exit(0)`. The admin copy waits up to 10 s for that pid to end, then starts normally: "on, admin" creates the task, and `--settings` reopens Settings. `--after=` is read in `run()` and is not a `cli::Action`.
+  - **Turning it off (APP-3.5):** that copy is the admin one, so it can delete the task. Settings shows "Cursora runs as a normal app from its next start."
+  - **Administrator accounts only:** `app_info` gains `canRunAsAdmin`, true when the token's elevation type is Limited (an admin with UAC on) or Full. A standard account's UAC prompt asks for another user's password, and Cursora would then run as that user, with that user's settings.
+  - **WebView2:** a normal and an admin WebView2 can't share one data folder while both run, and the old copy's WebView2 processes can outlive its pid. Checked 2026-10-15: they were gone 0.4 s after it, and the admin copy started fine (one unexplained failure before that is issue 41). If the admin webview ever fails, the admin copy gets its own folder (`EBWebView-admin`); nothing is kept in webview storage.
+  - **Limit:** an action given to a normal-rights launch (`cursora --ask`, `--snip`, `--settings`) isn't passed on: the task takes no arguments, so the admin copy starts or opens Settings instead. Hotkeys are unaffected. Marked `// shortcut:` in the code.
 - **Logging (APP-7.1):** tauri-plugin-log writes to `LogDir`, with `max_file_size(1_000_000)` and `RotationStrategy::KeepSome(5)`.
 - **Setup (APP-6):** this spec ships the **Hotkeys** and **Start with system** steps and the "Re-run setup" button (APP-6.3). Specs 04, 05 and 03 add the **AI source**, **Personality** and **Try it** steps, so APP-6.1 is verified at the end of v1.
 
@@ -73,6 +88,7 @@ struct Settings {
 - **A plain serde JSON file instead of tauri-plugin-store.** serde is already a dependency. We need atomic writes, a backup on corruption and a schema version, and owning the file makes those a few lines each.
 - **Settings and Setup windows are created on demand** instead of being pre-created. They're rarely opened, and this saves RAM. Only the bubble (spec 03) is pre-created, because of its speed budget.
 - **No UI framework or router.** It's plain React with one CSS file and the window label as the "route".
+- **2026-10-14, Run as administrator through a Task Scheduler task**, so Windows asks once, when the setting is turned on (the user's choice). Rejected: a UAC prompt at every start and login (the other option offered); a "requireAdministrator" manifest (every user would get a prompt, and Windows skips such apps in the Run key); a restart button in the admin-app bubble (the user chose a message naming the setting).
 - **Dialog plugin** for the one corruption message. It's needed later anyway for file pickers (`.gguf`, skill import/export).
 
 ## Requirement tweaks (approved, applied)
@@ -87,6 +103,9 @@ struct Settings {
 | APP-4.2 | Rust: missing file → defaults; invalid JSON → backup file exists, defaults returned, warning returned |
 | APP-4.3 | Rust: a v1 file missing newer fields keeps the user's values and gets defaults for the rest |
 | APP-4.4 | Rust: the serialized `Settings` has no field name matching `key\|token\|secret\|password` |
+| APP-3.6 | Rust: `task_xml` has no trigger, `HighestAvailable`, `PT0S`, both battery flags false, priority 5, Parallel, and the exe path XML-escaped |
+| APP-3.7 | Rust: `startup` for all four combinations of setting and elevation |
+| APP-3.3 | Rust: `starts` accepts the task's own exe and refuses a copy installed elsewhere and part of the path (the rest is the manual checklist) |
 | APP-7.2 | Node: scan `src-tauri/src/**/*.rs` and fail on log macros that use user-content identifiers (`text`, `selection`, `content`, `question`, `answer`, `api_key`, …) |
 | APP-8.1 | Done: `scripts/trace.test.mjs` |
 | Others | Manual checklist in `tasks.md` |
@@ -97,3 +116,5 @@ struct Settings {
 - **2026-10-11:** APP-2.4 was added: relaunching Cursora with no arguments opens Settings (review finding 3).
 - **2026-10-13, manual checks:** log rotation keeps 4 old files (`KeepSome(4)`), since the plugin counts old files only; with the current one that makes the 5 of APP-7.1. It kept 6.
 - **2026-10-13:** with Cursora not running, `cursora --ask` opened an empty bubble: the action ran before the bubble's page had subscribed to its events. The page now also fetches the current conversation once it is listening (APP-2.3).
+- **2026-10-14, Run as administrator:** the task goes through the Task Scheduler COM API (`ITaskFolder::RegisterTask` with the XML in memory, `GetTask(…).Run`, `DeleteTask`) instead of `schtasks /xml <file>`. Any normal program could swap a temp file before the admin copy reads it, and put its own command into an admin task. COM runs on a thread of its own, so it never meets the main thread's own COM setup. The UAC prompt is `ShellExecuteW("runas")` on the command's own thread: the Settings window is frozen only while Windows' secure desktop covers it. The wait argument is `--after=<pid>`, so `cli::parse` skips it as one piece, and it comes with `--settings`, so the admin copy reopens Settings. The task is only re-registered when the setting changes, or at an admin start.
+- **2026-10-15, review of tasks 10–12:** 3 findings, all fixed. (1) A task pointing at a copy installed elsewhere (the .exe and .msi installers use different folders, and settings survive a reinstall) made every start quit with nothing running, since Task Scheduler reports success even when the exe is gone: the task now runs only if its XML starts this exe, otherwise Windows asks. (2) Two administrator accounts on one PC overwrote each other's task: the user name is now part of its name. (3) Issue 39 now notes that uninstalling a per-user copy leaves the task behind.

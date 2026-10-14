@@ -14,6 +14,7 @@ pub fn parse<S: AsRef<str>>(args: &[S]) -> Vec<Action> {
             "--snip" => Some(Action::Snip),
             "--settings" => Some(Action::Settings),
             "--quit" => Some(Action::Quit),
+            a if a.starts_with(crate::admin::AFTER) => None, // read before the app starts (APP-3.4)
             other => {
                 log::warn!("ignoring unknown argument {other:?}");
                 None

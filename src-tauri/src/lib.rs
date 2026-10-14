@@ -1,3 +1,4 @@
+mod admin;
 mod bubble;
 mod capture;
 mod chat;
@@ -54,6 +55,9 @@ struct AppInfo {
     identifies_apps: bool,
     /// The command the Wayland shortcut steps show (LNX-2.2).
     launcher: String,
+    /// Whether Settings offers "Run as administrator", and whether this copy is one (APP-3.3, APP-3.5).
+    can_run_as_admin: bool,
+    running_as_admin: bool,
 }
 
 #[tauri::command]
@@ -67,6 +71,8 @@ fn app_info(app: AppHandle) -> AppInfo {
         log_dir: dir(app.path().app_log_dir()),
         identifies_apps: capture::identifies_apps(session::current()),
         launcher: launcher(&app).map(|p| p.display().to_string()).unwrap_or_default(),
+        can_run_as_admin: admin::available(),
+        running_as_admin: admin::elevated(),
     }
 }
 
@@ -107,6 +113,14 @@ pub fn update_settings(app: &AppHandle, mut settings: Settings) -> Result<(), St
     hotkey::validate(&settings.hotkeys, &old.hotkeys)?;
     persona::validate_all(&settings)?; // PER-1.1
     privacy::validate(&settings.privacy)?; // PRI-3.4
+    // Turning it on asks Windows; this copy then quits, and the admin one reopens Settings (APP-3.4).
+    let restart = settings.run_as_admin && !old.run_as_admin && admin::available() && !admin::elevated();
+    if restart {
+        if let Err(e) = admin::runas(&format!("{}{} --settings", admin::AFTER, std::process::id())) {
+            log::info!("run as administrator: {e}");
+            return Err("Windows didn't allow it.".into());
+        }
+    }
     if settings.local_only && !old.local_only {
         if let Some(local) = llm::local_default(&settings.models) {
             settings.models.default = Some(local); // PRI-1.3
@@ -127,6 +141,9 @@ pub fn update_settings(app: &AppHandle, mut settings: Settings) -> Result<(), St
     secrets::forget_removed(old.models.providers.iter().map(|p| p.id.as_str()), &kept);
     tray::refresh(app, &settings);
     sync_autostart(app, &settings);
+    if old.run_as_admin != settings.run_as_admin {
+        admin::sync(settings.run_as_admin);
+    }
     // Switching a built-in model to "Always on" loads it now, as a start with Cursora would (LLM-3.5).
     let always = |s: &Settings| s.models.providers.iter().filter_map(|p| p.engine.as_ref()).filter(|e| e.lifetime == llm::Lifetime::Always).map(|e| e.gguf.clone()).collect::<Vec<_>>();
     if always(&settings).iter().any(|g| !always(&old).contains(g)) {
@@ -137,6 +154,9 @@ pub fn update_settings(app: &AppHandle, mut settings: Settings) -> Result<(), St
         chat::persona_changed(app, speaker(&settings));
     }
     let _ = app.emit("settings-changed", &settings);
+    if restart {
+        app.exit(0);
+    }
     Ok(())
 }
 
@@ -205,10 +225,25 @@ fn handle(app: &AppHandle, action: cli::Action) {
     }
 }
 
+/// Debug builds are console apps (release ones aren't, see main.rs). Started outside a terminal, by autostart
+/// or the admin task, they open a console of their own: that one is closed (issue 13). Run from a terminal, it stays.
+#[cfg(all(windows, debug_assertions))]
+fn close_own_console() {
+    use windows::Win32::System::Console::{FreeConsole, GetConsoleProcessList};
+    let mut ids = [0u32; 2];
+    if unsafe { GetConsoleProcessList(&mut ids) } == 1 {
+        let _ = unsafe { FreeConsole() };
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(all(windows, debug_assertions))]
+    close_own_console();
     #[cfg(target_os = "linux")]
     session::prefer_xwayland();
+    let context = tauri::generate_context!();
+    let admin_note = admin::before_start(&context.config().identifier); // may hand over and exit (APP-3.3)
     tauri::Builder::default()
         // Must be first: a second launch hands its arguments to this instance and exits (APP-2.2).
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
@@ -306,7 +341,10 @@ pub fn run() {
             llm::commands::model_problem,
             llm::commands::pick_model_file,
         ])
-        .setup(|app| {
+        .setup(move |app| {
+            if let Some(note) = admin_note {
+                log::warn!("{note}");
+            }
             let path = app.path().app_config_dir()?.join("settings.json");
             let (mut settings, warning) = settings::load(&path);
             persona::rename_clashes(&mut settings);
@@ -316,6 +354,7 @@ pub fn run() {
             }
             tray::create(app.handle(), &settings)?;
             sync_autostart(app.handle(), &settings);
+            admin::sync(settings.run_as_admin);
             if let Err(e) = hotkey::apply(app.handle(), None, &settings) {
                 log::warn!("{e}");
                 app.dialog().message(e).title("Cursora").show(|_| {}); // SEL-1.3
@@ -343,7 +382,9 @@ pub fn run() {
             }
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context)
+        // A release build has no console, so a failed start would leave no trace without this line.
+        .inspect_err(|e| log::error!("Cursora couldn't start: {e}"))
         .expect("error while building Cursora")
         .run(|app, event| match event {
             // Closing the last window must not quit: Cursora lives in the tray (APP-1.1).
