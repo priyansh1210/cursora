@@ -1,3 +1,4 @@
+use crate::chat::Image;
 use crate::settings::CaptureSettings;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -5,12 +6,19 @@ use std::{fs, time::UNIX_EPOCH};
 
 const MAX_ITEMS: usize = 20;
 const MAX_CHILDREN: usize = 50;
+/// Images a model that can see gets with selected files (VIS-2.7).
+const MAX_IMAGES: usize = 4;
+const IMAGE_MAX_BYTES: u64 = 20_000_000;
+const IMAGE_TYPES: [&str; 5] = ["png", "jpg", "jpeg", "webp", "gif"];
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct FileContext {
     pub items: Vec<FileItem>,
     /// Selected items beyond the first 20 (SEL-5.5).
     pub omitted: usize,
+    /// The attached images, in item order (VIS-2.7). Never serialized: history keeps the file list only.
+    #[serde(skip)]
+    pub images: Vec<Image>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -25,6 +33,9 @@ pub struct FileItem {
     pub content: Option<String>,
     /// Why `content` is missing, for the model and the bubble.
     pub skipped: Option<String>,
+    /// Attached as an image for a model that can see (VIS-2.7).
+    #[serde(default)]
+    pub image: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
@@ -39,12 +50,33 @@ pub enum Kind {
 pub fn file_context(paths: &[PathBuf], cfg: &CaptureSettings) -> FileContext {
     let mut budget = cfg.files_total_bytes;
     let items = paths.iter().take(MAX_ITEMS).map(|p| item(p, cfg.file_max_bytes, &mut budget)).collect();
-    FileContext { items, omitted: paths.len().saturating_sub(MAX_ITEMS) }
+    FileContext { items, omitted: paths.len().saturating_sub(MAX_ITEMS), images: Vec::new() }
+}
+
+/// For a model that can see: up to 4 image files of up to 20 MB, downscaled to `max_side` (VIS-2.7).
+/// One that won't decode, a 5th, or a larger one stays metadata only.
+pub fn attach_images(ctx: &mut FileContext, max_side: u32) {
+    for it in &mut ctx.items {
+        let is_image = it.path.extension().is_some_and(|e| IMAGE_TYPES.iter().any(|t| e.eq_ignore_ascii_case(t)));
+        if ctx.images.len() == MAX_IMAGES || it.kind != Kind::File || !is_image || it.size > IMAGE_MAX_BYTES {
+            continue;
+        }
+        // The reader's default limits refuse an image that would need over 512 MB to decode.
+        let decoded = image::ImageReader::open(&it.path).ok().and_then(|r| r.with_guessed_format().ok()?.decode().ok());
+        match decoded.map(|img| crate::snip::png(&crate::snip::fit(img.to_rgb8(), max_side))) {
+            Some(Ok(png)) => {
+                ctx.images.push(png);
+                it.image = true;
+                it.skipped = None;
+            }
+            _ => it.skipped = Some("an image that couldn't be read".into()),
+        }
+    }
 }
 
 fn item(path: &Path, max_bytes: u64, budget: &mut u64) -> FileItem {
     let name = path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned());
-    let mut it = FileItem { path: path.into(), name, kind: Kind::File, size: 0, modified: 0, children: Vec::new(), content: None, skipped: None };
+    let mut it = FileItem { path: path.into(), name, kind: Kind::File, size: 0, modified: 0, children: Vec::new(), content: None, skipped: None, image: false };
     // symlink_metadata never follows links or junctions out of the selection (SEL-5.6).
     let meta = match fs::symlink_metadata(path) {
         Ok(m) => m,
@@ -135,6 +167,28 @@ mod tests {
         assert!(ctx.items[3].skipped.as_deref().unwrap().starts_with("larger than"));
         // 4 + 6 bytes used leaves 80; 81 more would pass the 90 total
         assert!(ctx.items[4].skipped.as_deref().unwrap().starts_with("total size limit"));
+    }
+
+    #[test]
+    fn vis_2_7_up_to_4_images_are_attached_downscaled_and_a_broken_one_is_metadata() {
+        let dir = temp_dir("images");
+        for i in 0..5 {
+            image::RgbImage::new(3000, 100).save(dir.join(format!("{i}.png"))).unwrap();
+        }
+        fs::write(dir.join("broken.jpg"), b"not a jpeg").unwrap();
+        fs::write(dir.join("notes.txt"), "text").unwrap();
+        let names = ["broken.jpg", "notes.txt", "0.png", "1.png", "2.png", "3.png", "4.png"];
+        let mut ctx = file_context(&names.map(|n| dir.join(n)), &CaptureSettings::default());
+        assert!(ctx.images.is_empty() && ctx.items.iter().all(|i| !i.image), "a model that can't see gets metadata only");
+        attach_images(&mut ctx, 2048);
+        let attached: Vec<&str> = ctx.items.iter().filter(|i| i.image).map(|i| i.name.as_str()).collect();
+        assert_eq!(attached, ["0.png", "1.png", "2.png", "3.png"]);
+        assert_eq!(ctx.images.len(), 4);
+        let first = image::load_from_memory(&base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &ctx.images[0].base64).unwrap()).unwrap();
+        assert_eq!((first.width(), first.height()), (2048, 68));
+        assert_eq!(ctx.items[0].skipped.as_deref(), Some("an image that couldn't be read"));
+        assert_eq!(ctx.items[1].content.as_deref(), Some("text"));
+        assert!(!serde_json::to_string(&ctx).unwrap().contains(&ctx.images[0].base64), "never serialized");
     }
 
     #[test]

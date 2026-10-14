@@ -36,8 +36,8 @@ pub fn validate(new: &Hotkeys, old: &Hotkeys) -> Result<(), String> {
     Ok(())
 }
 
-/// Registers the ask hotkey unless paused (APP-1.3). If the new one can't be registered, the old one is put back (SEL-1.3).
-/// Snip (spec 10) and push-to-talk (spec 09) are registered by their own specs, so we don't hold keys we don't use.
+/// Registers the ask and snip hotkeys unless paused (APP-1.3). If a new one can't be registered, its old one is put back (SEL-1.3);
+/// a snip key that fails never costs the ask key. Push-to-talk is registered by spec 09, so we don't hold a key we don't use.
 pub fn apply(app: &AppHandle, old: Option<&Settings>, new: &Settings) -> Result<(), String> {
     let shortcuts = app.global_shortcut();
     let _ = shortcuts.unregister_all();
@@ -52,7 +52,24 @@ pub fn apply(app: &AppHandle, old: Option<&Settings>, new: &Settings) -> Result<
         log::warn!("hotkey: {e}");
         return Err(format!("Couldn't use {} as the Ask hotkey. Another app may already use it.", new.hotkeys.ask));
     }
+    if let Err(e) = shortcuts.register(new.hotkeys.snip.as_str()) {
+        if let Some(old) = old.filter(|o| !o.paused && o.hotkeys.snip != new.hotkeys.snip) {
+            let _ = shortcuts.register(old.hotkeys.snip.as_str());
+        }
+        log::warn!("hotkey: {e}");
+        return Err(format!("Couldn't use {} as the Snip hotkey. Another app may already use it.", new.hotkeys.snip));
+    }
     Ok(())
+}
+
+/// A registered hotkey was pressed: the snip key starts a snip (VIS-2.1); the other is Ask.
+pub fn on_press(app: &AppHandle, shortcut: &Shortcut) {
+    let snip = app.state::<AppState>().settings.lock().unwrap().hotkeys.snip.clone();
+    if Shortcut::from_str(&snip).is_ok_and(|s| s == *shortcut) {
+        crate::snip::start(app, Default::default());
+    } else {
+        on_ask(app);
+    }
 }
 
 /// Closes an open bubble (SEL-1.4). Otherwise captures off the main thread and opens the bubble.
@@ -73,21 +90,26 @@ pub fn on_ask(app: &AppHandle) {
         let started = Instant::now();
         // With no model set up, nothing is captured: the bubble only says so (LLM-9.1).
         let model = llm::availability(&s.models, s.local_only).ok();
-        let vision = model.is_some_and(|(p, m)| llm::vision(p, m));
+        let vision = llm::active(&app).is_ok_and(|m| m.info().vision); // Echo too, in debug builds
         let health = (model.is_some() || llm::echo()).then(|| {
             let app = app.clone();
             std::thread::spawn(move || llm::health(&app)) // alongside the capture
         });
         let platform = capture::OsPlatform::new();
-        let result = match health {
+        let mut result = match health {
             Some(_) => capture::capture(&platform, &s.capture, vision),
             None => capture::Capture { app: platform.foreground(), method: capture::Method::None, content: Content::None, notice: None },
         };
         CAPTURING.store(false, Ordering::SeqCst);
+        // shortcut: decoding up to 4 images comes before the bubble shows; move it after the bubble if selections of large photos feel slow.
+        if let (true, Content::Files(f)) = (vision, &mut result.content) {
+            capture::files::attach_images(f, s.snip.max_side); // VIS-2.7
+        }
         // Metadata only, never the text (APP-7.2).
         let size = match &result.content {
             Content::Text { text: t, truncated } => format!("{} chars{}", t.chars().count(), if *truncated { ", truncated" } else { "" }),
             Content::Files(f) => format!("{} items", f.items.len() + f.omitted),
+            Content::Snip(s) => format!("snip {}×{}", s.width, s.height),
             Content::None => "nothing".into(),
         };
         log::info!("capture from {}: {:?}, {size}, {:?}, {} ms", result.app.exe, result.method, result.notice, started.elapsed().as_millis());

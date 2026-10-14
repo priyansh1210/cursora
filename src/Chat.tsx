@@ -28,6 +28,9 @@ export default function Chat() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [selected, setSelected] = useState(0);
   const [listClosed, setListClosed] = useState(false);
+  // `/snip <question>`: sent as if typed once the snip's conversation is here, so confirming still applies.
+  const [snipQuestion, setSnipQuestion] = useState<string | null>(null);
+  const sendRef = useRef<(question: string) => void>(undefined);
   const typed = typedCommand(draft);
   useEffect(() => {
     if (typed !== null) void invoke<Entry[]>("skills_available").then(setEntries);
@@ -55,6 +58,7 @@ export default function Chat() {
       }),
       listen("bubble-hidden", () => setConv(null)), // the next open must not flash this conversation
       listen("chat-load", reload),
+      listen<string>("snip-ask", (e) => setSnipQuestion(e.payload)),
       // Personality or the persona changed: the header shows who answers the next message (PER-2.2).
       listen<string | null>("chat-persona", (e) => convRef.current && setConv({ ...convRef.current, persona: e.payload })),
       listen<Delta>("chat-delta", (e) => {
@@ -77,6 +81,12 @@ export default function Chat() {
 
   // Focus the input on open (BUB-2.2).
   useEffect(() => inputRef.current?.focus(), [conv?.id]);
+
+  useEffect(() => {
+    if (snipQuestion === null || conv?.content.kind !== "snip") return;
+    sendRef.current?.(snipQuestion);
+    setSnipQuestion(null);
+  }, [snipQuestion, conv?.id]);
 
   // The bubble's content takes its natural height, capped at 520 px by CSS (then the turns scroll); the window follows it (BUB-2.5).
   useEffect(() => {
@@ -120,6 +130,8 @@ export default function Chat() {
       },
     );
   };
+
+  sendRef.current = send;
 
   const regenerate = (confirmed = false) => {
     const question = conv.turns.at(-1)?.question ?? "";
@@ -166,7 +178,7 @@ export default function Chat() {
           <ModelSelect
             label="Model"
             models={models}
-            value={modelValue(settings.models.default)}
+            value={modelValue(conv.ownModel ?? settings.models.default)}
             onChange={(provider, model) => invoke<Conversation | null>("set_model", { provider, model }).then((c) => c && setConv(c), (e) => setError(String(e)))}
           />
         ) : (
@@ -241,7 +253,7 @@ export default function Chat() {
               ref={inputRef}
               rows={2}
               value={draft}
-              placeholder={conv.content.kind === "none" ? "Ask anything" : "Ask about the selection"}
+              placeholder={conv.content.kind === "none" ? "Ask anything" : conv.content.kind === "snip" ? "Ask about the snip" : "Ask about the selection"}
               aria-label="Your question"
               aria-autocomplete="list"
               aria-controls={list.length ? "skill-list" : undefined}
@@ -367,14 +379,16 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
   if (notice?.kind === "elevated") notes.push("Cursora can't read apps running as administrator. Run Cursora as administrator to use it there.");
   if (notice?.kind === "noSelection") notes.push("Nothing was selected, so ask anything.");
   if (notice?.kind === "unreadable") notes.push("No selection could be read in this session."); // LNX-3.4
+  if (notice?.kind === "snipFailed") notes.push(notice.reason);
   if (content.kind === "text" && content.truncated) notes.push(`Only the first ${content.text.length.toLocaleString()} characters were captured.`);
   if (content.kind === "files" && content.omitted > 0) notes.push(`${content.omitted} more items were left out.`);
+  const offer = notice?.kind === "needsVision" ? notice.offer : null;
 
   return (
     <section className="context" aria-label="Captured context">
       {content.kind !== "none" && (
         <div className="row">
-          <span className="muted">From {conv.app.name || "an unknown app"}</span>
+          <span className="muted">{content.kind === "snip" ? `Snip · ${content.width} × ${content.height}` : `From ${conv.app.name || "an unknown app"}`}</span>
           {content.kind === "text" && <span className="muted">· {content.text.length.toLocaleString()} characters</span>}
           <span className="grow" />
           {conv.turns.length === 0 && (
@@ -395,16 +409,38 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
       {content.kind === "files" && (
         <ul className="chips">
           {content.items.map((f) => (
-            <li key={f.path} title={f.skipped ?? f.path}>
-              {f.kind === "folder" ? "📁" : f.kind === "link" ? "🔗" : "📄"} {f.name}
+            <li key={f.path} title={f.image ? "Attached as an image" : f.skipped ?? f.path}>
+              {f.kind === "folder" ? "📁" : f.kind === "link" ? "🔗" : f.image ? "🖼️" : "📄"} {f.name}
               {f.kind === "file" && <span className="muted"> {formatSize(f.size)}</span>}
             </li>
           ))}
         </ul>
       )}
+      {content.kind === "snip" && (
+        <img className="snip-preview" src={`data:${content.thumbnail.mime};base64,${content.thumbnail.base64}`} alt={`The snip, ${content.width} by ${content.height} pixels`} />
+      )}
       {notes.map((n) => (
         <p key={n} className="muted note">{n}</p>
       ))}
+      {notice?.kind === "noSelection" && notice.offerSnip && (
+        <button type="button" className="link" onClick={() => void invoke("snip_start", {})}>
+          Snip an area instead
+        </button>
+      )}
+      {notice?.kind === "needsVision" && (
+        <div className="note">
+          <p className="muted">Snipping needs a model that can see images.</p>
+          {offer ? (
+            <button type="button" onClick={() => void invoke("snip_start", { model: offer.model })}>
+              Use {offer.label} for this snip
+            </button>
+          ) : (
+            <button type="button" className="link" onClick={() => void invoke("open_settings", { tab: "Models" })}>
+              Add one in Models
+            </button>
+          )}
+        </div>
+      )}
     </section>
   );
 }
