@@ -13,6 +13,8 @@ pub struct Settings {
     pub setup_done: bool,
     pub paused: bool,
     pub start_with_system: bool,
+    /// Windows: start as administrator through a Task Scheduler task (APP-3.3).
+    pub run_as_admin: bool,
     pub theme: Theme,
     pub hotkeys: Hotkeys,
     pub personality_on: bool,
@@ -35,6 +37,7 @@ impl Default for Settings {
             setup_done: false,
             paused: false,
             start_with_system: true,
+            run_as_admin: false,
             theme: Theme::System,
             hotkeys: Hotkeys::default(),
             personality_on: true,
@@ -148,8 +151,7 @@ pub fn load(path: &Path) -> (Settings, Option<String>) {
     let err = match fs::read_to_string(path) {
         Err(e) if e.kind() == io::ErrorKind::NotFound => return (Settings::default(), None),
         Err(e) => e.to_string(),
-        // Notepad and PowerShell 5 may start the file with a UTF-8 byte order mark, which JSON doesn't allow.
-        Ok(text) => match serde_json::from_str(text.trim_start_matches('\u{feff}')) {
+        Ok(text) => match parse(&text) {
             Ok(s) => return (s, None),
             Err(e) => e.to_string(),
         },
@@ -161,6 +163,11 @@ pub fn load(path: &Path) -> (Settings, Option<String>) {
         Err(_) => format!("Cursora couldn't read its settings ({err}). Defaults are used."),
     };
     (Settings::default(), Some(warning))
+}
+
+/// Notepad and PowerShell 5 may start the file with a UTF-8 byte order mark, which JSON doesn't allow.
+pub fn parse(text: &str) -> serde_json::Result<Settings> {
+    serde_json::from_str(text.trim_start_matches('\u{feff}'))
 }
 
 /// Writes a temp file then renames it over the old one, so a crash never leaves a half-written file.

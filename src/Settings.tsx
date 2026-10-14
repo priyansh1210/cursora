@@ -71,6 +71,19 @@ function General({ settings, save }: { settings: S; save: Save }) {
         <input type="checkbox" checked={settings.startWithSystem} onChange={(e) => set({ startWithSystem: e.target.checked })} />
         Start with system
       </label>
+      {info?.canRunAsAdmin && (
+        <>
+          <label className="row">
+            <input type="checkbox" checked={settings.runAsAdmin} onChange={(e) => set({ runAsAdmin: e.target.checked })} />
+            Run as administrator
+          </label>
+          <p className="muted">
+            {info.runningAsAdmin && !settings.runAsAdmin
+              ? "Cursora runs as a normal app from its next start."
+              : "Lets Cursora read apps running as administrator. Windows asks once; after that, Cursora and its built-in engine run with admin rights."}
+          </p>
+        </>
+      )}
       <label className="row">
         <input type="checkbox" checked={settings.paused} onChange={(e) => set({ paused: e.target.checked })} />
         Pause Cursora

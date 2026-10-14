@@ -42,6 +42,13 @@ User story: As a user (especially on Linux Wayland), I want to trigger Cursora f
   - Linux: an XDG autostart `.desktop` file
 - APP-3.2 (manual) WHEN onboarding completes THE SYSTEM SHALL have asked the user whether to start with the system. The default answer is yes.
 
+User story (added 2026-10-14): As a user who works in apps running as administrator, I want Cursora to keep running as administrator once I turn that on, so that Ctrl+G works there after every restart and relaunch, until I turn it off. *Windows only:* Linux needs no such setting, and it isn't shown there. It is shown only to administrator accounts: for a standard account, Windows would run Cursora as another user.
+- APP-3.3 (manual) *Windows:* WHERE "Run as administrator" is on THE SYSTEM SHALL run as administrator every time it starts: at login (APP-3.1) and when opened again. Windows SHALL NOT ask (UAC) at those starts. IF Cursora can't start as administrator that way, THEN THE SYSTEM SHALL ask Windows (the UAC prompt) instead, and IF that is refused too, it SHALL run as a normal app and log why.
+- APP-3.4 (manual) *Windows:* WHEN the user turns "Run as administrator" on THE SYSTEM SHALL ask Windows once (the UAC prompt). On Yes, Cursora SHALL restart as administrator, with the setting on. On No, the setting SHALL stay off and Settings SHALL say "Windows didn't allow it."
+- APP-3.5 (manual) *Windows:* WHEN the user turns "Run as administrator" off THE SYSTEM SHALL remove what starts it as administrator, and SHALL run as a normal app from its next start. Settings SHALL say "Cursora runs as a normal app from its next start."
+- APP-3.6 (auto) THE Windows task that starts Cursora as administrator SHALL run only when asked (no trigger), for the current user, with the highest privileges, with no time limit, on battery too, at normal priority, and SHALL let a second copy start while one runs (so APP-2.4 still works).
+- APP-3.7 (auto) WHEN Cursora starts THE SYSTEM SHALL pick its action from the setting and whether it is running as administrator: on and not admin → restart as administrator; on and admin → create or update the task; off and admin → remove the task; off and not admin → nothing.
+
 ### APP-4 Settings persistence
 - APP-4.1 (auto) WHEN a setting changes THE SYSTEM SHALL persist it to the per-user config directory and apply it without restart.
 - APP-4.2 (auto) IF the settings file is missing THE SYSTEM SHALL use defaults. IF it is unreadable or invalid THE SYSTEM SHALL:
@@ -56,6 +63,7 @@ User story: As a user (especially on Linux Wayland), I want to trigger Cursora f
 - APP-5.2 (manual) THE General tab SHALL contain:
   - hotkeys (ask, snip, push-to-talk). (Amended 2026-10-14: snip and push-to-talk appear once spec 10 and spec 09 are built; until then they would do nothing, issue 37.)
   - Start with system
+  - Run as administrator (Windows, administrator accounts; APP-3.3). (Amended 2026-10-14.)
   - theme (system / light / dark)
   - Pause
 - APP-5.3 (manual) THE About tab SHALL show:
