@@ -37,7 +37,8 @@ export function HotkeyFields({ settings, save }: { settings: Settings; save: Sav
       {settings.hotkeys.ask === "Ctrl+G" && (
         <p className="muted">Ctrl+G replaces "Go to line" in VS Code and Notepad, and "Find next" in browsers.</p>
       )}
-      {/* Snip (spec 10) and push-to-talk (spec 09) appear when their specs are built: until then they'd do nothing (issue 37). */}
+      <HotkeyInput label="Snip" value={settings.hotkeys.snip} onChange={(snip) => snip && set({ snip })} />
+      {/* Push-to-talk appears when spec 09 is built: until then it would do nothing (issue 37). */}
     </>
   );
 }

@@ -5,6 +5,9 @@ import type { Persona } from "./personas";
 import type { Provider } from "./providers";
 
 // Mirrors src-tauri/src/settings.rs.
+/** A provider id and one of its models: the default model, and a snip's one-time switch (VIS-1.2). */
+export type ModelRef = { provider: string; model: string };
+
 export type Settings = {
   schemaVersion: number;
   setupDone: boolean;
@@ -30,7 +33,7 @@ export type Settings = {
   history: { save: boolean; retentionDays: number | null };
   models: {
     providers: Provider[];
-    default: { provider: string; model: string } | null;
+    default: ModelRef | null;
     trustedHosts: string[];
     timeouts: { connectSecs: number; firstReplyLocalSecs: number; firstReplyCloudSecs: number; pauseSecs: number };
   };

@@ -7,10 +7,11 @@ mod windows;
 
 pub use files::{FileContext, Kind};
 #[cfg(not(windows))]
-pub use linux::LinuxPlatform as OsPlatform;
+pub use linux::{wl_paste, LinuxPlatform as OsPlatform};
 #[cfg(windows)]
 pub use self::windows::WinPlatform as OsPlatform;
 
+use crate::chat::Image;
 use crate::session::Session;
 use crate::settings::CaptureSettings;
 use serde::{Deserialize, Serialize};
@@ -59,7 +60,34 @@ pub enum Method {
 pub enum Content {
     Text { text: String, truncated: bool },
     Files(FileContext),
+    /// A screen region (spec 10).
+    Snip(Snip),
     None,
+}
+
+impl Content {
+    /// The images the model gets with the context.
+    pub fn images(&self) -> Vec<Image> {
+        match self {
+            Content::Snip(s) => vec![s.full.clone().unwrap_or_else(|| s.thumbnail.clone())],
+            Content::Files(f) => f.images.clone(),
+            _ => vec![],
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Snip {
+    /// At most 256 px on the long side: what the page shows and history keeps (VIS-2.6).
+    pub thumbnail: Image,
+    /// The size of the image the model gets.
+    pub width: u32,
+    pub height: u32,
+    /// That image. Never serialized, so neither the page nor history ever has it (VIS-2.6); a conversation
+    /// reopened from history has only the thumbnail, which its follow-ups send.
+    #[serde(skip)]
+    pub full: Option<Image>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -74,6 +102,17 @@ pub enum Notice {
     },
     /// This session can't read any selection: Wayland without wl-paste (LNX-3.4).
     Unreadable,
+    /// A snip needs a model that can see (VIS-1.2); `offer` is another configured one that can, for this snip only.
+    NeedsVision { offer: Option<VisionOffer> },
+    /// The screen couldn't be grabbed or the region prepared (spec 10).
+    SnipFailed { reason: String },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct VisionOffer {
+    pub model: crate::llm::ModelRef,
+    /// "llava-1.6 (LM Studio)"
+    pub label: String,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
