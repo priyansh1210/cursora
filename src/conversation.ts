@@ -2,7 +2,7 @@
 import type { ModelRef } from "./useSettings";
 export type Locality = "local" | "lan" | "cloud";
 export type ModelInfo = { name: string; provider: string; locality: Locality; contextTokens: number | null };
-export const ERROR_KINDS = ["auth", "rate_limit", "model_not_found", "context_too_long", "network", "server", "blocked_local_only", "unknown"] as const;
+export const ERROR_KINDS = ["auth", "rate_limit", "billing", "model_not_found", "context_too_long", "network", "server", "blocked_local_only", "unknown"] as const;
 export type ErrorKind = (typeof ERROR_KINDS)[number];
 export type ChatError = { kind: ErrorKind; message: string };
 export type TurnStatus = "streaming" | "done" | "cancelled" | "error";
@@ -52,6 +52,7 @@ export function keyAction(e: { key: string; shiftKey: boolean; isComposing: bool
 const ERROR_TEXT: Record<ErrorKind, string> = {
   auth: "The provider rejected the API key. Check it in Models settings.",
   rate_limit: "The provider is limiting requests right now. Wait a moment, then retry.",
+  billing: "Your account with this provider has no credit left, or its plan doesn't cover this. Check billing on the provider's website, or pick another model in Models settings.",
   model_not_found: "This model isn't available from the provider. Pick another in Models settings.",
   context_too_long: "That's too much text for this model. Remove the context or use a model with a larger context window.",
   network: "Couldn't reach the provider. Check your connection, or that the local model server is running.",
@@ -60,10 +61,10 @@ const ERROR_TEXT: Record<ErrorKind, string> = {
   unknown: "Something went wrong",
 };
 
-/** Plain-language text for each failure kind; auth and configuration errors also offer Models settings (BUB-4.4). */
+/** Plain-language text for each failure kind; auth, billing and configuration errors also offer Models settings (BUB-4.4). */
 export function errorText(kind: ErrorKind, message: string): { text: string; openSettings: boolean } {
   const text = kind === "unknown" ? `${ERROR_TEXT.unknown}: ${message}` : ERROR_TEXT[kind];
-  return { text, openSettings: kind === "auth" || kind === "model_not_found" || kind === "blocked_local_only" };
+  return { text, openSettings: kind === "auth" || kind === "billing" || kind === "model_not_found" || kind === "blocked_local_only" };
 }
 
 /** BUB-7.1 */
