@@ -89,11 +89,28 @@ h2 {
   height: 100vh;
 }
 .settings nav {
+  padding: 12px 8px;
+  border-right: 1px solid var(--line);
+}
+.settings [role="tablist"] {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 12px 8px;
-  border-right: 1px solid var(--line);
+}
+/* The logo and name (APP-5.4, APP-6.4). Not a flex row: WebKitGTK would hide the text from screen readers (issue 20). */
+.brand {
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.settings nav .brand {
+  padding-left: 12px;
+}
+.brand img {
+  vertical-align: middle;
+  margin-right: 8px;
+}
+.brand.about {
+  font-size: 1.4rem;
 }
 .settings nav button {
   text-align: left;

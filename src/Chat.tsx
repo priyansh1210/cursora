@@ -8,6 +8,7 @@ import { render } from "./markdown";
 import { ModelSelect, modelValue, useEnabledModels } from "./Models";
 import { listKey, matches, typedCommand, type Entry } from "./skills";
 import { useSettings, type Settings } from "./useSettings";
+import logo from "../src-tauri/icons/icon.svg";
 
 const isBubble = getCurrentWindow().label === "bubble";
 
@@ -161,6 +162,7 @@ export default function Chat() {
   return (
     <div ref={rootRef} className={isBubble ? "chat bubble" : "chat"}>
       <header data-tauri-drag-region>
+        <img data-tauri-drag-region src={logo} alt="" width={16} height={16} draggable={false} />
         <span data-tauri-drag-region className="who">{h.persona}</span>
         {settings && (
           <button
