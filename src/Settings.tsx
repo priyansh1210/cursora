@@ -8,6 +8,7 @@ import PersonalityTab from "./Personality";
 import SkillsTab from "./SkillsTab";
 import Privacy from "./Privacy";
 import { useAppInfo, useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
+import logo from "../src-tauri/icons/icon.svg";
 
 const TABS = ["General", "Models", "Personality", "Skills", "Voice", "Privacy", "History", "About"] as const;
 type Tab = (typeof TABS)[number];
@@ -28,12 +29,18 @@ export default function Settings() {
 
   return (
     <div className="settings">
-      <nav role="tablist" aria-label="Settings">
-        {TABS.map((t) => (
-          <button key={t} role="tab" aria-selected={t === tab} onClick={() => setTab(t)}>
-            {t}
-          </button>
-        ))}
+      <nav>
+        <p className="brand">
+          <img src={logo} alt="" width={24} height={24} />
+          Cursora
+        </p>
+        <div role="tablist" aria-label="Settings">
+          {TABS.map((t) => (
+            <button key={t} role="tab" aria-selected={t === tab} onClick={() => setTab(t)}>
+              {t}
+            </button>
+          ))}
+        </div>
       </nav>
       <section role="tabpanel" aria-label={tab}>
         {error && <p role="alert" className="error">{error}</p>}
@@ -218,31 +225,37 @@ function About() {
     </button>
   );
   return (
-    <dl>
-      <dt>Version</dt>
-      <dd>{info.version}</dd>
-      <dt>System</dt>
-      <dd>
-        {info.os === "windows" ? "Windows" : "Linux"}
-        {SESSIONS[info.session]}
-      </dd>
-      {info.os === "linux" && (
-        <>
-          <dt>Tray icon</dt>
-          <dd>
-            No Cursora icon in the top bar? GNOME needs the AppIndicator extension (Ubuntu includes it). Everything works without it: your hotkey or
-            shortcut asks, and <code>cursora --settings</code> opens this window.
-          </dd>
-        </>
-      )}
-      <dt>Settings folder</dt>
-      <dd>
-        <code>{info.configDir}</code> {folder("config")}
-      </dd>
-      <dt>Logs folder</dt>
-      <dd>
-        <code>{info.logDir}</code> {folder("log")}
-      </dd>
-    </dl>
+    <>
+      <p className="brand about">
+        <img src={logo} alt="" width={64} height={64} />
+        Cursora
+      </p>
+      <dl>
+        <dt>Version</dt>
+        <dd>{info.version}</dd>
+        <dt>System</dt>
+        <dd>
+          {info.os === "windows" ? "Windows" : "Linux"}
+          {SESSIONS[info.session]}
+        </dd>
+        {info.os === "linux" && (
+          <>
+            <dt>Tray icon</dt>
+            <dd>
+              No Cursora icon in the top bar? GNOME needs the AppIndicator extension (Ubuntu includes it). Everything works without it: your hotkey or
+              shortcut asks, and <code>cursora --settings</code> opens this window.
+            </dd>
+          </>
+        )}
+        <dt>Settings folder</dt>
+        <dd>
+          <code>{info.configDir}</code> {folder("config")}
+        </dd>
+        <dt>Logs folder</dt>
+        <dd>
+          <code>{info.logDir}</code> {folder("log")}
+        </dd>
+      </dl>
+    </>
   );
 }

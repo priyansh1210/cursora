@@ -73,6 +73,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
   - the model name
   - a badge: "🔒 Local" for a provider on this machine (LLM-8.1), "🏠 LAN" for a trusted LAN host (LLM-8.2), otherwise "☁ <provider name>"
 - BUB-7.2 (retired) The quick model switcher. Moved to spec 04 as LLM-5.5, since it needs configured models.
+- BUB-7.3 (manual) THE header of the bubble and of the expanded window SHALL start with the Cursora logo. The logo is decorative: screen readers skip it, and it drags the bubble like the rest of the header. (Added 2026-10-15 at the user's request.)
 
 ### BUB-8 Keyboard and accessibility
 - BUB-8.1 (manual) Every bubble control SHALL be reachable with the keyboard, and all buttons SHALL have accessible labels for screen readers.

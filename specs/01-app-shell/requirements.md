@@ -71,6 +71,7 @@ User story (added 2026-10-14): As a user who works in apps running as administra
   - version
   - OS and session type (Windows / X11 / Wayland)
   - config and log folder paths, with "Open folder" buttons
+- APP-5.4 (manual) THE Settings window SHALL show the Cursora logo and name above its tabs, and the About tab SHALL show the logo, larger, above the version. (Added 2026-10-15 at the user's request.)
 
 ### APP-6 First-run onboarding
 User story: As a new user, I want a short setup, so that my first Ctrl+G just works.
@@ -83,6 +84,7 @@ User story: As a new user, I want a short setup, so that my first Ctrl+G just wo
   In step 1, adding a LAN provider asks whether to trust that host (LLM-8.3).
 - APP-6.2 (manual) WHEN the hotkey is pressed and no model works THE bubble SHALL show "No AI model is available" (LLM-9.1).
 - APP-6.3 (manual) Every choice made in setup SHALL be editable later in Settings, and setup SHALL be re-runnable from Settings → General.
+- APP-6.4 (manual) THE setup window SHALL show the Cursora logo and name above the steps. (Added 2026-10-15 at the user's request.)
 
 ### APP-7 Logging
 - APP-7.1 (manual) THE SYSTEM SHALL write rotating local logs: at most 5 files of 1 MB each.
