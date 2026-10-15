@@ -48,6 +48,7 @@ User story (added 2026-10-14): As a user who works in apps running as administra
 - APP-3.5 (manual) *Windows:* WHEN the user turns "Run as administrator" off THE SYSTEM SHALL remove what starts it as administrator, and SHALL run as a normal app from its next start. Settings SHALL say "Cursora runs as a normal app from its next start."
 - APP-3.6 (auto) THE Windows task that starts Cursora as administrator SHALL run only when asked (no trigger), for the current user, with the highest privileges, with no time limit, on battery too, at normal priority, and SHALL let a second copy start while one runs (so APP-2.4 still works).
 - APP-3.7 (auto) WHEN Cursora starts THE SYSTEM SHALL pick its action from the setting and whether it is running as administrator: on and not admin → restart as administrator; on and admin → create or update the task; off and admin → remove the task; off and not admin → nothing.
+- APP-3.8 (auto) *Windows:* "Run as administrator" SHALL be available only WHERE Cursora runs from Program Files, which only administrators can change. Anywhere else (a per-user install, a dev build), any program running as the user could replace Cursora's files and get admin rights with no prompt. So there Settings SHALL show the setting unavailable, with the reason. Every start SHALL treat the setting as off, so an admin copy removes the task. (Added 2026-10-15, issue 39.)
 
 ### APP-4 Settings persistence
 - APP-4.1 (auto) WHEN a setting changes THE SYSTEM SHALL persist it to the per-user config directory and apply it without restart.
@@ -63,7 +64,7 @@ User story (added 2026-10-14): As a user who works in apps running as administra
 - APP-5.2 (manual) THE General tab SHALL contain:
   - hotkeys (ask, snip, push-to-talk). (Amended 2026-10-14: snip and push-to-talk appear once spec 10 and spec 09 are built; until then they would do nothing, issue 37.)
   - Start with system
-  - Run as administrator (Windows, administrator accounts; APP-3.3). (Amended 2026-10-14.)
+  - Run as administrator (Windows, administrator accounts; APP-3.3). Unavailable outside Program Files (APP-3.8). (Amended 2026-10-14, 2026-10-15.)
   - theme (system / light / dark)
   - Pause
 - APP-5.3 (manual) THE About tab SHALL show:

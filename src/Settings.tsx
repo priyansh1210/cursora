@@ -74,11 +74,19 @@ function General({ settings, save }: { settings: S; save: Save }) {
       {info?.canRunAsAdmin && (
         <>
           <label className="row">
-            <input type="checkbox" checked={settings.runAsAdmin} onChange={(e) => set({ runAsAdmin: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={settings.runAsAdmin}
+              disabled={!info.inProgramFiles && !settings.runAsAdmin}
+              aria-describedby="admin-note"
+              onChange={(e) => set({ runAsAdmin: e.target.checked })}
+            />
             Run as administrator
           </label>
-          <p className="muted">
-            {info.runningAsAdmin && !settings.runAsAdmin
+          <p className="muted" id="admin-note">
+            {!info.inProgramFiles
+              ? "Only when Cursora is installed for all users, in Program Files. Anywhere else, other programs could change its files and get admin rights."
+              : info.runningAsAdmin && !settings.runAsAdmin
               ? "Cursora runs as a normal app from its next start."
               : "Lets Cursora read apps running as administrator. Windows asks once; after that, Cursora and its built-in engine run with admin rights."}
           </p>

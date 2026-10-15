@@ -29,7 +29,7 @@ main.rs → lib.rs::run()
 | `src/Settings.tsx` | Tab frame and the General and About tabs. Each other tab shows a placeholder line until its spec lands. |
 | `src/Setup.tsx` | The setup wizard. It is a list of step components, and later specs add their own steps. |
 | `src/HotkeyInput.tsx` | Records a key combination as `"Ctrl+Shift+G"`. Validation comes from SEL-1.2. |
-| `src-tauri/src/admin.rs` | Run as administrator (APP-3.3–3.7): `startup(on, elevated) -> Startup` and `task_xml(exe, user)` are OS-independent and unit-tested; running the task, the UAC prompt and the `--after` wait are `#[cfg(windows)]`. |
+| `src-tauri/src/admin.rs` | Run as administrator (APP-3.3–3.7): `startup(on, elevated) -> Startup`, `task_xml(exe, user)`, `starts(xml, exe)` and `inside(exe, dirs)` are OS-independent and unit-tested; running the task, the UAC prompt and the `--after` wait are `#[cfg(windows)]`. |
 
 ### Settings (schemaVersion 1)
 ```rust
@@ -79,6 +79,12 @@ struct Settings {
   - **Turning it on (APP-3.4),** from a normal copy: `ShellExecuteW("runas", exe, "--after=<pid> --settings")`. Cancelled → `set_settings` fails with "Windows didn't allow it." and the setting isn't saved. Yes → save the setting and `app.exit(0)`. The admin copy waits up to 10 s for that pid to end, then starts normally: "on, admin" creates the task, and `--settings` reopens Settings. `--after=` is read in `run()` and is not a `cli::Action`.
   - **Turning it off (APP-3.5):** that copy is the admin one, so it can delete the task. Settings shows "Cursora runs as a normal app from its next start."
   - **Administrator accounts only:** `app_info` gains `canRunAsAdmin`, true when the token's elevation type is Limited (an admin with UAC on) or Full. A standard account's UAC prompt asks for another user's password, and Cursora would then run as that user, with that user's settings.
+  - **Only from Program Files (APP-3.8):**
+    - `in_program_files()` checks that the exe is inside `FOLDERID_ProgramFiles` or `FOLDERID_ProgramFilesX86`. They are read with `SHGetKnownFolderPath`, which takes them from HKLM. The `%ProgramFiles%` variable isn't used: a user can set it.
+    - Windows uses the same rule for the apps it trusts with UI access.
+    - The engine is bundled next to the exe, so the check covers it. A task left after an uninstall points into Program Files, where no normal program can put a file.
+    - `app_info` gains `inProgramFiles`. Settings greys the box out and says why, unless the box is ticked, so it can still be turned off.
+    - Outside Program Files, a start counts the setting as off. A normal copy runs as a normal app and logs why; an admin copy deletes the task.
   - **WebView2:** a normal and an admin WebView2 can't share one data folder while both run, and the old copy's WebView2 processes can outlive its pid. Checked 2026-10-15: they were gone 0.4 s after it, and the admin copy started fine (one unexplained failure before that is issue 41). If the admin webview ever fails, the admin copy gets its own folder (`EBWebView-admin`); nothing is kept in webview storage.
   - **Limit:** an action given to a normal-rights launch (`cursora --ask`, `--snip`, `--settings`) isn't passed on: the task takes no arguments, so the admin copy starts or opens Settings instead. Hotkeys are unaffected. Marked `// shortcut:` in the code.
 - **Logging (APP-7.1):** tauri-plugin-log writes to `LogDir`, with `max_file_size(1_000_000)` and `RotationStrategy::KeepSome(5)`.
@@ -106,6 +112,7 @@ struct Settings {
 | APP-3.6 | Rust: `task_xml` has no trigger, `HighestAvailable`, `PT0S`, both battery flags false, priority 5, Parallel, and the exe path XML-escaped |
 | APP-3.7 | Rust: `startup` for all four combinations of setting and elevation |
 | APP-3.3 | Rust: `starts` accepts the task's own exe and refuses a copy installed elsewhere and part of the path (the rest is the manual checklist) |
+| APP-3.8 | Rust: `inside` accepts exes in Program Files in any letter case. It refuses Program Files (x86) when given Program Files only, a per-user install, a dev build and an empty folder name. |
 | APP-7.2 | Node: scan `src-tauri/src/**/*.rs` and fail on log macros that use user-content identifiers (`text`, `selection`, `content`, `question`, `answer`, `api_key`, …) |
 | APP-8.1 | Done: `scripts/trace.test.mjs` |
 | Others | Manual checklist in `tasks.md` |
@@ -118,3 +125,8 @@ struct Settings {
 - **2026-10-13:** with Cursora not running, `cursora --ask` opened an empty bubble: the action ran before the bubble's page had subscribed to its events. The page now also fetches the current conversation once it is listening (APP-2.3).
 - **2026-10-14, Run as administrator:** the task goes through the Task Scheduler COM API (`ITaskFolder::RegisterTask` with the XML in memory, `GetTask(…).Run`, `DeleteTask`) instead of `schtasks /xml <file>`. Any normal program could swap a temp file before the admin copy reads it, and put its own command into an admin task. COM runs on a thread of its own, so it never meets the main thread's own COM setup. The UAC prompt is `ShellExecuteW("runas")` on the command's own thread: the Settings window is frozen only while Windows' secure desktop covers it. The wait argument is `--after=<pid>`, so `cli::parse` skips it as one piece, and it comes with `--settings`, so the admin copy reopens Settings. The task is only re-registered when the setting changes, or at an admin start.
 - **2026-10-15, review of tasks 10–12:** 3 findings, all fixed. (1) A task pointing at a copy installed elsewhere (the .exe and .msi installers use different folders, and settings survive a reinstall) made every start quit with nothing running, since Task Scheduler reports success even when the exe is gone: the task now runs only if its XML starts this exe, otherwise Windows asks. (2) Two administrator accounts on one PC overwrote each other's task: the user name is now part of its name. (3) Issue 39 now notes that uninstalling a per-user copy leaves the task behind.
+- **2026-10-15, issue 39, APP-3.8 added:**
+  - Run as administrator is now only available from Program Files. In a folder the user can write to, any program could replace `cursora.exe` or `llama-server.exe` and get admin rights from the task with no prompt, even after an uninstall.
+  - The user chose this over also making the NSIS installer per-machine: NSIS stays per-user, and its users don't get the setting.
+  - Rejected: checking the folder's access rights. The parent folders would need the same check, since a writable parent lets a program rename the folder and put its own in its place.
+  - Testing Run as administrator now needs the .msi installed in Program Files.
