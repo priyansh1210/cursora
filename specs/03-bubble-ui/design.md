@@ -182,7 +182,7 @@ Persona text comes with spec 05. Until then, the header's persona name is "Curso
 `header(status)` returns three parts:
 - the persona name, or "Personality off"
 - the model name
-- the badge: "🔒 Local", "🏠 LAN" or "☁ <provider>", from `ModelInfo.locality`
+- the badge: "Local", "LAN" or "Cloud · <provider>", from `ModelInfo.locality`
 
 With no model, the bubble shows **"No AI model is available"**, the reason, and **Open setup**, with no chat input (LLM-9.1). The 3 s health check itself is spec 04.
 

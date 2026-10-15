@@ -1,4 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0D9488"/><stop offset="1" stop-color="#0EA5E9"/></linearGradient><filter id="sh" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="12"/></filter></defs>
-  <rect x="40" y="40" width="944" height="944" rx="224" fill="url(#bg)" /><path d="M535.5,781 A270,270 0 1,1 781,535.5" fill="none" stroke-linecap="round" stroke="#fff" stroke-width="120"/><g transform="translate(10,16)" opacity="0.35" filter="url(#sh)"><path d="M470,450 L470,658.3 L523.8,608.8 L561.6,689.4 L593.5,676 L557.4,597.8 L624.6,597.8 Z" stroke-width="20.2" stroke-linejoin="round" fill="#042F2E" stroke="#042F2E"/></g><path d="M470,450 L470,658.3 L523.8,608.8 L561.6,689.4 L593.5,676 L557.4,597.8 L624.6,597.8 Z" stroke-width="20.2" stroke-linejoin="round" fill="#FCD34D" stroke="#FCD34D"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F8F9F8"/><stop offset="1" stop-color="#E0E5E1"/></linearGradient>
+    <linearGradient id="c" x1="242" y1="242" x2="782" y2="782" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4ADE80"/><stop offset="0.5" stop-color="#22C55E"/><stop offset="1" stop-color="#15803D"/></linearGradient>
+    <filter id="sh" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="12"/></filter>
+  </defs>
+  <rect x="40" y="40" width="944" height="944" rx="224" fill="url(#bg)" stroke="#C9D1CB" stroke-width="10"/>
+  <path d="M535.5,781 A270,270 0 1,1 781,535.5" fill="none" stroke-linecap="round" stroke="url(#c)" stroke-width="120"/>
+  <g transform="translate(10,16)" opacity="0.3" filter="url(#sh)"><path d="M470,450 L470,658.3 L523.8,608.8 L561.6,689.4 L593.5,676 L557.4,597.8 L624.6,597.8 Z" stroke-width="20.2" stroke-linejoin="round" fill="#052E16" stroke="#052E16"/></g>
+  <path d="M470,450 L470,658.3 L523.8,608.8 L561.6,689.4 L593.5,676 L557.4,597.8 L624.6,597.8 Z" stroke-width="20.2" stroke-linejoin="round" fill="#14532D" stroke="#14532D"/>
 </svg>
