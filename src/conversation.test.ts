@@ -20,21 +20,21 @@ describe("chat helpers", () => {
 
   it("PER-2.3 with personality off the header says so and still names the model", () => {
     const model = { name: "llama3.2", provider: "Ollama", locality: "local" as const, contextTokens: null };
-    expect(header({ persona: null, model })).toEqual({ persona: "Personality off", model: "llama3.2", badge: "🔒 Local" });
+    expect(header({ persona: null, model })).toEqual({ persona: "Personality off", model: "llama3.2", badge: "Local" });
   });
 
   it("BUB-7.1 the header shows persona or 'Personality off', the model and its badge", () => {
     const model = { name: "llama3.2", provider: "Ollama", locality: "local" as const, contextTokens: null };
-    expect(header({ persona: "Cursora", model })).toEqual({ persona: "Cursora", model: "llama3.2", badge: "🔒 Local" });
+    expect(header({ persona: "Cursora", model })).toEqual({ persona: "Cursora", model: "llama3.2", badge: "Local" });
     expect(header({ persona: null, model }).persona).toBe("Personality off");
-    expect(header({ persona: null, model: { ...model, locality: "lan" } }).badge).toBe("🏠 LAN");
-    expect(header({ persona: null, model: { ...model, provider: "OpenAI", locality: "cloud" } }).badge).toBe("☁ OpenAI");
+    expect(header({ persona: null, model: { ...model, locality: "lan" } }).badge).toBe("LAN");
+    expect(header({ persona: null, model: { ...model, provider: "OpenAI", locality: "cloud" } }).badge).toBe("Cloud · OpenAI");
   });
 
   it("PRI-1.2 while local-only mode is on, the badge says so", () => {
     const model = { name: "llama3.2", provider: "Ollama", locality: "local" as const, contextTokens: null };
-    expect(header({ persona: null, model }, true).badge).toBe("🔒 Local-only");
-    expect(header({ persona: null, model: { ...model, locality: "lan" } }, true).badge).toBe("🔒 Local-only");
+    expect(header({ persona: null, model }, true).badge).toBe("Local-only");
+    expect(header({ persona: null, model: { ...model, locality: "lan" } }, true).badge).toBe("Local-only");
   });
 
   it("PRI-3.6 the preview marks each placeholder, and only those", () => {

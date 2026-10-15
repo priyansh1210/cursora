@@ -9,6 +9,7 @@ import { ModelSelect, modelValue, useEnabledModels } from "./Models";
 import { listKey, matches, typedCommand, type Entry } from "./skills";
 import { useSettings, type Settings } from "./useSettings";
 import logo from "../src-tauri/icons/icon.svg";
+import { Icon, PATHS } from "./icons";
 
 const isBubble = getCurrentWindow().label === "bubble";
 
@@ -173,7 +174,7 @@ export default function Chat() {
             title={settings.personalityOn ? "Personality on. Turn it off for the plain model" : "Personality off. Turn it on"}
             onClick={() => save({ personalityOn: !settings.personalityOn }).catch((e) => setError(String(e)))}
           >
-            🎭
+            <Icon d={PATHS.personality} size={16} />
           </button>
         )}
         {models.length > 1 && settings ? (
@@ -190,7 +191,7 @@ export default function Chat() {
         <span data-tauri-drag-region className="grow" />
         {isBubble && (
           <button type="button" className="icon" aria-label="Expand to a larger window" title="Expand" onClick={() => void invoke("expand")}>
-            ⤢
+            <Icon d={PATHS.expand} size={16} />
           </button>
         )}
       </header>
@@ -286,7 +287,7 @@ export default function Chat() {
                 Stop
               </button>
             ) : (
-              <button type="button" onClick={() => send(draft)} disabled={!draft.trim()} aria-label="Send">
+              <button type="button" className="primary" onClick={() => send(draft)} disabled={!draft.trim()} aria-label="Send">
                 Send
               </button>
             )}
@@ -340,7 +341,7 @@ function Outgoing(props: { settings?: Settings; question: string; retry: boolean
           </pre>
           {pending && (
             <div className="row">
-              <button type="button" autoFocus onClick={props.onSend}>
+              <button type="button" className="primary" autoFocus onClick={props.onSend}>
                 Send to {to.provider}
               </button>
               <button type="button" onClick={props.onCancel}>
@@ -365,7 +366,7 @@ function NoModel({ reason }: { reason?: string }) {
     <div className="nomodel" role="alert">
       <strong>No AI model is available</strong>
       <p className="muted">{reason ?? "No model is set up yet."}</p>
-      <button type="button" autoFocus onClick={() => void invoke("open_setup")}>
+      <button type="button" className="primary" autoFocus onClick={() => void invoke("open_setup")}>
         Open setup
       </button>
     </div>
@@ -412,7 +413,7 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
         <ul className="chips">
           {content.items.map((f) => (
             <li key={f.path} title={f.image ? "Attached as an image" : f.skipped ?? f.path}>
-              {f.kind === "folder" ? "📁" : f.kind === "link" ? "🔗" : f.image ? "🖼️" : "📄"} {f.name}
+              <Icon d={f.kind === "folder" ? PATHS.folder : f.kind === "link" ? PATHS.link : f.image ? PATHS.image : PATHS.file} size={14} /> {f.name}
               {f.kind === "file" && <span className="muted"> {formatSize(f.size)}</span>}
             </li>
           ))}
