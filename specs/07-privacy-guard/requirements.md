@@ -20,7 +20,7 @@ User story: As a privacy-conscious user, I want a switch that guarantees nothing
 - PRI-1.1 (auto) WHILE local-only mode is on THE SYSTEM SHALL refuse every request to a provider that is not local (LLM-8.1, LLM-8.2), with error `blocked_local_only`. This covers chat, model listing, connection tests, speech-to-text and text-to-speech. The check SHALL happen at a single network chokepoint in the Rust backend.
 - PRI-1.2 (manual) WHILE local-only mode is on:
   - cloud providers SHALL be greyed out in every model picker, with an explanation
-  - the tray and the bubble SHALL show "🔒 Local-only"
+  - the tray and the bubble SHALL show "Local-only" (Amended 2026-10-16: plain words, no emoji, at the user's request; emoji showed as boxes without an emoji font, issue 14.)
 - PRI-1.3 (auto) WHEN local-only mode is turned on while the active model is a cloud model THE SYSTEM SHALL switch to the first available local model. If there is none, it SHALL show "No local model — set one up".
 
 ### PRI-2 App blocklist

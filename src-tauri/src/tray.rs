@@ -7,8 +7,6 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Wry};
 
 const ID: &str = "main";
-/// The tray's word for local-only mode while it is on (PRI-1.2).
-const LOCAL_ONLY: &str = "🔒 Local-only";
 
 /// The app the bubble last opened over. While the tray menu is open, the app in front is the taskbar (PRI-2.4).
 static LAST_APP: Mutex<Option<SourceApp>> = Mutex::new(None);
@@ -36,7 +34,7 @@ pub fn refresh(app: &AppHandle, s: &Settings) {
 }
 
 fn tooltip(s: &Settings) -> String {
-    if s.local_only { format!("Cursora · {LOCAL_ONLY}") } else { "Cursora".into() }
+    if s.local_only { "Cursora · Local-only".into() } else { "Cursora".into() }
 }
 
 /// After each capture. The menu is rebuilt only when the app changed, so "Block Cursora in <app>" names it.
@@ -59,7 +57,7 @@ fn menu(app: &AppHandle, s: &Settings) -> tauri::Result<Menu<Wry>> {
     let personas = Submenu::with_items(app, "Persona", true, &choices.iter().map(|c| c as &dyn IsMenuItem<Wry>).collect::<Vec<_>>())?;
     let open = MenuItem::with_id(app, "settings", "Open Settings", true, None::<&str>)?;
     let personality = CheckMenuItem::with_id(app, "personality", "Personality", true, s.personality_on, None::<&str>)?;
-    let local_only = CheckMenuItem::with_id(app, "local_only", if s.local_only { LOCAL_ONLY } else { "Local-only" }, true, s.local_only, None::<&str>)?;
+    let local_only = CheckMenuItem::with_id(app, "local_only", "Local-only", true, s.local_only, None::<&str>)?;
     // PRI-2.4: unless the app is unknown or already blocked.
     let last = LAST_APP.lock().unwrap().clone().filter(|a| !a.exe.is_empty() && !capture::blocked(&s.capture.blocklist, a));
     let block = last.map(|a| MenuItem::with_id(app, "block", format!("Block Cursora in {}", if a.name.is_empty() { &a.exe } else { &a.name }), true, None::<&str>)).transpose()?;

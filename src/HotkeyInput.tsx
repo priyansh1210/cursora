@@ -22,7 +22,7 @@ export function HotkeyInput({ label, value, onChange }: Props) {
   return (
     <div className="row">
       <span>{label}</span>
-      <button type="button" aria-label={`${label} hotkey`} onClick={() => setRecording(true)} onBlur={() => setRecording(false)} onKeyDown={recording ? onKeyDown : undefined}>
+      <button type="button" className="hotkey" aria-label={`${label} hotkey`} onClick={() => setRecording(true)} onBlur={() => setRecording(false)} onKeyDown={recording ? onKeyDown : undefined}>
         {recording ? "Press keys…" : value ?? "Not set"}
       </button>
     </div>
