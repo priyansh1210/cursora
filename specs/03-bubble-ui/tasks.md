@@ -10,6 +10,7 @@ Status: **In progress**.
 - [x] 6. `Chat.tsx`: header, context, turns, input, actions, errors, no-model view, Expand window, `open_settings(tab)`. Covers BUB-2.4, 2.5, 3.1–3.3, 4.3, 4.5, 6.1, 8.1, 8.2.
 - [x] 7. History tab. Covers BUB-9.2.
 - [x] 8. End-to-end run on Windows and `/ponytail-review`. The review found 6 issues and the run found 2, all fixed (see design.md "Changes during implementation").
+- [x] 9. The Cursora logo at the start of the header. Covers BUB-7.3.
 
 ## Manual checklist
 - [ ] BUB-1.5 Opens on the cursor's monitor, fully visible near every edge and corner. Windows: one monitor ✓ (auto-verified: bottom-right corner flips, stays inside the work area) ☐ two monitors X11 ✓ one monitor, all corners and edges (auto-verified 2026-10-13 in WSL: Xvfb + Openbox) ☐ two monitors (a virtual X server can't give GTK a second monitor; needs a real one)
@@ -25,6 +26,7 @@ Status: **In progress**.
 - [x] BUB-4.5 "Thinking" until the first token. Windows ✓ (auto-verified 2026-10-13) with the built-in engine
 - [x] BUB-5.3 A new capture starts a new conversation; the old one is in History. Windows ✓ (auto-verified 2026-10-13)
 - [x] BUB-6.1 Copy (Shift = plain text) and Regenerate. Windows ✓ Copy as Markdown, Shift+Copy as plain text, Regenerate on the latest answer only (auto-verified 2026-10-13). Speak and Save as skill come with specs 09 and 06.
+- [ ] BUB-7.3 The logo starts the header in the bubble and the expanded window, and dragging it moves the bubble. Windows ✓ expanded window (auto-verified 2026-10-15, screenshot of a conversation reopened from History) ☐ the bubble, and dragging by the logo X11 ☐
 - [ ] BUB-8.1 Everything reachable by keyboard, buttons labeled. Windows ✓ (auto-verified 2026-10-13): Tab reaches every button, all labeled, Enter works X11 ✓ Tab order and focus rings (auto-verified 2026-10-13 in WSL: Xvfb + Openbox)
 - [ ] BUB-8.2 Follows the theme. Windows ✓ light, dark, system (auto-verified 2026-10-13) X11 ✓ (auto-verified 2026-10-13 in WSL: Xvfb + Openbox)
 - [x] BUB-9.2 History tab: list, search, open, delete, clear. Windows ✓ newest first, search, reopen, delete, clear (auto-verified 2026-10-13)
