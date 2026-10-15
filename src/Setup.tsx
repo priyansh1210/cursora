@@ -6,6 +6,7 @@ import { AddProvider, describe, editModels } from "./Models";
 import { describePersona, type Persona } from "./personas";
 import { LIFETIMES, type ModelView, type Provider } from "./providers";
 import { useSettings, type Save, type Settings } from "./useSettings";
+import logo from "../src-tauri/icons/icon.svg";
 
 type StepProps = { settings: Settings; save: Save; setReady: (ready: boolean) => void };
 type Step = (props: StepProps) => ReactNode;
@@ -218,6 +219,10 @@ export default function Setup() {
 
   return (
     <main className="setup">
+      <p className="brand">
+        <img src={logo} alt="" width={24} height={24} />
+        Cursora
+      </p>
       <p className="muted">
         Step {i + 1} of {STEPS.length}
       </p>

@@ -1,6 +1,6 @@
 # 01: App shell (tasks)
 
-Status: **In progress**. Code complete, including Run as administrator (tasks 10–13, added 2026-10-14, and task 14, 2026-10-15); the manual checklist is open.
+Status: **In progress**. Code complete, including Run as administrator (tasks 10–13, added 2026-10-14, and task 14, 2026-10-15; the logo, task 15); the manual checklist is open.
 
 - [x] 1. Scaffold Tauri v2 + React/TS, plus CI with `trace` (milestone 0). Covers APP-8.1 and APP-8.2.
 - [x] 2. `settings.rs`: struct, load/save (atomic), backup on corruption. Tests first. Covers APP-4.1, APP-4.2, APP-4.3, APP-4.4.
@@ -16,6 +16,7 @@ Status: **In progress**. Code complete, including Run as administrator (tasks 10
 - [x] 12. The `runAsAdmin` setting and its General checkbox: turning on asks Windows and restarts, turning off says when it applies. The SEL-6.1 message names the setting. Covers APP-3.4, APP-3.5, APP-5.2, SEL-6.1.
 - [x] 13. `/ponytail-review` of tasks 10–12. 3 findings, all fixed (see design.md "Changes during implementation").
 - [x] 14. Run as administrator only from Program Files: `inside()`, tests first, then `in_program_files()`, `inProgramFiles` and the greyed-out box (issue 39). Covers APP-3.8.
+- [x] 15. The Cursora logo above the Settings tabs, in About and in Setup, and as the page icon. Covers APP-5.4, APP-6.4.
 
 ## Manual checklist
 "✓ (auto-verified)" marks a check run automatically with process and window inspection on Windows. The rest needs a human: clicking the tray, logging in again, Linux.
@@ -33,7 +34,9 @@ Status: **In progress**. Code complete, including Run as administrator (tasks 10
 - [x] APP-3.5 Turning it off removes the task; the next start is a normal app. Windows ✓ (2026-10-15, the user: unticking showed "Cursora runs as a normal app from its next start.", and the task was gone; the next start was a normal app)
 - [ ] APP-3.8 Outside Program Files the box is greyed out with the reason, and a ticked box starts no task; installed from the .msi it works as before. Windows ✓ dev build (auto-verified 2026-10-15: greyed out with the note; ticked, it started as a normal app with no prompt and logged why) ☐ .msi
 - [x] APP-5.1 / 5.2 / 5.3 The tabs and their contents are present, and the folder buttons open the right folders. Windows ✓ (auto-verified 2026-10-13) X11 ✓ (auto-verified 2026-10-15 in WSL: every tab, General without Run as administrator, About's version, session and folders; the buttons opened the settings and logs folders, in File Explorer, since WSL hands them to Windows)
+- [ ] APP-5.4 The logo and name above the Settings tabs, and the larger logo in About. Windows ✓ (auto-verified 2026-10-15, screenshots) X11 ☐
 - [ ] APP-6.1 The full setup flow (after specs 03, 04 and 05). Windows ☐ X11 ☐
 - [x] APP-6.3 Setup choices can be edited in Settings, and "Re-run setup" works. Windows ✓ (auto-verified 2026-10-13)
+- [ ] APP-6.4 The logo and name above the setup steps. Windows ✓ (auto-verified 2026-10-15, screenshot) X11 ☐
 - [x] APP-7.1 More than 5 MB of logs leaves at most 5 files of about 1 MB. Windows ✓ (auto-verified 2026-10-13): 5 files (it kept 6 before the fix)
 - [ ] APP-8.2 CI is green on both OSes; a `v*` tag produces draft-release installers. ☐ (needs a GitHub remote)
