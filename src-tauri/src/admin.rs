@@ -1,5 +1,5 @@
 //! Run as administrator (APP-3.3–3.7). Windows only: there a normal app can't read admin apps (SEL-6.1).
-//! `startup`, `task_xml` and `starts` are plain functions, tested on every OS.
+//! `startup`, `task_xml`, `starts` and `inside` are plain functions, tested on every OS.
 // Only the Windows code calls the plain functions; they are built everywhere so their tests run on Linux too.
 #![cfg_attr(not(windows), allow(dead_code))]
 
@@ -66,6 +66,12 @@ fn esc(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
+/// Whether `exe` is inside one of `dirs`. Windows paths ignore case (APP-3.8).
+pub fn inside(exe: &str, dirs: &[String]) -> bool {
+    let exe = exe.to_lowercase();
+    dirs.iter().filter(|d| !d.is_empty()).any(|d| exe.starts_with(&format!("{}\\", d.trim_end_matches('\\').to_lowercase())))
+}
+
 #[cfg(windows)]
 pub use win::*;
 #[cfg(not(windows))]
@@ -78,6 +84,9 @@ mod other {
         false
     }
     pub fn elevated() -> bool {
+        false
+    }
+    pub fn in_program_files() -> bool {
         false
     }
     pub fn before_start(_identifier: &str) -> Option<String> {
@@ -96,11 +105,11 @@ mod win {
     use windows::core::{w, BSTR, HSTRING, PCWSTR};
     use windows::Win32::Foundation::{CloseHandle, E_FAIL, HANDLE};
     use windows::Win32::Security::{GetTokenInformation, TokenElevationType, TokenElevationTypeDefault, TOKEN_ELEVATION_TYPE, TOKEN_QUERY};
-    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
     use windows::Win32::System::TaskScheduler::{ITaskFolder, ITaskService, TaskScheduler, TASK_CREATE_OR_UPDATE, TASK_LOGON_INTERACTIVE_TOKEN};
     use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcess, OpenProcessToken, WaitForSingleObject, PROCESS_SYNCHRONIZE};
     use windows::Win32::System::Variant::VARIANT;
-    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::Shell::{SHGetKnownFolderPath, ShellExecuteW, FOLDERID_ProgramFiles, FOLDERID_ProgramFilesX86, KF_FLAG_DEFAULT};
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
     /// Whether this copy runs as administrator: the check SEL-6.1 uses.
@@ -122,13 +131,43 @@ mod win {
         ok && kind != TokenElevationTypeDefault
     }
 
+    /// Only administrators can change Program Files; anywhere else the task would hand admin rights to whatever
+    /// program replaced Cursora's files (APP-3.8). The folders come from HKLM: `%ProgramFiles%` is the user's to set.
+    pub fn in_program_files() -> bool {
+        std::env::current_exe().is_ok_and(|exe| inside(&exe.to_string_lossy(), &program_files()))
+    }
+
+    fn program_files() -> [String; 2] {
+        [FOLDERID_ProgramFiles, FOLDERID_ProgramFilesX86].map(|id| unsafe {
+            SHGetKnownFolderPath(&id, KF_FLAG_DEFAULT, None).map_or(String::new(), |p| {
+                let dir = p.to_string().unwrap_or_default();
+                CoTaskMemFree(Some(p.0 as _));
+                dir
+            })
+        })
+    }
+
+    #[test]
+    fn app_3_8_program_files_come_from_windows() {
+        let [x64, x86] = program_files();
+        assert!(x64.ends_with(r":\Program Files") && x86.ends_with(r":\Program Files (x86)"), "{x64} / {x86}");
+        assert!(!in_program_files(), "the test exe is in target");
+    }
+
     /// First thing in `run()`, before the single-instance plugin: a normal copy can't open an admin copy's lock,
     /// so it must hand over before taking its own (APP-3.3). Returns what to log once logging runs.
     pub fn before_start(identifier: &str) -> Option<String> {
         if let Some(pid) = std::env::args().find_map(|a| a.strip_prefix(AFTER)?.parse::<u32>().ok()) {
             wait_for(pid);
         }
-        if !available() || startup(setting_on(identifier), elevated()) != Startup::Elevate {
+        if !available() {
+            return None;
+        }
+        let on = setting_on(identifier);
+        if on && !in_program_files() {
+            return Some("run as administrator: off, because Cursora isn't installed in Program Files".into());
+        }
+        if startup(on, elevated()) != Startup::Elevate {
             return None;
         }
         // shortcut: an action given to this launch (--ask, --snip, --settings) is dropped, as the task takes no arguments; pass them as the task's $(Arg0) if someone needs it.
@@ -160,7 +199,7 @@ mod win {
         if !available() {
             return;
         }
-        let action = startup(on, elevated());
+        let action = startup(on && in_program_files(), elevated());
         std::thread::spawn(move || match action {
             Startup::Install => {
                 if let Err(e) = std::env::current_exe().map_err(|e| e.to_string()).and_then(|exe| install(&exe)) {
@@ -255,6 +294,17 @@ mod tests {
         assert!(starts(&xml, exe));
         assert!(!starts(&xml, r"C:\Users\kabra\AppData\Local\Cursora\cursora.exe"), "a copy installed elsewhere");
         assert!(!starts(&xml, r"C:\Program Files\A&B\cursor"), "only part of the path");
+    }
+
+    #[test]
+    fn app_3_8_only_from_program_files() {
+        let dirs = [r"C:\Program Files".to_string(), r"C:\Program Files (x86)\".to_string()];
+        assert!(inside(r"C:\Program Files\Cursora\cursora.exe", &dirs));
+        assert!(inside(r"c:\program files (x86)\Cursora\cursora.exe", &dirs), "any letter case");
+        assert!(!inside(r"C:\Program Files (x86)\Cursora\cursora.exe", &dirs[..1]), "a folder whose name only starts the same");
+        assert!(!inside(r"C:\Users\kabra\AppData\Local\Cursora\cursora.exe", &dirs), "a per-user install");
+        assert!(!inside(r"D:\cursora\src-tauri\target\debug\cursora.exe", &dirs), "a dev build");
+        assert!(!inside(r"\\server\share\cursora.exe", &[String::new()]), "a folder that couldn't be read");
     }
 
     #[test]

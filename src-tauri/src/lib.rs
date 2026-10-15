@@ -58,6 +58,8 @@ struct AppInfo {
     /// Whether Settings offers "Run as administrator", and whether this copy is one (APP-3.3, APP-3.5).
     can_run_as_admin: bool,
     running_as_admin: bool,
+    /// Outside Program Files the setting is unavailable (APP-3.8).
+    in_program_files: bool,
 }
 
 #[tauri::command]
@@ -73,6 +75,7 @@ fn app_info(app: AppHandle) -> AppInfo {
         launcher: launcher(&app).map(|p| p.display().to_string()).unwrap_or_default(),
         can_run_as_admin: admin::available(),
         running_as_admin: admin::elevated(),
+        in_program_files: admin::in_program_files(),
     }
 }
 
@@ -114,7 +117,7 @@ pub fn update_settings(app: &AppHandle, mut settings: Settings) -> Result<(), St
     persona::validate_all(&settings)?; // PER-1.1
     privacy::validate(&settings.privacy)?; // PRI-3.4
     // Turning it on asks Windows; this copy then quits, and the admin one reopens Settings (APP-3.4).
-    let restart = settings.run_as_admin && !old.run_as_admin && admin::available() && !admin::elevated();
+    let restart = settings.run_as_admin && !old.run_as_admin && admin::available() && admin::in_program_files() && !admin::elevated();
     if restart {
         if let Err(e) = admin::runas(&format!("{}{} --settings", admin::AFTER, std::process::id())) {
             log::info!("run as administrator: {e}");
