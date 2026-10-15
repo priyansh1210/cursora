@@ -41,6 +41,8 @@ You're reading an error in your terminal, a paragraph in a PDF, or a contract in
 
 Use a model on your own computer or your own cloud API key. Give it a name and a personality, or keep it plain.
 
+**New to Cursora?** Read the [user manual](user-manual.html): download it and open it in your browser.
+
 > [!NOTE]
 > **Pre-alpha.** Everything is built except voice, and CI passes on Windows and Ubuntu, but the hands-on checks on every platform are still open ([known issues](specs/issues.md)). There's no release yet: [build it from source](#-get-started).
 

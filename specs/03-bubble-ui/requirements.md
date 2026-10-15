@@ -71,7 +71,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
 - BUB-7.1 (auto) THE bubble header SHALL show:
   - the active persona's name, or "Personality off"
   - the model name
-  - a badge: "🔒 Local" for a provider on this machine (LLM-8.1), "🏠 LAN" for a trusted LAN host (LLM-8.2), otherwise "☁ <provider name>"
+  - a badge: "Local" for a provider on this machine (LLM-8.1), "LAN" for a trusted LAN host (LLM-8.2), otherwise "Cloud · <provider name>" (Amended 2026-10-16: plain words, no emoji, at the user's request; emoji showed as boxes without an emoji font, issue 14.)
 - BUB-7.2 (retired) The quick model switcher. Moved to spec 04 as LLM-5.5, since it needs configured models.
 - BUB-7.3 (manual) THE header of the bubble and of the expanded window SHALL start with the Cursora logo. The logo is decorative: screen readers skip it, and it drags the bubble like the rest of the header. (Added 2026-10-15 at the user's request.)
 

@@ -27,7 +27,7 @@ function AiSource({ settings, save, setReady }: StepProps) {
     setStatus("Testing the model…");
     invoke<number>("provider_test", { provider: id }).then(
       () => {
-        setStatus("✓ It works.");
+        setStatus("It works.");
         setReady(true);
         setWorks(true);
       },
@@ -223,9 +223,12 @@ export default function Setup() {
         <img src={logo} alt="" width={24} height={24} />
         Cursora
       </p>
-      <p className="muted">
+      <p className="muted step">
         Step {i + 1} of {STEPS.length}
       </p>
+      <div className="progress" aria-hidden="true">
+        <span style={{ width: `${((i + 1) / STEPS.length) * 100}%` }} />
+      </div>
       {error && <p role="alert" className="error">{error}</p>}
       <Current settings={settings} save={save} setReady={setReady} />
       <footer>
@@ -234,7 +237,7 @@ export default function Setup() {
             Back
           </button>
         )}
-        <button type="button" onClick={next} disabled={!ready}>
+        <button type="button" className="primary" onClick={next} disabled={!ready}>
           {last ? "Finish" : "Next"}
         </button>
       </footer>

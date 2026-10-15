@@ -74,9 +74,9 @@ export function header(c: { persona: string | null; model: ModelInfo | null }, l
 }
 
 /** While local-only mode is on, every model that may answer says so (PRI-1.2). */
-export function badge(l: Locality, provider: string, localOnly = false): string {
-  if (localOnly && l !== "cloud") return "🔒 Local-only";
-  return l === "local" ? "🔒 Local" : l === "lan" ? "🏠 LAN" : `☁ ${provider}`;
+export function badge(l: Locality, provider?: string, localOnly = false): string {
+  if (localOnly && l !== "cloud") return "Local-only";
+  return l === "local" ? "Local" : l === "lan" ? "LAN" : provider ? `Cloud · ${provider}` : "Cloud";
 }
 
 /** The text cut into plain parts and the given placeholders, so the preview can mark them (PRI-3.6). */

@@ -9,6 +9,7 @@ import SkillsTab from "./SkillsTab";
 import Privacy from "./Privacy";
 import { useAppInfo, useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
 import logo from "../src-tauri/icons/icon.svg";
+import { Icon, PATHS } from "./icons";
 
 const TABS = ["General", "Models", "Personality", "Skills", "Voice", "Privacy", "History", "About"] as const;
 type Tab = (typeof TABS)[number];
@@ -37,6 +38,7 @@ export default function Settings() {
         <div role="tablist" aria-label="Settings">
           {TABS.map((t) => (
             <button key={t} role="tab" aria-selected={t === tab} onClick={() => setTab(t)}>
+              <Icon d={PATHS[t.toLowerCase() as Lowercase<Tab>]} />
               {t}
             </button>
           ))}

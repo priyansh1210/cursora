@@ -25,9 +25,9 @@ net.rs chokepoint ─→ local-only refuses cloud hosts (PRI-1.1, spec 04, uncha
 | `src-tauri/src/prompt.rs` | `PLACEHOLDERS`: one line telling the model what the placeholders are, added only when something was hidden. |
 | `src-tauri/src/llm/mod.rs` | `local_default()` (PRI-1.3); `availability()` says "No local model — set one up." |
 | `src-tauri/src/lib.rs` | `update_settings`: `privacy::validate`, the PRI-1.3 switch; `app_info` gains `identifiesApps`; `model_problem`. |
-| `src-tauri/src/tray.rs` | "Block Cursora in <app>"; the 🔒 Local-only label and tooltip. |
+| `src-tauri/src/tray.rs` | "Block Cursora in <app>"; the Local-only label and tooltip. |
 | `src/Privacy.tsx` (new) | Settings → Privacy. |
-| `src/Chat.tsx`, `src/conversation.ts` | The blocked notice, the 🔒 Local-only badge, the "What will be sent" panel and the confirm flow. |
+| `src/Chat.tsx`, `src/conversation.ts` | The blocked notice, the Local-only badge, the "What will be sent" panel and the confirm flow. |
 
 ## Data
 
@@ -84,8 +84,8 @@ One table holds each detector's id, placeholder tag, display name, pattern and c
   - Turning local-only off doesn't switch back; the user picks again.
 - **PRI-1.2:**
   - The pickers already disable cloud models with "(local-only)" (LLM-5.5), and the Models tab explains why.
-  - The bubble's badge becomes **🔒 Local-only** while the mode is on (`badge()` gains the flag).
-  - The tray item reads **🔒 Local-only** and stays checked, and the tooltip says "Cursora · 🔒 Local-only".
+  - The bubble's badge becomes **Local-only** while the mode is on (`badge()` gains the flag).
+  - The tray item reads **Local-only** and stays checked, and the tooltip says "Cursora · Local-only".
 
 ### Blocklist (PRI-2)
 - **`capture()` checks the rules right after reading the foreground app**, before the admin check. A match returns `Notice::Blocked` with no content. No accessibility read, no keys, no clipboard: the same place the admin check stops today. The window title is cleared from the capture, so a blocked app's title is neither shown nor saved in history.
@@ -103,7 +103,7 @@ One table holds each detector's id, placeholder tag, display name, pattern and c
 
 ### "What will be sent" (PRI-3.6, 3.8)
 - A disclosure button under the conversation: **What will be sent ▸**. Open, it calls `send_preview(question)` with the current draft (debounced 250 ms) and shows:
-  - who receives it, using the header's `badge()` ("To ☁ OpenAI · gpt-4o")
+  - who receives it, using the header's `badge()` ("To Cloud · OpenAI · gpt-4o")
   - the request as text (the same rendering as the developer preview), with each placeholder in a `<mark>`. Rust returns the placeholders it used, and TS marks those strings, so the pattern isn't written twice.
   - **PRI-3.8:** "Images are sent as they are: redaction covers text only." when a cloud request carries images. Spec 10 adds images; until then the warning is unit-tested only.
 - A draft that is a Cursora command (`/help`, `/clear`, an unknown name…) shows "Cursora answers this itself; nothing is sent."

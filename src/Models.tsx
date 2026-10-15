@@ -134,7 +134,7 @@ function ProviderCard({ view, onChange, onRemove, onKeyChange }: { view: Provide
   const test = () => {
     setResult("Testing…");
     invoke<number>("provider_test", { provider: p.id }).then(
-      (n) => setResult(p.kind === "builtin" ? "✓ The engine is running." : `✓ Connected. ${n} model${n === 1 ? "" : "s"} found.`),
+      (n) => setResult(p.kind === "builtin" ? "The engine is running." : `Connected. ${n} model${n === 1 ? "" : "s"} found.`),
       (e) => setResult(describe(e)),
     );
   };
@@ -154,7 +154,7 @@ function ProviderCard({ view, onChange, onRemove, onKeyChange }: { view: Provide
     <section className="card" aria-label={p.name}>
       <div className="row">
         <strong>{p.name}</strong>
-        <span className="badge">{badge(locality, p.name)}</span>
+        <span className="badge">{badge(locality)}</span>
         <span className="grow" />
         <button type="button" onClick={test}>
           Test connection
