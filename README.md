@@ -1,6 +1,8 @@
 <div align="center">
 
-# ✨ Cursora
+<img src="src-tauri/icons/icon.svg" width="112" alt="Cursora logo">
+
+# Cursora
 
 ### Your AI companion, right at your cursor.
 
