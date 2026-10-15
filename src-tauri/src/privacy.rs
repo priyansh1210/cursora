@@ -311,7 +311,8 @@ mod tests {
             ("gh ghp_abcdefghijklmnopqrstuvwxyz0123456789", "[APIKEY_1]=ghp_abcdefghijklmnopqrstuvwxyz0123456789"),
             ("gh github_pat_11ABCDEFG0123456789_abcdefghij", "[APIKEY_1]=github_pat_11ABCDEFG0123456789_abcdefghij"),
             ("slack xoxb-1234567890-abcdef", "[APIKEY_1]=xoxb-1234567890-abcdef"),
-            ("google AIzaSyA-abcdefghijklmnopqrstuvwxyz01234", "[APIKEY_1]=AIzaSyA-abcdefghijklmnopqrstuvwxyz01234"),
+            // Made-up key, split so secret scanners don't take it for a real one.
+            (concat!("google AIza", "SyA-abcdefghijklmnopqrstuvwxyz01234"), concat!("[APIKEY_1]=AIza", "SyA-abcdefghijklmnopqrstuvwxyz01234")),
             ("aadhaar 2345 6789 0124.", "[AADHAAR_1]=2345 6789 0124"),
             ("aadhaar 498765432102", "[AADHAAR_1]=498765432102"),
             ("pan ABCDE1234F", "[PAN_1]=ABCDE1234F"),

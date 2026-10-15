@@ -57,6 +57,7 @@ export type AppInfo = {
   launcher: string;
   canRunAsAdmin: boolean;
   runningAsAdmin: boolean;
+  inProgramFiles: boolean;
 };
 
 export function useAppInfo() {

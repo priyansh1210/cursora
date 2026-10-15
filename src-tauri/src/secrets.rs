@@ -73,12 +73,19 @@ fn ensure_store() -> Result<(), String> {
 }
 
 /// There is no plaintext fallback: without a keychain, keys can't be saved (LLM-6.3).
-/// On Linux the user gets what to do; the error itself ("Platform failure: zbus error: …") goes to the log.
+/// On Linux the user gets what to do; the error itself ("Platform failure: zbus error: …") goes to the log,
+/// once per distinct error: every key read fails the same way, three times just to open Settings.
 fn explain(e: &Error) -> String {
+    static LOGGED: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
     if cfg!(windows) {
         format!("Windows Credential Manager refused the key: {e}")
     } else {
-        log::warn!("keychain: {e}");
+        let e = e.to_string();
+        let mut logged = LOGGED.lock().unwrap();
+        if *logged != e {
+            log::warn!("keychain: {e}");
+            *logged = e;
+        }
         "Cursora keeps API keys in the system keyring, and none is available. Install and unlock GNOME Keyring or KWallet, then try again.".into()
     }
 }
