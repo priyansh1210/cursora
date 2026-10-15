@@ -14,6 +14,7 @@ Status: **In progress**.
 - [x] 10. UI: `providers.ts` presets (vitest), the Models tab, the Setup "AI source" step (Next only after a passing test), the header switcher, the reason in "No AI model is available". Covers LLM-4.1, 4.2, 5.4, 5.5, 8.3, APP-6.1 step 1.
 - [x] 11. End-to-end run on Windows with the built-in engine and a small `.gguf`, then `/ponytail-review`.
 - [x] 12. How long the model stays loaded (2026-10-13): `lifetime` always / idle / answering, "Always on" by default; never stopped mid-answer; "Stop the model" in the tray and the Models tab; the choice in Setup and the Models tab (test first). Covers LLM-3.5, APP-1.2, APP-6.1 step 1.
+- [x] 13. Found while testing Gemini (issue 16, 2026-10-15): the model list leaves out models that can't answer in text, a quota of 0 counts as `model_not_found`, and an account with no credit is the new `billing` kind, for every cloud provider. Covers LLM-5.6, LLM-1.4, BUB-4.4.
 
 ## Manual checklist
 - [ ] LLM-3.1 The installers contain llama-server and its libraries. Windows ☐ Linux ☐

@@ -24,7 +24,7 @@
   - image inputs, where the model supports them
 - LLM-1.2 (auto) THE SYSTEM SHALL convert each provider's stream format (SSE) into one common event sequence: `delta(text)`, then `done(usage?)` or `error(kind, message)`. This SHALL be verified against recorded fixtures for every kind.
 - LLM-1.3 (auto) WHEN a request is cancelled THE SYSTEM SHALL abort it within 100 ms and emit no further deltas.
-- LLM-1.4 (auto) THE SYSTEM SHALL classify failures from the HTTP status and response body into: `auth`, `rate_limit`, `model_not_found`, `context_too_long`, `network`, `server`, `blocked_local_only`, `unknown`.
+- LLM-1.4 (auto) THE SYSTEM SHALL classify failures from the HTTP status and response body into: `auth`, `rate_limit`, `billing`, `model_not_found`, `context_too_long`, `network`, `server`, `blocked_local_only`, `unknown`. (Amended 2026-10-15, issue 16: `billing` is an account with no credit left: HTTP 402, OpenAI's `insufficient_quota`, "insufficient balance" or "insufficient credits", or Anthropic's "credit balance is too low". A quota whose limit is 0 means the plan doesn't include that model, which SHALL count as `model_not_found`. Waiting fixes neither, so neither is `rate_limit`.)
 - LLM-1.5 (auto) Timeouts:
   - connecting: 10 s
   - waiting for the first token: 120 s for local providers, 60 s for cloud
@@ -74,6 +74,7 @@ User story: As a user, I want to just pick a model file and go, without installi
 - LLM-5.3 (auto) THE SYSTEM SHALL expose `capabilities(model) → { vision, contextTokens? }` for other specs to read.
 - LLM-5.4 (manual) THE user SHALL pick one default model. Skills can override it (SKL-2.5).
 - LLM-5.5 (manual) Clicking the model name in the bubble header SHALL open a quick switcher of configured models. In local-only mode, cloud models are disabled. (Was BUB-7.2.)
+- LLM-5.6 (auto) THE model list SHALL leave out models that can't answer in text, recognised by name: speech (text-to-speech, transcription, realtime and audio models), music, image and video generation, embedding, moderation and safety-check models, OCR, computer use, and the old completion-only models. Such a model can still be typed by hand (LLM-5.1). (Added 2026-10-15: Gemini's list offered a text-to-speech model and a music model, the user chose them, and neither could answer. Issue 16.)
 
 ### LLM-6 API key storage
 - LLM-6.1 (auto) THE SYSTEM SHALL store API keys only in the OS keychain (Windows Credential Manager or Linux Secret Service), under service `cursora` and account `<provider-id>`.
