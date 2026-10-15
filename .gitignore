@@ -25,3 +25,6 @@ dist-ssr
 
 # The built-in engine, downloaded by scripts/fetch-llama.mjs
 src-tauri/llama/
+
+# Logo drafts, kept out of the repo
+/logos/
