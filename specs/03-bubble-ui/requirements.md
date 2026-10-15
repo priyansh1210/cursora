@@ -51,7 +51,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
   - Links SHALL open in the default browser only when clicked.
   - Images in model output SHALL NOT be loaded; they show as text (PRI-4.1).
 - BUB-4.3 (manual) A Stop button SHALL cancel streaming and keep the partial answer.
-- BUB-4.4 (auto) IF the request fails THE bubble SHALL show a plain-language message for the error kind (auth, rate limit, model not found, context too long, network, server, blocked by local-only), with Retry. For auth and configuration errors it SHALL also offer "Open Models settings".
+- BUB-4.4 (auto) IF the request fails THE bubble SHALL show a plain-language message for the error kind (auth, rate limit, out of credit, model not found, context too long, network, server, blocked by local-only), with Retry. For auth, out-of-credit and configuration errors it SHALL also offer "Open Models settings". (Amended 2026-10-15: out of credit, LLM-1.4.)
 - BUB-4.5 (manual) A "thinking" indicator SHALL show until the first token arrives.
 
 ### BUB-5 Follow-ups

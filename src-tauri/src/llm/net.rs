@@ -176,21 +176,30 @@ fn excerpt(body: &str) -> String {
 
 /// LLM-1.4: the HTTP status decides when it is clear; otherwise the body's wording does.
 pub fn classify(status: Option<u16>, body: &str) -> ErrorKind {
+    let b = body.to_ascii_lowercase();
+    let has = |words: &[&str]| words.iter().any(|w| b.contains(w));
+    // A quota of 0 means the plan doesn't include the model (Gemini's free tier): waiting won't help.
+    let no_quota = has(&["limit: 0,", "\"quotavalue\":\"0\"", "\"quotavalue\": \"0\""]);
+    // No credit left on the account (OpenAI, OpenRouter, DeepSeek, Anthropic): waiting won't help either.
+    let no_credit = has(&["insufficient_quota", "insufficient balance", "insufficient credits", "credit balance is too low"]);
     match status {
         Some(401 | 403) => return ErrorKind::Auth,
+        Some(402) => return ErrorKind::Billing,
+        Some(429) if no_quota => return ErrorKind::ModelNotFound,
+        Some(429) if no_credit => return ErrorKind::Billing,
         Some(429) => return ErrorKind::RateLimit,
         Some(404) => return ErrorKind::ModelNotFound,
         Some(500..=599) => return ErrorKind::Server,
         _ => {}
     }
-    let b = body.to_ascii_lowercase();
-    let has = |words: &[&str]| words.iter().any(|w| b.contains(w));
     if has(&["context length", "context_length", "context window", "maximum context", "exceeds the available context", "prompt is too long", "too many tokens", "too long"]) {
         ErrorKind::ContextTooLong
-    } else if has(&["model_not_found", "not_found_error"]) || (b.contains("model") && has(&["not found", "does not exist", "no such model", "unknown model"])) {
+    } else if no_quota || has(&["model_not_found", "not_found_error"]) || (b.contains("model") && has(&["not found", "does not exist", "no such model", "unknown model"])) {
         ErrorKind::ModelNotFound
     } else if has(&["api key not valid", "invalid api key", "invalid_api_key", "incorrect api key", "authentication_error", "unauthorized", "permission_denied"]) {
         ErrorKind::Auth
+    } else if no_credit {
+        ErrorKind::Billing
     } else if has(&["rate_limit", "rate limit", "resource_exhausted", "quota"]) {
         ErrorKind::RateLimit
     } else if has(&["overloaded", "server_error", "internal error", "unavailable"]) {
@@ -380,7 +389,7 @@ pub mod tests {
         use ErrorKind::*;
         let cases: &[(Option<u16>, &str, ErrorKind)] = &[
             (Some(401), r#"{"error":{"message":"Incorrect API key provided: sk-ab***","type":"invalid_request_error","code":"invalid_api_key"}}"#, Auth),
-            (Some(429), r#"{"error":{"message":"You exceeded your current quota","type":"insufficient_quota"}}"#, RateLimit),
+            (Some(429), r#"{"error":{"message":"You exceeded your current quota, please check your plan and billing details.","type":"insufficient_quota"}}"#, Billing),
             (Some(404), r#"{"error":{"message":"The model `gpt-9` does not exist or you do not have access to it.","code":"model_not_found"}}"#, ModelNotFound),
             (Some(400), r#"{"error":{"message":"This model's maximum context length is 128000 tokens. However, your messages resulted in 130000 tokens.","code":"context_length_exceeded"}}"#, ContextTooLong),
             (Some(401), r#"{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}"#, Auth),
@@ -389,6 +398,16 @@ pub mod tests {
             (Some(404), r#"{"type":"error","error":{"type":"not_found_error","message":"model: claude-9"}}"#, ModelNotFound),
             (Some(400), r#"{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT"}}"#, Auth),
             (Some(429), r#"{"error":{"code":429,"message":"Resource has been exhausted","status":"RESOURCE_EXHAUSTED"}}"#, RateLimit),
+            // Gemini's free tier and a model it doesn't include (issue 16): a quota of 0, so retrying can't help.
+            (Some(429), r#"{"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details.
+* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.5-pro","status":"RESOURCE_EXHAUSTED"}}"#, ModelNotFound),
+            (Some(429), r#"{"error":{"code":429,"message":"* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 10, model: gemini-2.5-flash","status":"RESOURCE_EXHAUSTED"}}"#, RateLimit),
+            (None, r#"{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","details":[{"violations":[{"quotaValue": "0"}]}]}}"#, ModelNotFound),
+            // No credit left on the account, in each provider's words: waiting won't help.
+            (Some(402), r#"{"error":{"message":"Insufficient credits. Add more using https://openrouter.ai/credits","code":402}}"#, Billing),
+            (Some(402), r#"{"error":{"message":"Insufficient Balance","type":"unknown_error","param":null,"code":"invalid_request_error"}}"#, Billing),
+            (Some(400), r#"{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}}"#, Billing),
+            (None, r#"{"error":{"message":"You exceeded your current quota","type":"insufficient_quota"}}"#, Billing),
             // Recorded from the bundled llama-server (b11570).
             (Some(400), r#"{"error":{"code":400,"message":"request (3030 tokens) exceeds the available context size (2048 tokens), try increasing it","type":"exceed_context_size_error","n_prompt_tokens":3030,"n_ctx":2048}}"#, ContextTooLong),
             (Some(503), "Service Unavailable", Server),
