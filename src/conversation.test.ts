@@ -9,11 +9,11 @@ describe("chat helpers", () => {
     expect(keyAction({ key: "a", shiftKey: false, isComposing: false })).toBeNull();
   });
 
-  it("BUB-4.4 every error kind has a plain-language message; config errors offer Models settings", () => {
+  it("BUB-4.4 every error kind has a plain-language message; auth, billing and config errors offer Models settings", () => {
     for (const kind of ERROR_KINDS) {
       const e = errorText(kind, "raw detail");
       expect(e.text.length).toBeGreaterThan(10);
-      expect(e.openSettings).toBe(["auth", "model_not_found", "blocked_local_only"].includes(kind));
+      expect(e.openSettings).toBe(["auth", "billing", "model_not_found", "blocked_local_only"].includes(kind));
     }
     expect(errorText("unknown", "raw detail").text).toContain("raw detail");
   });

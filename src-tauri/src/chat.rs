@@ -73,6 +73,7 @@ pub struct Image {
 pub enum ErrorKind {
     Auth,
     RateLimit,
+    Billing,
     ModelNotFound,
     ContextTooLong,
     Network,

@@ -278,10 +278,25 @@ pub fn parse(kind: Kind, usage: &mut Usage, name: &str, data: &str) -> Vec<Event
 
 /// A model-list response → model ids, with the context size where reported (LLM-5.1).
 pub fn models(kind: Kind, j: &serde_json::Value) -> Vec<ModelEntry> {
-    match kind {
+    let all = match kind {
         Kind::Gemini => gemini::models(j),
         _ => openai::models(j), // Anthropic's list has the same shape
-    }
+    };
+    all.into_iter().filter(|m| chats(&m.id)).collect()
+}
+
+/// Model families that can't answer in text: speech, music, images, video, embeddings, safety checks, OCR,
+/// computer use and the old completion-only models (LLM-5.6).
+// shortcut: the name table goes stale, and OpenAI's own Responses-only models (o1-pro, o3-pro, codex) still show,
+// since OpenRouter serves them as chat; a model left out can still be typed by hand.
+const NOT_CHAT: &[&str] = &[
+    "tts", "whisper", "transcribe", "realtime", "audio", "lyria", "imagen", "veo", "dall-e", "gpt-image", "sora", "embed",
+    "moderation", "guard", "ocr", "computer-use", "davinci", "babbage",
+];
+
+fn chats(id: &str) -> bool {
+    let m = id.to_ascii_lowercase();
+    !NOT_CHAT.iter().any(|n| m.contains(n))
 }
 
 /// LLM-5.2: the user's override, then what the runtime reports (the engine's mmproj), then the name table.
@@ -691,6 +706,33 @@ pub mod tests {
         ] });
         assert_eq!(models(Kind::Gemini, &gemini), [ModelEntry { id: "gemini-2.5-flash".into(), context_size: Some(1048576) }]);
         assert!(models(Kind::OpenAiCompatible, &json!({ "unexpected": true })).is_empty());
+    }
+
+    #[test]
+    fn llm_5_6_model_lists_leave_out_models_that_cant_answer_in_text() {
+        // The first two after flash were offered by Gemini's list and chosen, and neither could answer (issue 16).
+        let gemini = json!({ "models": [
+            { "name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"] },
+            { "name": "models/gemini-2.5-pro-preview-tts", "supportedGenerationMethods": ["generateContent"] },
+            { "name": "models/lyria-3.5", "supportedGenerationMethods": ["generateContent"] },
+            { "name": "models/gemini-embedding-001", "supportedGenerationMethods": ["generateContent", "embedContent"] }
+        ] });
+        let ids = |l: Vec<ModelEntry>| l.into_iter().map(|m| m.id).collect::<Vec<_>>();
+        assert_eq!(ids(models(Kind::Gemini, &gemini)), ["gemini-2.5-flash"]);
+        let openai = json!({ "data": [
+            { "id": "gpt-4.1" }, { "id": "tts-1" }, { "id": "whisper-1" }, { "id": "gpt-4o-transcribe" }, { "id": "dall-e-3" },
+            { "id": "text-embedding-3-small" }, { "id": "omni-moderation-latest" }, { "id": "gpt-4o-realtime-preview" },
+            { "id": "gpt-4o-audio-preview" }, { "id": "gpt-image-1" }, { "id": "sora-2" }, { "id": "computer-use-preview" },
+            { "id": "davinci-002" }, { "id": "babbage-002" }
+        ] });
+        assert_eq!(ids(models(Kind::OpenAiCompatible, &openai)), ["gpt-4.1"]);
+        let groq = json!({ "data": [
+            { "id": "llama-3.3-70b-versatile" }, { "id": "whisper-large-v3-turbo" }, { "id": "playai-tts" },
+            { "id": "meta-llama/llama-guard-4-12b" }, { "id": "meta-llama/llama-prompt-guard-2-86m" }
+        ] });
+        assert_eq!(ids(models(Kind::OpenAiCompatible, &groq)), ["llama-3.3-70b-versatile"]);
+        let mistral = json!({ "data": [{ "id": "mistral-large-latest" }, { "id": "mistral-embed" }, { "id": "mistral-moderation-latest" }, { "id": "mistral-ocr-latest" }] });
+        assert_eq!(ids(models(Kind::OpenAiCompatible, &mistral)), ["mistral-large-latest"]);
     }
 
     #[test]
