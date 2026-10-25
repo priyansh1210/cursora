@@ -83,6 +83,10 @@ function General({ settings, save }: { settings: S; save: Save }) {
         <input type="checkbox" checked={settings.startWithSystem} onChange={(e) => set({ startWithSystem: e.target.checked })} />
         Start with system
       </label>
+      <label className="row">
+        <input type="checkbox" checked={settings.updates.check} onChange={(e) => set({ updates: { ...settings.updates, check: e.target.checked } })} />
+        Check for updates automatically
+      </label>
       {info?.canRunAsAdmin && (
         <>
           <label className="row">
@@ -223,6 +227,65 @@ function Advanced({ settings, save, windows }: { settings: S; save: Save; window
 
 const SESSIONS = { windows: "", x11: " (X11)", wayland: " (Wayland)", unknown: " (unknown session)" };
 
+/** Mirrors `update::Status` in src-tauri/src/update.rs. */
+type UpdateStatus =
+  | { state: "unknown" | "upToDate" | "waiting" }
+  | { state: "available"; version: string; notes: string; installable: boolean }
+  | { state: "failed"; reason: string }
+  | { state: "downloading"; done: number; total: number | null };
+
+/** The version, Check for updates and its result; an available update's notes, Update now and Skip (UPD-1.3, 2.2, 2.5). */
+function Updates({ version }: { version: string }) {
+  const [status, setStatus] = useState<UpdateStatus>({ state: "unknown" });
+  const [checking, setChecking] = useState(false);
+  useEffect(() => {
+    invoke<UpdateStatus>("update_status").then(setStatus);
+    const off = listen<UpdateStatus>("update-status", (e) => setStatus(e.payload));
+    return () => void off.then((f) => f());
+  }, []);
+  const busy = checking || status.state === "downloading" || status.state === "waiting";
+  const check = () => {
+    setChecking(true);
+    invoke<UpdateStatus>("update_check")
+      .then(setStatus)
+      .finally(() => setChecking(false));
+  };
+  const failed = (e: unknown) => setStatus({ state: "failed", reason: String(e) });
+  const mb = (n: number) => (n / 1048576).toFixed(1);
+  return (
+    <>
+      <dd className="folder">
+        <span>{version}</span>
+        <button type="button" disabled={busy} onClick={check}>
+          {checking ? "Checking…" : "Check for updates"}
+        </button>
+      </dd>
+      <dd role="status" className={status.state === "failed" ? "error" : "muted"}>
+        {status.state === "upToDate" && "Cursora is up to date."}
+        {status.state === "failed" && status.reason}
+        {status.state === "waiting" && "Cursora will update when the answer it's writing is finished."}
+        {status.state === "downloading" && `Downloading the update: ${mb(status.done)}${status.total ? ` of ${mb(status.total)}` : ""} MB…`}
+      </dd>
+      {status.state === "available" && (
+        <dd className="card">
+          <p>
+            <strong>Version {status.version} is available.</strong>
+          </p>
+          {status.notes && <p className="notes">{status.notes}</p>}
+          <div className="row">
+            <button type="button" className="primary" onClick={() => invoke("update_install").catch(failed)}>
+              {status.installable ? "Update now" : "Open the download page"}
+            </button>
+            <button type="button" onClick={() => invoke("update_skip", { version: status.version }).catch(failed)}>
+              Skip this version
+            </button>
+          </div>
+        </dd>
+      )}
+    </>
+  );
+}
+
 function About() {
   const info = useAppInfo();
   if (!info) return null;
@@ -239,7 +302,7 @@ function About() {
       </p>
       <dl>
         <dt>Version</dt>
-        <dd>{info.version}</dd>
+        <Updates version={info.version} />
         <dt>System</dt>
         <dd>
           {info.os === "windows" ? "Windows" : "Linux"}

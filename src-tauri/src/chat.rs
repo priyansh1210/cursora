@@ -311,6 +311,11 @@ pub fn cancel(app: &AppHandle, label: &str) {
 }
 
 /// The expanded window was closed: stop its answer and forget it (it is already in history).
+/// Whether any conversation's answer is still coming in, so an update waits for it (UPD-2.4).
+pub fn answering(app: &AppHandle) -> bool {
+    slots(app).values().any(|s| s.conv.turns.last().is_some_and(|t| t.status == TurnStatus::Streaming))
+}
+
 pub fn drop_slot(app: &AppHandle, label: &str) {
     let old = slots(app).remove(label);
     retire(app, old);

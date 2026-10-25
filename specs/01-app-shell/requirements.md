@@ -81,7 +81,7 @@ User story: As a new user, I want a short setup, so that my first Ctrl+G just wo
   3. Choose the hotkeys: ask (default Ctrl+G), snip (default Ctrl+Shift+G), and push-to-talk (optional, unset by default). (Amended 2026-10-14: snip and push-to-talk appear once spec 10 and spec 09 are built, as in APP-5.2.)
   4. A "try it" page with sample text and the hotkey.
 
-  In step 1, adding a LAN provider asks whether to trust that host (LLM-8.3).
+  In step 1, adding a LAN provider asks whether to trust that host (LLM-8.3). The page that asks about starting with the system (APP-3.2) also has "Check for updates automatically", ticked (UPD-1.5; added 2026-10-26).
 - APP-6.2 (manual) WHEN the hotkey is pressed and no model works THE bubble SHALL show "No AI model is available" (LLM-9.1).
 - APP-6.3 (manual) Every choice made in setup SHALL be editable later in Settings, and setup SHALL be re-runnable from Settings → General.
 - APP-6.4 (manual) THE setup window SHALL show the Cursora logo and name above the steps. (Added 2026-10-15 at the user's request.)

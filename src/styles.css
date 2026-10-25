@@ -411,11 +411,17 @@ dd.folder {
   align-items: center;
   gap: 12px;
 }
-dd.folder code {
+dd.folder > :first-child {
   display: inline-flex; /* issue 20 */
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+/* An update's release notes, as written (UPD-2.2). */
+.notes {
+  white-space: pre-wrap;
+  max-height: 12em;
+  overflow-y: auto;
 }
 mark {
   background: color-mix(in srgb, var(--accent) 28%, transparent);
