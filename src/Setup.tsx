@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState, type ReactNode } from "react";
 import { HotkeyFields } from "./HotkeyInput";
+import { Icon, PATHS } from "./icons";
 import { AddProvider, describe, editModels } from "./Models";
 import { describePersona, type Persona } from "./personas";
 import { LIFETIMES, type ModelView, type Provider } from "./providers";
@@ -76,12 +77,23 @@ function AiSource({ settings, save, setReady }: StepProps) {
       <h2>Choose an AI source</h2>
       <p className="muted">Cursora needs a working model: one on this computer, or a cloud provider with an API key.</p>
       {current && d && (
-        <p>
-          Current model: <strong>{d.model}</strong> ({current.name})
-        </p>
+        <div className="card current">
+          <p>
+            Current model: <strong>{d.model}</strong> ({current.name})
+          </p>
+          {/* Its test result sits with it, not under the "another source" list (APP-6.3). */}
+          {!added && status && (
+            <p role="status" className={works ? "ok" : "note"}>
+              {works && <Icon d={PATHS.check} size={14} />} {status}
+            </p>
+          )}
+        </div>
       )}
       {!added ? (
-        <AddProvider save={save} onAdded={onAdded} />
+        <>
+          {current && <h3>Or use another source</h3>}
+          <AddProvider save={save} onAdded={onAdded} />
+        </>
       ) : (
         <>
           {added.kind !== "builtin" && (
@@ -114,9 +126,9 @@ function AiSource({ settings, save, setReady }: StepProps) {
           </button>
         </>
       )}
-      {status && (
-        <p role="status" className="note">
-          {status}
+      {status && (added || !current) && (
+        <p role="status" className={works ? "ok" : "note"}>
+          {works && <Icon d={PATHS.check} size={14} />} {status}
         </p>
       )}
       {works && current?.kind === "builtin" && <EngineLifetime p={current} save={save} />}

@@ -11,6 +11,8 @@ Status: **In progress**.
 - [x] 7. History tab. Covers BUB-9.2.
 - [x] 8. End-to-end run on Windows and `/ponytail-review`. The review found 6 issues and the run found 2, all fixed (see design.md "Changes during implementation").
 - [x] 9. The Cursora logo at the start of the header. Covers BUB-7.3.
+- [x] 10. A header that fits its window: the model switcher shrinks, and below 520 px (a container query) the cloud badge drops the provider's name and "Personality off" hides. Covers BUB-7.1, BUB-7.4.
+- [x] 11. The 2026-10-25 design pass, at the user's request: title bars follow the theme, the expanded window keeps a 760 px column, "What will be sent" and the input form one panel, the question in normal weight. Covers BUB-8.2.
 
 ## Manual checklist
 - [ ] BUB-1.5 Opens on the cursor's monitor, fully visible near every edge and corner. Windows: one monitor ✓ (auto-verified: bottom-right corner flips, stays inside the work area) ☐ two monitors X11 ✓ one monitor, all corners and edges (auto-verified 2026-10-13 in WSL: Xvfb + Openbox) ☐ two monitors (a virtual X server can't give GTK a second monitor; needs a real one)
@@ -27,7 +29,8 @@ Status: **In progress**.
 - [x] BUB-5.3 A new capture starts a new conversation; the old one is in History. Windows ✓ (auto-verified 2026-10-13)
 - [x] BUB-6.1 Copy (Shift = plain text) and Regenerate. Windows ✓ Copy as Markdown, Shift+Copy as plain text, Regenerate on the latest answer only (auto-verified 2026-10-13). Speak and Save as skill come with specs 09 and 06.
 - [ ] BUB-7.3 The logo starts the header in the bubble and the expanded window, and dragging it moves the bubble. Windows ✓ expanded window (auto-verified 2026-10-15, screenshot of a conversation reopened from History) ☐ the bubble, and dragging by the logo X11 ☐
+- [ ] BUB-7.4 The header fits: in the bubble, a cloud model with a long name shows "Cloud" (the provider in its tooltip), a narrowed switcher and Expand; the expanded window shows "Cloud · <provider>". Also with "Personality off". Windows ✓ (2026-10-25, screenshots, light and dark: the bubble shows the logo, the dimmed personality button, `gemini-flash-lite-latest` in full, "Cloud" and Expand; the expanded window "Personality off" and "Cloud · Google Gemini") X11 ☐
 - [ ] BUB-8.1 Everything reachable by keyboard, buttons labeled. Windows ✓ (auto-verified 2026-10-13): Tab reaches every button, all labeled, Enter works X11 ✓ Tab order and focus rings (auto-verified 2026-10-13 in WSL: Xvfb + Openbox)
-- [ ] BUB-8.2 Follows the theme. Windows ✓ light, dark, system (auto-verified 2026-10-13) X11 ✓ (auto-verified 2026-10-13 in WSL: Xvfb + Openbox)
+- [ ] BUB-8.2 Follows the theme. Windows ✓ light, dark, system (auto-verified 2026-10-13) ✓ the title bars too (2026-10-25: light Settings had a dark title bar; now each window's matches) X11 ✓ (auto-verified 2026-10-13 in WSL: Xvfb + Openbox) ☐ the title bars
 - [x] BUB-9.2 History tab: list, search, open, delete, clear. Windows ✓ newest first, search, reopen, delete, clear (auto-verified 2026-10-13)
 - Spec 02 items that needed the bubble: SEL-1.4 ✓ and SEL-2.5 ✓ (auto-verified: 108 ms on the copy path); SEL-4.5 ✓, 5.1 ✓ and 8.1 (installed apps) ✓ (auto-verified 2026-10-13); still open: SEL-6.1.

@@ -69,11 +69,12 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
 
 ### BUB-7 Status header
 - BUB-7.1 (auto) THE bubble header SHALL show:
-  - the active persona's name, or "Personality off"
+  - the active persona's name, or "Personality off" (Amended 2026-10-25: where the header is narrower than 520 px, nothing when personality is off; the dimmed personality button and its tooltip say it's off, and "Personality off" no longer gets cut to "Personali")
   - the model name
-  - a badge: "Local" for a provider on this machine (LLM-8.1), "LAN" for a trusted LAN host (LLM-8.2), otherwise "Cloud · <provider name>" (Amended 2026-10-16: plain words, no emoji, at the user's request; emoji showed as boxes without an emoji font, issue 14.)
+  - a badge: "Local" for a provider on this machine (LLM-8.1), "LAN" for a trusted LAN host (LLM-8.2), otherwise "Cloud · <provider name>" (Amended 2026-10-16: plain words, no emoji, at the user's request; emoji showed as boxes without an emoji font, issue 14.) Where the header is narrower than 520 px (the 380 px bubble), the cloud badge says only "Cloud", and its tooltip gives the provider's name; "What will be sent" names it too (PRI-3.6). (Amended 2026-10-25 at the user's request: "Cloud · Google Gemini" with a long model name ran past the bubble's edge and hid Expand.)
 - BUB-7.2 (retired) The quick model switcher. Moved to spec 04 as LLM-5.5, since it needs configured models.
 - BUB-7.3 (manual) THE header of the bubble and of the expanded window SHALL start with the Cursora logo. The logo is decorative: screen readers skip it, and it drags the bubble like the rest of the header. (Added 2026-10-15 at the user's request.)
+- BUB-7.4 (manual) WHATEVER the persona, model and provider names, THE header SHALL fit its window: the model switcher narrows to the room left and cuts a long name short, and the Expand button stays visible. (Added 2026-10-25 at the user's request.)
 
 ### BUB-8 Keyboard and accessibility
 - BUB-8.1 (manual) Every bubble control SHALL be reachable with the keyboard, and all buttons SHALL have accessible labels for screen readers.
