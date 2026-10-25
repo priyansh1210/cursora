@@ -170,9 +170,13 @@ fn sync_autostart(app: &AppHandle, settings: &Settings) {
     let Some(exe) = launcher(app) else { return };
     // Linux names the file after it, so that is ~/.config/autostart/cursora.desktop (LNX-5.2); Windows keeps the Run entry's old name.
     let name = if cfg!(windows) { app.package_info().name.clone() } else { app.package_info().crate_name.to_string() };
+    // auto-launch writes the path as is, and the Run entry is a command line: unquoted, "C:\Program Files\…"
+    // makes Windows try C:\Program.exe first (issue 48).
+    // shortcut: Linux's Exec= line stays unquoted, so an AppImage in a folder with a space won't start at login; quote it if someone hits that.
+    let path = if cfg!(windows) { format!("\"{}\"", exe.display()) } else { exe.display().to_string() };
     let launcher = auto_launch::AutoLaunchBuilder::new()
         .set_app_name(&name)
-        .set_app_path(&exe.display().to_string())
+        .set_app_path(&path)
         .set_windows_enable_mode(auto_launch::WindowsEnableMode::CurrentUser)
         .build();
     // Rewritten even when already on, so the entry follows Cursora when it moves (AppImage → .deb, dev build → .msi).
