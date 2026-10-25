@@ -62,6 +62,16 @@ jobs:
       - run: node scripts/release-version.mjs "${{ github.ref_name }}" # UPD-3.4
       # The built-in engine (LLM-3.1): pinned llama.cpp build, checked against its SHA-256.
       - run: npm run fetch-llama
+      # latest.json is written here, so its notes come from release-notes.md, not from editing the draft later (UPD-2.2).
+      - name: Release notes
+        id: notes
+        shell: bash
+        run: |
+          {
+            echo 'body<<NOTES_EOF'
+            cat release-notes.md
+            echo 'NOTES_EOF'
+          } >> "$GITHUB_OUTPUT"
       # shortcut: both OSes find or create the draft; one finishing seconds after the other has been fine, but a tie
       # could make two drafts (delete one). Add a job that creates the draft first if it happens.
       - uses: tauri-apps/tauri-action@v0
@@ -76,6 +86,7 @@ jobs:
           releaseCommitish: main
           tagName: ${{ github.ref_name }}
           releaseName: Cursora ${{ github.ref_name }}
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
           prerelease: ${{ contains(github.ref_name, '-') }}
           args: --config src-tauri/tauri.llama.conf.json
