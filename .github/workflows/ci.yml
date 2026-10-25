@@ -1,6 +1,9 @@
 name: ci
+# A branch is tested through its PR, so each change runs once: the repo is private, with limited minutes.
 on:
   push:
+    branches: [main]
+    tags: ["v*"]
   pull_request:
 
 jobs:
