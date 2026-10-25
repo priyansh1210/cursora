@@ -7,6 +7,7 @@ AI cursor companion: select text anywhere → hotkey → chat bubble at the curs
 - **Use the `ponytail` skill (level full) for all development.** Write the smallest complete change, and mark every known limit with `// shortcut: <limit>, <when to upgrade>`. Use `/ponytail-review` before marking a spec Done.
 - **Log every issue in [specs/issues.md](specs/issues.md)** as soon as it is found: bugs, missing behavior, checks that couldn't run, and test-environment traps. Move it to Resolved, with the fix, when it is fixed.
 - **Tests cite criterion IDs:** Rust `fn sel_3_1_<what>()`, TS/JS `it('SEL-3.1 …')`.
+- **Shared memory:** Claude's memory is the repo's [memory/](memory/MEMORY.md) folder, shared by both dev PCs through git. On a new PC, run `powershell -File scripts\link-memory.ps1` once. Pull `main` when a session starts, and commit memory changes with the session's work. The folder follows the checked-out branch, so get a PR that changes memory merged quickly.
 
 ## Commands
 - `npm run trace`: the spec ↔ test traceability check

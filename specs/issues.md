@@ -51,6 +51,7 @@ Traps found while automating checks; they waste time if forgotten.
 - **Newer WebView2 returns a Promise from `scrollIntoView`**: a React effect written as `() => el.scrollIntoView()` hands it back as the cleanup, and React crashes on the next run. Effects get a block body.
 - **A render error leaves the page blank, and there is no console in the tests.** A temporary error boundary that prints the error on the page lets UI Automation read it.
 - **Under WSL, Cursora's "Open folder" opens File Explorer on the Windows desktop**: the `open` crate detects WSL and hands the folder to `powershell.exe` before trying `xdg-open` or `gio`. A test that clicks it must look for Explorer windows (`Shell.Application`) and close them after. (WSL also has no `xdg-open`, and `gio` there has no default app for folders.)
+- **Claude's memory is the repo's `memory/` folder** (a junction made by `scripts/link-memory.ps1`), so checking out a branch without a memory change hides that change from Claude until the branch is merged.
 - **The WSL engine lives in `~/cursora/src-tauri/llama/`**, copied from `~/llama-b11570` (fetched and SHA-256 checked by the test script). Syncing the repo from D: must not overwrite it with the Windows engine.
 
 ## Resolved
