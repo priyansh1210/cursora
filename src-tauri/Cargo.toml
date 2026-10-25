@@ -1,6 +1,6 @@
 [package]
 name = "cursora"
-version = "0.1.0"
+version = "0.1.1"
 description = "AI cursor companion"
 authors = ["Priyansh Kabra"]
 edition = "2024"
