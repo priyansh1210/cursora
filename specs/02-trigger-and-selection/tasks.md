@@ -9,6 +9,7 @@ Status: **In progress**. Code complete; the manual checklist is open (most items
 - [x] 5. `capture/windows.rs` (`WinPlatform`) + `capture/other.rs` stub; hotkey → capture thread → `on_capture` logs metadata. Covers SEL-2.5, 3.5, 4.5, 5.1, 6.1, 8.1.
 - [x] 6. UI: Ctrl+G note, plus General → Advanced (unsafe apps, per-app copy shortcuts, share window title). Covers SEL-1.5, SEL-4.3 (editable), SEL-4.4, SEL-7.2.
 - [x] 7. `/ponytail-review` of the spec 02 code. 3 findings, all fixed (see design.md "Changes during implementation").
+- [x] 8. Windows' display name is the program's FileDescription, as Task Manager shows it ("Google Chrome", not "chrome"), with the exe's stem when there is none; it was a `shortcut:`. The blocklist still matches the exe. Covers SEL-7.1.
 
 ## Manual checklist
 Most of these need spec 03's bubble to *see* the captured text. Until then, the log shows method, length and app.
