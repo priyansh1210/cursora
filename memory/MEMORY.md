@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — 2026-10-25: public-release plan (tag v0.1.0-rc.1 pushed, draft release built, Linux install check passed, .msi check next; then cloud test, setup, model download, updater, signing); #21, #22, #23 merged
+- [Project status](project-status.md) — 2026-10-25: public-release plan; rc.1 built and checked; autostart fixes (45, 48) after it, so next: tag v0.1.0-rc.2, install its .msi on the laptop; then cloud test, setup, model download, updater, signing
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
 - [No AI attribution in commits/PRs](no-ai-attribution-in-commits.md) — never Claude/Anthropic names, Co-Authored-By or "Generated with" lines
