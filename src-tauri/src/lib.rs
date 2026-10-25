@@ -175,11 +175,8 @@ fn sync_autostart(app: &AppHandle, settings: &Settings) {
         .set_app_path(&exe.display().to_string())
         .set_windows_enable_mode(auto_launch::WindowsEnableMode::CurrentUser)
         .build();
-    let result = launcher.and_then(|l| match (l.is_enabled()?, settings.start_with_system) {
-        (false, true) => l.enable(),
-        (true, false) => l.disable(),
-        _ => Ok(()),
-    });
+    // Rewritten even when already on, so the entry follows Cursora when it moves (AppImage → .deb, dev build → .msi).
+    let result = launcher.and_then(|l| if settings.start_with_system { l.enable() } else { l.disable() });
     if let Err(e) = result {
         log::warn!("autostart: {e}");
     }
