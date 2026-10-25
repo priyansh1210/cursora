@@ -90,19 +90,6 @@ pub async fn runtimes_probe() -> Vec<Detected> {
     lm.map(|models| Detected { name: "LM Studio", preset: "lmstudio", base_url: local::LM_STUDIO, models }).into_iter().collect()
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RamSuggestion {
-    total_gb: f64,
-    size: &'static str,
-}
-
-/// LLM-2.4.
-#[tauri::command]
-pub fn ram_suggestion() -> Option<RamSuggestion> {
-    local::total_ram().map(|b| RamSuggestion { total_gb: (b as f64 / (1u64 << 30) as f64 * 10.0).round() / 10.0, size: local::suggest_size(b) })
-}
-
 /// LLM-8.3: the host to ask about, if this base URL is on a private (LAN) address.
 #[tauri::command]
 pub fn lan_host(url: String) -> Option<String> {
