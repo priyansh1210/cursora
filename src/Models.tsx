@@ -368,11 +368,9 @@ export function AddProvider({ save, onAdded }: { save: Save; onAdded: (p: Provid
   const [key, setKey] = useState("");
   const [error, setError] = useState<string>();
   const [detected, setDetected] = useState<Detected[]>([]);
-  const [ram, setRam] = useState<{ totalGb: number; size: string } | null>(null);
   const [trust, setTrust] = useState<{ host: string; provider: Provider }>();
   useEffect(() => {
     invoke<Detected[]>("runtimes_probe").then(setDetected);
-    invoke<{ totalGb: number; size: string } | null>("ram_suggestion").then(setRam);
   }, []);
   const preset = PRESETS.find((p) => p.id === source);
 
@@ -443,15 +441,9 @@ export function AddProvider({ save, onAdded }: { save: Save; onAdded: (p: Provid
         </select>
       </label>
       {source === "builtin" && (
-        <>
-          <p className="muted">
-            {ram && `This computer has ${ram.totalGb} GB of RAM, so a ${ram.size} model runs well (for example a Q4_K_M .gguf file from Hugging Face). `}
-            The built-in engine runs on the CPU; with a GPU, LM Studio is faster.
-          </p>
-          <button type="button" onClick={() => invoke<string | null>("pick_model_file").then((f) => void (f && add(engineProvider(f, null))))}>
-            Choose a .gguf file
-          </button>
-        </>
+        <button type="button" onClick={() => invoke<string | null>("pick_model_file").then((f) => void (f && add(engineProvider(f, null))))}>
+          Choose a .gguf file
+        </button>
       )}
       {preset && (
         <form

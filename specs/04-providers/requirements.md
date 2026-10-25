@@ -37,14 +37,7 @@ User story: As a user with my own machine, I want to use whatever local model se
 - LLM-2.1 (auto) WHEN the Models tab opens, or onboarding runs, THE SYSTEM SHALL probe LM Studio (`http://localhost:1234`) and, if it is running, list it with its models. (Ollama detection moved to the backlog.)
 - LLM-2.2 (auto) THE user SHALL be able to add any OpenAI-compatible endpoint by base URL, with an optional key. This covers llama.cpp server, vLLM, Jan, LocalAI, KoboldCpp, text-generation-webui and GPT4All.
 - LLM-2.3 (retired) Pulling Ollama models. Moved to the backlog with native Ollama support.
-- LLM-2.4 (auto) THE SYSTEM SHALL suggest a model size from total RAM:
-
-  | Total RAM | Suggested model size |
-  |---|---|
-  | < 8 GB | 1–3B |
-  | 8–15 GB | 3–4B |
-  | 16–31 GB | 7–8B |
-  | ≥ 32 GB | up to 14B |
+- LLM-2.4 (retired) Suggesting a model size from total RAM. Retired 2026-10-26 at the user's request: in Setup and Models it read as jargon ("a 3–4B model … a Q4_K_M .gguf file from Hugging Face"). The size table (< 8 GB: 1–3B, 8–15 GB: 3–4B, 16–31 GB: 7–8B, ≥ 32 GB: up to 14B) is kept for the one-click model download in the backlog.
 
 ### LLM-3 Built-in engine (no external app needed)
 User story: As a user, I want to just pick a model file and go, without installing anything else.
