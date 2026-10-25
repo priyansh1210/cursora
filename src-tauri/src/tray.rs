@@ -65,7 +65,10 @@ fn menu(app: &AppHandle, s: &Settings) -> tauri::Result<Menu<Wry>> {
     let stop = MenuItem::with_id(app, "stop_model", "Stop the model", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let mut items: Vec<&dyn IsMenuItem<Wry>> = vec![&open, &personas, &personality, &local_only, &pause];
+    // UPD-2.1: first, while a newer version is available.
+    let update = crate::update::offered(app).map(|v| MenuItem::with_id(app, "update", format!("Update to version {v}"), true, None::<&str>)).transpose()?;
+    let mut items: Vec<&dyn IsMenuItem<Wry>> = update.iter().map(|u| u as &dyn IsMenuItem<Wry>).collect();
+    items.extend([&open as &dyn IsMenuItem<Wry>, &personas, &personality, &local_only, &pause]);
     if let Some(block) = &block {
         items.push(block);
     }
@@ -83,6 +86,15 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
         "settings" => return crate::open_window(app, "settings"),
         "quit" => return app.exit(0),
         "stop_model" => return crate::llm::engine::stop_by_hand(app),
+        "update" => {
+            // About shows the notes and the progress while it installs (UPD-2.2).
+            crate::open_window_at(app, "settings", "About");
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = crate::update::update_install(app).await;
+            });
+            return;
+        }
         "personality" => s.personality_on = !s.personality_on,
         "local_only" => s.local_only = !s.local_only,
         "block" => match LAST_APP.lock().unwrap().clone() {

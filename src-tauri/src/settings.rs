@@ -28,6 +28,7 @@ pub struct Settings {
     pub history: HistorySettings,
     pub models: crate::llm::ModelSettings,
     pub snip: SnipSettings,
+    pub updates: UpdateSettings,
 }
 
 impl Default for Settings {
@@ -49,6 +50,7 @@ impl Default for Settings {
             history: HistorySettings::default(),
             models: crate::llm::ModelSettings::default(),
             snip: SnipSettings::default(),
+            updates: UpdateSettings::default(),
         }
     }
 }
@@ -120,6 +122,22 @@ pub struct SnipSettings {
 impl Default for SnipSettings {
     fn default() -> Self {
         Self { max_side: 2048 }
+    }
+}
+
+/// Spec 11.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct UpdateSettings {
+    /// The daily check, on unless turned off in setup or Settings (UPD-1.1, 1.5).
+    pub check: bool,
+    /// A version the user skipped; a later one is offered again (UPD-2.5).
+    pub skipped: Option<String>,
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self { check: true, skipped: None }
     }
 }
 

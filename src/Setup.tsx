@@ -195,11 +195,24 @@ function Hotkeys({ settings, save }: StepProps) {
 function Startup({ settings, save }: StepProps) {
   return (
     <>
-      <h2>Start with your computer?</h2>
+      <h2>Startup and updates</h2>
       <label className="row">
         <input type="checkbox" checked={settings.startWithSystem} onChange={(e) => save({ startWithSystem: e.target.checked }).catch(() => {})} />
         Start Cursora when I log in
       </label>
+      {/* Ticked, and shown before the first check can run (UPD-1.5). */}
+      <label className="row">
+        <input
+          type="checkbox"
+          checked={settings.updates.check}
+          aria-describedby="updates-note"
+          onChange={(e) => save({ updates: { ...settings.updates, check: e.target.checked } }).catch(() => {})}
+        />
+        Check for updates automatically
+      </label>
+      <p className="muted" id="updates-note">
+        Once a day Cursora downloads a small file from GitHub to see if there's a newer version. It sends nothing about you.
+      </p>
     </>
   );
 }
