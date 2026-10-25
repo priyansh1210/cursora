@@ -1,14 +1,14 @@
 ---
 name: project-status
-description: "Where Cursora stands as of 2026-10-25: working toward a public release; PRs #21 (spec 09 Optional) and #22 (memory in the repo) merged; PR #23 (stronger PC setup) open; test release tag v0.1.0-rc.1 not pushed yet (needs the user)"
+description: "Where Cursora stands as of 2026-10-25: working toward a public release; PRs #21, #22, #23 merged; tag v0.1.0-rc.1 pushed and its draft release built; install checks next"
 metadata:
   type: project
 ---
 
-**State on 2026-10-25:** `main` is at `4467d77`, CI green. **#21** (spec 09 Optional) and **#22** (this `memory/` folder, `scripts/link-memory.ps1`, CLAUDE.md rule) are merged. Open, waiting for the user to merge: **#23** (the stronger PC's setup in [[dev-machines]]). The stronger PC is set up and passed everything: npm ci, trace, JS tests, build, and the WSL Rust tests (144) as user `cursora`. Version 0.1.0, README says pre-alpha; nothing has ever been released.
+**State on 2026-10-25:** `main` is at `f913fcc`, CI green. **#21** (spec 09 Optional), **#22** (this `memory/` folder, `scripts/link-memory.ps1`, CLAUDE.md rule) and **#23** (the stronger PC's setup in [[dev-machines]]) are merged. No PRs open. The stronger PC is set up and passed everything: npm ci, trace, JS tests, build, and the WSL Rust tests (144) as user `cursora`. Version 0.1.0, README says pre-alpha; nothing has ever been released.
 
 **Goal: a public release, Windows first, Linux labelled beta.** The plan agreed on 2026-10-25, in order:
-1. **Test release (issue 9):** tag `main` as `v0.1.0-rc.1`; CI's release job builds a draft release (msi, nsis, deb, rpm, AppImage, with llama-server). The auto mode classifier refused Claude's tag push ("Create Public Surface"), so the user runs `git tag v0.1.0-rc.1 origin/main` and `git push origin v0.1.0-rc.1`, or allows it. Then: check the run, install the .msi on Windows (also closes APP-3.8, LLM-3.1, APP-8.2 and issue 42's precondition), and the .deb/AppImage in WSL on the stronger PC, as user `cursora` ([[dev-machines]]). As of 2026-10-25 no `v*` tag exists on origin.
+1. **Test release (issue 9):** tag `main` as `v0.1.0-rc.1`; CI's release job builds a draft release (msi, nsis, deb, rpm, AppImage, with llama-server). The auto mode classifier refused Claude's tag push ("Create Public Surface"), so the user runs `git tag v0.1.0-rc.1 origin/main` and `git push origin v0.1.0-rc.1`, or allows it. Then: check the run, install the .msi on Windows (also closes APP-3.8, LLM-3.1, APP-8.2 and issue 42's precondition), and the .deb/AppImage in WSL on the stronger PC, as user `cursora` ([[dev-machines]]). **Done 2026-10-25:** at the user's request, Claude pushed tag `v0.1.0-rc.1` (at `f913fcc`) from the stronger PC. Release run 40202245085 passed all 4 jobs and made a draft release with `Cursora_0.1.0_x64_en-US.msi` (23 MB), `Cursora_0.1.0_x64-setup.exe` (13 MB), `.deb` and `.rpm` (33 MB each) and an AppImage (102 MB). The file names say `0.1.0`, not `rc.1`, because the version comes from the app config. Next: the install checks.
 2. **A cloud model answering end to end (issue 16).** Gemini still gives server errors; asking the user whether the saved key may be used for one direct test request is still open. Groq or OpenRouter free keys are the alternative.
 3. **First-time setup start to finish (APP-6.1)** on Windows.
 4. **One-click model download in Setup** (new spec): today the built-in engine needs a .gguf the user finds on Hugging Face. Setup already knows the RAM size.
