@@ -39,6 +39,7 @@ export type Settings = {
     trustedHosts: string[];
     timeouts: { connectSecs: number; firstReplyLocalSecs: number; firstReplyCloudSecs: number; pauseSecs: number };
   };
+  updates: { check: boolean; skipped: string | null };
 };
 
 export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";
