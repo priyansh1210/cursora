@@ -7,4 +7,4 @@
 - [Plain step-by-step instructions](plain-step-by-step-instructions.md) — hands-on checks: one small, plain step at a time
 - [No emoji in the UI](no-emoji-in-ui.md) — user finds emoji unprofessional; use src/icons.tsx line icons or words
 - [Spec 09 voice optional](spec-09-voice-shelved.md) — Optional since 2026-10-25 (PR #21); not part of the release; don't propose it
-- [Two dev PCs](dev-machines.md) — laptop PRIYANSH does Windows; the stronger PC (Chrome Remote Desktop) does Linux in WSL; check `hostname`
+- [Two dev PCs](dev-machines.md) — laptop PRIYANSH does Windows; the stronger PC DESKTOP-RTIKELL (Chrome Remote Desktop) does Linux in WSL as user `cursora`, never `ethify`; check `hostname`
