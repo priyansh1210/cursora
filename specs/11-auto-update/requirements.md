@@ -34,7 +34,7 @@ User story: As a user, I want to update in one click, safely, without losing wha
 ### UPD-3 Publishing
 User story: As the developer, I want each release built, signed and published the same way, and only when I say so.
 - UPD-3.1 (manual) WHEN a `v*` tag is pushed THE SYSTEM (CI) SHALL build the installers and their signed update files, and put them with `latest.json` in a draft release of the public releases repo. The source code stays in the private repo.
-- UPD-3.2 (manual) A release SHALL reach users only when the developer publishes its draft, after writing its release notes by hand. A tag with a pre-release suffix (`-rc.N`) SHALL stay a pre-release.
+- UPD-3.2 (manual) A release SHALL reach users only when the developer publishes its draft. Its notes are written by hand in `release-notes.md` with the version bump, and CI puts them into both the release and `latest.json`. (Amended 2026-10-26: `latest.json` is written during the build, so notes typed into the draft afterwards never reached Cursora.) A tag with a pre-release suffix (`-rc.N`) SHALL stay a pre-release.
 - UPD-3.3 (manual) THE update signing key SHALL exist only as a GitHub Actions secret and in an offline backup the developer keeps. It is never committed. Without it, existing users can't be updated, so checking the backup is part of every release.
 - UPD-3.4 (auto) THE version offered in `latest.json` SHALL be the app's own version (`tauri.conf.json`), and CI SHALL refuse to publish a full release whose tag isn't `v<that version>`.
 
@@ -42,7 +42,7 @@ User story: As the developer, I want each release built, signed and published th
 1. The check is **on by default**, with a ticked box on setup's last step (UPD-1.1, UPD-1.5). Constitution §3 is amended to allow it.
 2. **The releases repo** is `cursora-releases`, public, on the developer's GitHub account. The developer creates it, and a fine-grained token that can only write to it. The token is kept as a secret of the private repo, and CI uses it to publish (UPD-3.1).
 3. **Announcing:** the tray item and About only (UPD-2.1).
-4. **Release notes** are written by hand in each draft before it's published (UPD-3.2).
+4. **Release notes** are written by hand, in `release-notes.md` with each version bump (UPD-3.2, amended 2026-10-26).
 
 ## Open questions
 None.

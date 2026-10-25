@@ -71,7 +71,7 @@ In the release job, for each OS:
    - `releaseDraft: true`, and `prerelease: ${{ contains(github.ref_name, '-') }}` (UPD-3.2).
    - `env: GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}`, `TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}`.
    - `uploadUpdaterJson` stays on (the default). Each OS's job adds its platform to the release's `latest.json` (`windows-x86_64` from the .msi, `linux-x86_64` from the AppImage).
-3. The developer writes the notes in the draft and publishes it. Only then does `releases/latest` point to it.
+3. The developer checks the draft and publishes it. Only then does `releases/latest` point to it. The notes come from `release-notes.md` through tauri-action's `releaseBody`, so they're in `latest.json` too.
 
 **Developer setup, once** (UPD-3.3):
 1. In a normal PowerShell window (it asks for a password, so not through Claude): `npx tauri signer generate -w "$env:USERPROFILE\.tauri\cursora-updater.key"`. Choose a strong password.
@@ -80,13 +80,12 @@ In the release job, for each OS:
 4. The public key (`cursora-updater.key.pub`) goes into `tauri.conf.json` → `plugins.updater.pubkey`. It's public, so Claude can copy it in.
 
 **Release checklist** (each version):
-1. Bump the version in `tauri.conf.json`, `Cargo.toml` and `package.json`.
+1. Bump the version in `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, `package.json` and `package-lock.json`, and write `release-notes.md` (what's new, in plain words).
 2. Merge, then tag `v<version>` (or `v<version>-rc.N` for a test build).
-3. Check the draft in `cursora-releases`.
-4. Write the notes.
-5. Confirm the signing key backup is still readable.
-6. Publish.
-7. Once a year, replace `RELEASES_TOKEN`. It was created without an expiry date (GitHub wouldn't keep one), so this is the safety net.
+3. Check the draft in `cursora-releases`: every file has its `.sig`, and `latest.json` has the notes.
+4. Confirm the signing key backup is still readable.
+5. Publish.
+6. Once a year, replace `RELEASES_TOKEN`. It was created without an expiry date (GitHub wouldn't keep one), so this is the safety net.
 
 ## Commands and events
 | Command | Returns | Does |
@@ -128,6 +127,8 @@ Event `update-status` (to the Settings window) carries every change, including d
 - **No check before setup is done** (UPD-1.5): a new user may spend more than the first 30 s in setup. The loop waits a minute at a time until setup is finished, so the box on its last page always comes first.
 - `Status` has no check time. `Available` carries `installable`, so About's button can say "Open the download page" on .deb and .rpm.
 - **The tray item starts the update at once**, and opens About to show the notes and the progress.
+- **Notes come from `release-notes.md`** (UPD-3.2 amended). v0.1.0's `latest.json` had empty notes: tauri-action writes it while building, so text added to the draft afterwards never reaches it.
+- **CI runs once per change:** on PRs, on `main` and on `v*` tags. Branch pushes no longer run it too, since minutes are limited in a private repo.
 - Setup's last page is now titled "Startup and updates".
 - **UPD-2.3's test** runs the plugin's own verification steps (`minisign-verify`, its dependency): the plugin's published throwaway signature passes with its own key, and is refused by the key in `tauri.conf.json`. Tauri's mock app (feature `test`) can't be used: the test program then won't start on Windows (`STATUS_ENTRYPOINT_NOT_FOUND`).
 
