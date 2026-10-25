@@ -11,7 +11,8 @@ import { useAppInfo, useSettings, type CopyKey, type Save, type Settings as S } 
 import logo from "../src-tauri/icons/icon.svg";
 import { Icon, PATHS } from "./icons";
 
-const TABS = ["General", "Models", "Personality", "Skills", "Voice", "Privacy", "History", "About"] as const;
+// Voice joins between Skills and Privacy once spec 09 is built (APP-5.1).
+const TABS = ["General", "Models", "Personality", "Skills", "Privacy", "History", "About"] as const;
 type Tab = (typeof TABS)[number];
 const isTab = (t: string): t is Tab => (TABS as readonly string[]).includes(t);
 
@@ -58,10 +59,8 @@ export default function Settings() {
           <Privacy settings={settings} save={save} />
         ) : tab === "History" ? (
           <History settings={settings} save={save} />
-        ) : tab === "About" ? (
-          <About />
         ) : (
-          <p className="muted">Coming soon.</p>
+          <About />
         )}
       </section>
     </div>
@@ -75,7 +74,11 @@ function General({ settings, save }: { settings: S; save: Save }) {
     <>
       <h2>Hotkeys</h2>
       {info?.session === "wayland" ? <WaylandShortcut launcher={info.launcher} /> : info && <HotkeyFields settings={settings} save={save} />}
-      <h2>General</h2>
+      <h2>Behavior</h2>
+      <label className="row">
+        <input type="checkbox" checked={settings.paused} onChange={(e) => set({ paused: e.target.checked })} />
+        Pause Cursora
+      </label>
       <label className="row">
         <input type="checkbox" checked={settings.startWithSystem} onChange={(e) => set({ startWithSystem: e.target.checked })} />
         Start with system
@@ -101,21 +104,23 @@ function General({ settings, save }: { settings: S; save: Save }) {
           </p>
         </>
       )}
+      <h2>Appearance</h2>
       <label className="row">
-        <input type="checkbox" checked={settings.paused} onChange={(e) => set({ paused: e.target.checked })} />
-        Pause Cursora
-      </label>
-      <label className="row">
-        Theme
+        <span>Theme</span>
         <select value={settings.theme} onChange={(e) => set({ theme: e.target.value as S["theme"] })}>
-          <option value="system">System</option>
+          <option value="system">{info?.os === "linux" ? "Same as the system" : "Same as Windows"}</option>
           <option value="light">Light</option>
           <option value="dark">Dark</option>
         </select>
       </label>
-      <button type="button" onClick={() => invoke("open_setup")}>
-        Re-run setup
-      </button>
+      <h2>Setup</h2>
+      <div className="row">
+        <span className="muted">Choose the AI source, personality and hotkeys again.</span>
+        <span className="grow" />
+        <button type="button" onClick={() => invoke("open_setup")}>
+          Re-run setup
+        </button>
+      </div>
       <Advanced settings={settings} save={save} windows={info?.os === "windows"} />
     </>
   );
@@ -197,7 +202,7 @@ function Advanced({ settings, save, windows }: { settings: S; save: Save; window
             ))}
           </select>
           <button type="button" aria-label={`Remove ${exe}`} onClick={() => setShortcut(exe, null)}>
-            Ã—
+            ×
           </button>
         </div>
       ))}
@@ -250,12 +255,14 @@ function About() {
           </>
         )}
         <dt>Settings folder</dt>
-        <dd>
-          <code>{info.configDir}</code> {folder("config")}
+        <dd className="folder">
+          <code>{info.configDir}</code>
+          {folder("config")}
         </dd>
         <dt>Logs folder</dt>
-        <dd>
-          <code>{info.logDir}</code> {folder("log")}
+        <dd className="folder">
+          <code>{info.logDir}</code>
+          {folder("log")}
         </dd>
       </dl>
     </>

@@ -244,6 +244,14 @@ button.link:hover:not(:disabled) {
   background: none;
   text-decoration: underline;
 }
+/* Removing something: a plain button in the error colour. */
+button.danger {
+  color: var(--error);
+}
+button.danger:hover:not(:disabled) {
+  background: var(--error-soft);
+  border-color: color-mix(in srgb, var(--error) 35%, var(--line));
+}
 /* A hotkey shows as a keycap. */
 button.hotkey {
   min-width: 120px;
@@ -300,6 +308,16 @@ div.error {
   font-size: 12px;
   margin: 6px 0;
 }
+/* A check that passed (setup's model test). Not a flex row, for Linux screen readers (issue 20). */
+.ok {
+  margin: 6px 0;
+  color: var(--accent-text);
+  font-weight: 600;
+  font-size: 13px;
+}
+.ok svg {
+  vertical-align: -2px;
+}
 .badge {
   font-size: 11px;
   font-weight: 500;
@@ -322,6 +340,11 @@ div.error {
 }
 .card > :first-child {
   margin-top: 0;
+}
+/* A card's text boxes take the room their buttons leave: rows stay on one line, and all end at the same edge. */
+.card .row > input:not([type="checkbox"], [type="radio"]) {
+  flex: 1 1 140px;
+  min-width: 100px;
 }
 /* In a narrow card, buttons move to the next line instead of spilling out. */
 .card > .row:first-child,
@@ -381,6 +404,18 @@ dt {
 }
 dd {
   margin: 2px 0 16px;
+}
+/* A folder's path, with its button lined up at the right. */
+dd.folder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+dd.folder code {
+  display: inline-flex; /* issue 20 */
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 mark {
   background: color-mix(in srgb, var(--accent) 28%, transparent);
@@ -547,15 +582,72 @@ body:has(.chat) {
   font-size: 13px;
   font-weight: 600;
 }
+/* The header fits any window (BUB-7.4): the switcher takes the room left, and below 520 px (the 380 px
+   bubble) the cloud badge drops the provider's name, which its tooltip keeps (BUB-7.1). */
+.chat > header {
+  container-type: inline-size;
+}
+.chat > header > button.icon {
+  flex-shrink: 0;
+}
+.badge > span {
+  display: inline-flex; /* issue 20, as above */
+}
+.badge > .provider {
+  display: none;
+  margin-left: 0.3em;
+}
+/* "Personality off" shows only where there's room; the dimmed personality button says it in the bubble. */
+.chat > header > .who.off {
+  display: none;
+}
+@container (min-width: 520px) {
+  .badge > .provider,
+  .chat > header > .who.off {
+    display: inline-flex;
+  }
+}
+/* The persona's name never gives way to the model list (it was cut to "Personali").
+   shortcut: a very long persona or lone model name is clipped without an ellipsis (an ellipsis needs a plain
+   block, which Linux screen readers skip, issue 20); fine for the usual names, revisit if users pick long ones. */
+.chat > header > .who {
+  flex-shrink: 0;
+  max-width: 120px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.chat > header > .muted {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
 .chat > header select {
+  flex: 0 1 auto;
+  min-width: 64px;
   min-height: 24px;
-  max-width: 180px;
+  max-width: 220px;
   padding: 1px 6px;
   font-size: 12px;
   border-radius: 6px;
 }
 .chat > .note {
   padding: 0 12px;
+}
+/* The expanded window keeps a readable column however wide it gets. */
+.chat:not(.bubble) {
+  --side: max(12px, calc((100% - 760px) / 2));
+}
+.chat:not(.bubble) > .turns,
+.chat:not(.bubble) > .outgoing,
+.chat:not(.bubble) > footer {
+  padding-left: var(--side);
+  padding-right: var(--side);
+}
+.chat:not(.bubble) > .context,
+.chat:not(.bubble) > .nomodel,
+.chat:not(.bubble) > ul.complete {
+  margin-left: var(--side);
+  margin-right: var(--side);
 }
 /* What was captured: a quote with a green edge. */
 .context {
@@ -625,7 +717,6 @@ body:has(.chat) {
   padding: 6px 12px;
   background: var(--accent-soft);
   border-radius: 14px 14px 4px 14px;
-  font-weight: 500;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -705,9 +796,15 @@ ul.complete li[aria-selected="true"] {
   background: var(--accent-soft);
 }
 /* "What will be sent" (PRI-3.6) */
+/* With the input below it, one panel under the conversation: a single line separates them. */
 .outgoing {
-  padding: 4px 12px;
+  padding: 6px 12px 0;
   font-size: 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+.chat .outgoing ~ footer {
+  border-top: 0;
 }
 .outgoing pre.sent {
   max-height: 12em;
@@ -818,6 +915,33 @@ ul.models {
 }
 ul.models li {
   padding: 3px 0;
+}
+/* A provider's models: the name takes the room, so every row's controls line up at the right. */
+ul.models li.row > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* The built-in engine's state, as a coloured dot. */
+.engine .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.engine .dot.running {
+  background: var(--accent);
+}
+.engine .dot.starting {
+  background: var(--hl-number);
+}
+.engine .dot.failed {
+  background: var(--error);
+}
+.card.current p {
+  margin: 2px 0;
 }
 .editor {
   border-top: 1px solid var(--line);

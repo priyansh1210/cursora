@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — 2026-10-25: rc.1 and rc.2 built and checked (R62; .msi installed on the laptop, engine and setup OK); next: cloud test (issue 16, Gemini key or Groq?), specs for model download and auto-update
+- [Project status](project-status.md) — 2026-10-25: rc.1/rc.2 checked (R62); Gemini answers (flash-lite); design pass on branch design-pass; next: specs for model download and auto-update (releases repo cursora-releases)
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
 - [No AI attribution in commits/PRs](no-ai-attribution-in-commits.md) — never Claude/Anthropic names, Co-Authored-By or "Generated with" lines
