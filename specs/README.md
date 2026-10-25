@@ -18,6 +18,7 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 09 | [Voice in/out](09-voice/requirements.md) | VOC | Approved | [Approved](09-voice/design.md) | — | Optional (approved, not built) |
 | 10 | [Vision snip](10-vision-snip/requirements.md) | VIS | Approved | [Approved](10-vision-snip/design.md) | [In progress](10-vision-snip/tasks.md) | In progress |
 | 11 | [Auto-update](11-auto-update/requirements.md) | UPD | Approved | [Approved](11-auto-update/design.md) | [In progress](11-auto-update/tasks.md) | In progress |
+| 12 | [Microsoft Store](12-microsoft-store/requirements.md) | STO | Draft | — | — | Draft |
 
 Post-v1 ideas: [backlog.md](backlog.md). Known problems, gaps and untested items: [issues.md](issues.md).
 
