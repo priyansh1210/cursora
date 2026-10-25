@@ -1,11 +1,11 @@
 ---
 name: project-status
-description: "Where Cursora stands as of 2026-10-25: working toward a public release; spec 09 made Optional (PR #21); memory moved into the repo (shared-memory PR); test release tag v0.1.0-rc.1 not pushed yet (needs the user)"
+description: "Where Cursora stands as of 2026-10-25: working toward a public release; spec 09 made Optional (PR #21); memory moved into the repo (PR #22); test release tag v0.1.0-rc.1 not pushed yet (needs the user)"
 metadata:
   type: project
 ---
 
-**State on 2026-10-25:** `main` is at `a5a2f31`, CI green. Open PRs, waiting for the user to merge: **#21** (spec 09 Optional) and the **shared-memory** PR (this `memory/` folder, `scripts/link-memory.ps1`, CLAUDE.md rule). Version 0.1.0, README says pre-alpha; nothing has ever been released.
+**State on 2026-10-25:** `main` is at `a5a2f31`, CI green. Open PRs, waiting for the user to merge: **#21** (spec 09 Optional) and **#22** (this `memory/` folder, `scripts/link-memory.ps1`, CLAUDE.md rule). Version 0.1.0, README says pre-alpha; nothing has ever been released.
 
 **Goal: a public release, Windows first, Linux labelled beta.** The plan agreed on 2026-10-25, in order:
 1. **Test release (issue 9):** tag `main` as `v0.1.0-rc.1`; CI's release job builds a draft release (msi, nsis, deb, rpm, AppImage, with llama-server). The auto mode classifier refused Claude's tag push ("Create Public Surface"), so the user runs `git tag v0.1.0-rc.1 origin/main` and `git push origin v0.1.0-rc.1`, or allows it. Then: check the run, install the .msi on Windows (also closes APP-3.8, LLM-3.1, APP-8.2 and issue 42's precondition), and the .deb/AppImage in WSL on the stronger PC ([[dev-machines]]).
