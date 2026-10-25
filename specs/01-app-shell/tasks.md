@@ -39,4 +39,4 @@ Status: **In progress**. Code complete, including Run as administrator (tasks 10
 - [x] APP-6.3 Setup choices can be edited in Settings, and "Re-run setup" works. Windows ✓ (auto-verified 2026-10-13)
 - [ ] APP-6.4 The logo and name above the setup steps. Windows ✓ (auto-verified 2026-10-15, screenshot) X11 ☐
 - [x] APP-7.1 More than 5 MB of logs leaves at most 5 files of about 1 MB. Windows ✓ (auto-verified 2026-10-13): 5 files (it kept 6 before the fix)
-- [ ] APP-8.2 CI is green on both OSes; a `v*` tag produces draft-release installers. ☐ (needs a GitHub remote)
+- [x] APP-8.2 CI is green on both OSes; a `v*` tag produces draft-release installers. ✓ (2026-10-25: tag `v0.1.0-rc.1`, run 40202245085, all four jobs green; the draft holds the .msi, the NSIS setup.exe, .deb, .rpm and AppImage)

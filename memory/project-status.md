@@ -1,14 +1,14 @@
 ---
 name: project-status
-description: "Where Cursora stands as of 2026-10-25: working toward a public release; PRs #21 (spec 09 Optional) and #22 (memory in the repo) merged; PR #23 (stronger PC setup) open; test release tag v0.1.0-rc.1 not pushed yet (needs the user)"
+description: "Where Cursora stands as of 2026-10-25: working toward a public release; PRs #21-#23 merged; test release v0.1.0-rc.1 built and its installers checked (draft release); next: install the .msi on the laptop"
 metadata:
   type: project
 ---
 
-**State on 2026-10-25:** `main` is at `4467d77`, CI green. **#21** (spec 09 Optional) and **#22** (this `memory/` folder, `scripts/link-memory.ps1`, CLAUDE.md rule) are merged. Open, waiting for the user to merge: **#23** (the stronger PC's setup in [[dev-machines]]). The stronger PC is set up and passed everything: npm ci, trace, JS tests, build, and the WSL Rust tests (144) as user `cursora`. Version 0.1.0, README says pre-alpha; nothing has ever been released.
+**State on 2026-10-25:** `main` is at `f913fcc`, CI green. **#21** (spec 09 Optional) and **#22** (this `memory/` folder, `scripts/link-memory.ps1`, CLAUDE.md rule) are merged. **#23** (the stronger PC's setup in [[dev-machines]]) is merged too. The stronger PC is set up and passed everything: npm ci, trace, JS tests, build, and the WSL Rust tests (144) as user `cursora`. Version 0.1.0, README says pre-alpha; nothing is public yet.
 
 **Goal: a public release, Windows first, Linux labelled beta.** The plan agreed on 2026-10-25, in order:
-1. **Test release (issue 9):** tag `main` as `v0.1.0-rc.1`; CI's release job builds a draft release (msi, nsis, deb, rpm, AppImage, with llama-server). The auto mode classifier refused Claude's tag push ("Create Public Surface"), so the user runs `git tag v0.1.0-rc.1 origin/main` and `git push origin v0.1.0-rc.1`, or allows it. Then: check the run, install the .msi on Windows (also closes APP-3.8, LLM-3.1, APP-8.2 and issue 42's precondition), and the .deb/AppImage in WSL on the stronger PC, as user `cursora` ([[dev-machines]]). As of 2026-10-25 no `v*` tag exists on origin.
+1. **Test release: built.** The user pushed `v0.1.0-rc.1` (on `f913fcc`) on 2026-10-25; run 40202245085 was green and made draft release 423458339 (.msi, NSIS setup.exe, .deb, .rpm, AppImage). The .msi, .deb and AppImage contain the engine (R60, was issue 9; APP-8.2 and LLM-3.1 ticked). New: issue 45 (Linux packages carry 3 copies of each engine library), issue 46 (setup.exe not inspected; per-user, so maybe ship only the .msi). **Still to do:** install the .msi on the laptop (quit the debug build first; checks APP-3.8, issue 42 and, with Settings -> Re-run setup, APP-6.1), and the .deb/AppImage in WSL on the stronger PC as user `cursora` (LNX-5.1). A browser download of the .msi also shows what SmartScreen says to new users (unsigned). The release PR for these notes: `release-rc1-check`.
 2. **A cloud model answering end to end (issue 16).** Gemini still gives server errors; asking the user whether the saved key may be used for one direct test request is still open. Groq or OpenRouter free keys are the alternative.
 3. **First-time setup start to finish (APP-6.1)** on Windows.
 4. **One-click model download in Setup** (new spec): today the built-in engine needs a .gguf the user finds on Hugging Face. Setup already knows the RAM size.
@@ -20,7 +20,7 @@ metadata:
 
 Post-launch feature picks offered to the user (not approved, no specs): per-app disable (backlog), replace in place (backlog), native Ollama (backlog), smart routing, sticky answers, a GPU (Vulkan) llama.cpp build now that a GPU PC exists, a "Report a problem" button that opens a prefilled GitHub issue.
 
-**Open issues (16):** 1, 2, 6, 7, 8, 9, 10, 13, 16, 17, 33, 38, 40, 41, 42, 44. 1 needs a second monitor; 2, 10 and 33 need a real Linux desktop (the user chose WSL, so they stay open); 6, 7, 13 and 41 are watch items; 40 is optional.
+**Open issues (17):** 1, 2, 6, 7, 8, 10, 13, 16, 17, 33, 38, 40, 41, 42, 44, 45, 46. 1 needs a second monitor; 2, 10 and 33 need a real Linux desktop (the user chose WSL, so they stay open); 6, 7, 13 and 41 are watch items; 40 is optional.
 
 **Other loose ends:** branch protection is refused for a private repo on the free plan (choices offered: GitHub Pro, going public, a local pre-push hook; not chosen). A real screenshot or GIF of the bubble and the snip overlay with the redesign hasn't been taken.
 
@@ -28,4 +28,4 @@ Post-launch feature picks offered to the user (not approved, no specs): per-app 
 
 **Why:** the user asked on 2026-10-25 to move on to the public release and to share memory between the two PCs.
 
-**How to apply:** start the next session from step 1 of the plan (check whether the tag was pushed and how the release run went). Don't propose spec 09 ([[spec-09-voice-shelved]]).
+**How to apply:** start the next session from the rest of step 1 (installing the rc1 installers), then step 2. Don't propose spec 09 ([[spec-09-voice-shelved]]).
