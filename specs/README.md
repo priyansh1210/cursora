@@ -3,7 +3,7 @@
 Cursora is built **spec-first**. Read the [constitution](00-constitution.md) before changing anything.
 
 ## Status
-Each document moves through: `Draft → Approved → In progress → Done`. A spec is **Done** only when every (auto) criterion has a passing test and its manual checklist has been completed on Windows and Linux.
+Each document moves through: `Draft → Approved → In progress → Done`. A spec is **Done** only when every (auto) criterion has a passing test and its manual checklist has been completed on Windows and Linux. An **Optional** spec is approved but not part of the release: it is built only if someone asks for it.
 
 | #  | Spec | Prefix | requirements | design | tasks | Status |
 |----|------|--------|--------------|--------|-------|--------|
@@ -15,7 +15,7 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 06 | [Skills](06-skills/requirements.md) | SKL | Approved | [Approved](06-skills/design.md) | [In progress](06-skills/tasks.md) | In progress |
 | 07 | [Privacy guard](07-privacy-guard/requirements.md) | PRI | Approved | [Approved](07-privacy-guard/design.md) | [In progress](07-privacy-guard/tasks.md) | In progress |
 | 08 | [Linux platform](08-linux-platform/requirements.md) | LNX | Approved | [Approved](08-linux-platform/design.md) | [In progress](08-linux-platform/tasks.md) | In progress |
-| 09 | [Voice in/out](09-voice/requirements.md) | VOC | Approved | [Approved](09-voice/design.md) | — | Approved (design); not started, by choice |
+| 09 | [Voice in/out](09-voice/requirements.md) | VOC | Approved | [Approved](09-voice/design.md) | — | Optional (approved, not built) |
 | 10 | [Vision snip](10-vision-snip/requirements.md) | VIS | Approved | [Approved](10-vision-snip/design.md) | [In progress](10-vision-snip/tasks.md) | In progress |
 
 Post-v1 ideas: [backlog.md](backlog.md). Known problems, gaps and untested items: [issues.md](issues.md).

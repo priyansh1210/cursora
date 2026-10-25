@@ -44,7 +44,7 @@ Use a model on your own computer or your own cloud API key. Give it a name and a
 **New to Cursora?** Read the [user manual](user-manual.html): download it and open it in your browser.
 
 > [!NOTE]
-> **Pre-alpha.** Everything is built except voice, and CI passes on Windows and Ubuntu, but the hands-on checks on every platform are still open ([known issues](specs/issues.md)). There's no release yet: [build it from source](#-get-started).
+> **Pre-alpha.** Everything is built (voice is an optional extra, not planned), and CI passes on Windows and Ubuntu, but the hands-on checks on every platform are still open ([known issues](specs/issues.md)). There's no release yet: [build it from source](#-get-started).
 
 ## 🌟 Features
 
