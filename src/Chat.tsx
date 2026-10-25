@@ -164,7 +164,7 @@ export default function Chat() {
     <div ref={rootRef} className={isBubble ? "chat bubble" : "chat"}>
       <header data-tauri-drag-region>
         <img data-tauri-drag-region src={logo} alt="" width={16} height={16} draggable={false} />
-        <span data-tauri-drag-region className="who">{h.persona}</span>
+        <span data-tauri-drag-region className={conv.persona ? "who" : "who off"}>{h.persona}</span>
         {settings && (
           <button
             type="button"
@@ -187,7 +187,16 @@ export default function Chat() {
         ) : (
           <span data-tauri-drag-region className="muted">{h.model}</span>
         )}
-        {h.badge && <span data-tauri-drag-region className="badge">{h.badge}</span>}
+        {h.badge && (
+          // "Cloud · <provider>": the provider part hides where the header is narrow; the tooltip keeps it (BUB-7.1).
+          <span data-tauri-drag-region className="badge" title={h.badge}>
+            {h.badge.split(" · ").map((part, i) => (
+              <span data-tauri-drag-region key={i} className={i ? "provider" : undefined}>
+                {i ? `· ${part}` : part}
+              </span>
+            ))}
+          </span>
+        )}
         <span data-tauri-drag-region className="grow" />
         {isBubble && (
           <button type="button" className="icon" aria-label="Expand to a larger window" title="Expand" onClick={() => void invoke("expand")}>

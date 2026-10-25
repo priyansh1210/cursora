@@ -171,8 +171,8 @@ function AddPattern({ onAdd }: { onAdd: (p: { label: string; regex: string }) =>
   return (
     <form onSubmit={submit}>
       <div className="row">
-        <input aria-label="Pattern label" placeholder="LABEL" value={label} onChange={(e) => setLabel(e.target.value.toUpperCase())} />
-        <input aria-label="Pattern (regular expression)" placeholder="EMP-\d{6}" value={regex} onChange={(e) => setRegex(e.target.value)} />
+        <input aria-label="Pattern label" placeholder="Name, e.g. EMPLOYEE_ID" value={label} onChange={(e) => setLabel(e.target.value.toUpperCase())} />
+        <input aria-label="Pattern (regular expression)" placeholder="Pattern, e.g. EMP-\d{6}" value={regex} onChange={(e) => setRegex(e.target.value)} />
         <button type="submit" disabled={!label || !regex}>
           Add pattern
         </button>

@@ -90,7 +90,7 @@ export default function ModelsTab({ settings, save }: { settings: Settings; save
       <AddProvider save={save} onAdded={() => void refresh()} />
 
       <h2>Trusted LAN hosts</h2>
-      <p className="muted">Requests to these count as local (LLM-8.2).</p>
+      <p className="muted">Computers on your network that count as local: they can answer in local-only mode.</p>
       {m.trustedHosts.length === 0 && <p className="muted">None.</p>}
       {m.trustedHosts.map((h) => (
         <div className="row" key={h}>
@@ -159,7 +159,7 @@ function ProviderCard({ view, onChange, onRemove, onKeyChange }: { view: Provide
         <button type="button" onClick={test}>
           Test connection
         </button>
-        <button type="button" onClick={onRemove}>
+        <button type="button" className="danger" onClick={onRemove}>
           Remove
         </button>
       </div>
@@ -194,13 +194,19 @@ function ProviderCard({ view, onChange, onRemove, onKeyChange }: { view: Provide
           }}
         >
           <span>API key</span>
-          {hasKey && <span className="muted">•••• {keyHint}</span>}
-          <input type="password" aria-label={`API key for ${p.name}`} placeholder={hasKey ? "Replace the key" : "Paste the key"} value={key} onChange={(e) => setKey(e.target.value)} />
+          {/* The saved key's last characters sit in the empty box, so the row fits on one line. */}
+          <input
+            type="password"
+            aria-label={hasKey ? `API key for ${p.name}, saved, ending in ${keyHint}` : `API key for ${p.name}`}
+            placeholder={hasKey ? `Saved  •••• ${keyHint}` : "Paste the key"}
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+          />
           <button type="submit" disabled={!key.trim()}>
-            Save key
+            {hasKey ? "Replace" : "Save key"}
           </button>
           {hasKey && (
-            <button type="button" onClick={() => keyAction("key_delete", { provider: p.id })}>
+            <button type="button" className="danger" onClick={() => keyAction("key_delete", { provider: p.id })}>
               Remove key
             </button>
           )}
@@ -243,7 +249,9 @@ function ProviderCard({ view, onChange, onRemove, onKeyChange }: { view: Provide
             }}
           >
             <input placeholder="Model ID" aria-label="Type a model ID" value={typed} onChange={(e) => setTyped(e.target.value)} />
-            <button type="submit">Add model</button>
+            <button type="submit" disabled={!typed.trim()}>
+              Add model
+            </button>
           </form>
         </>
       )}
@@ -291,6 +299,8 @@ function ProviderCard({ view, onChange, onRemove, onKeyChange }: { view: Provide
   );
 }
 
+const ENGINE_STATES: Record<EngineStatus["state"], string> = { stopped: "not running", starting: "starting…", running: "running", failed: "couldn't start" };
+
 /** The built-in engine's files, lifetime and state (LLM-3). */
 function Engine({ p, set }: { p: Provider; set: (patch: Partial<Provider>) => void }) {
   const [status, setStatus] = useState<EngineStatus>({ state: "stopped" });
@@ -303,8 +313,9 @@ function Engine({ p, set }: { p: Provider; set: (patch: Partial<Provider>) => vo
   const setEngine = (patch: Partial<NonNullable<Provider["engine"]>>) => set({ engine: { ...e, ...patch } });
   return (
     <>
-      <div className="note" role="status">
-        Engine: {status.state}{" "}
+      <div className="note engine" role="status">
+        <span className={`dot ${status.state}`} aria-hidden="true" />
+        Engine: {ENGINE_STATES[status.state]}{" "}
         {(status.state === "running" || status.state === "starting") && (
           <button type="button" onClick={() => void invoke("engine_stop")}>
             Stop the model

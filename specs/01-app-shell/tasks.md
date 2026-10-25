@@ -17,6 +17,7 @@ Status: **In progress**. Code complete, including Run as administrator (tasks 10
 - [x] 13. `/ponytail-review` of tasks 10–12. 3 findings, all fixed (see design.md "Changes during implementation").
 - [x] 14. Run as administrator only from Program Files: `inside()`, tests first, then `in_program_files()`, `inProgramFiles` and the greyed-out box (issue 39). Covers APP-3.8.
 - [x] 15. The Cursora logo above the Settings tabs, in About and in Setup, and as the page icon. Covers APP-5.4, APP-6.4.
+- [x] 16. The 2026-10-25 design pass, at the user's request: no Voice tab until spec 09; Settings opens at 880 × 640; General in Hotkeys, Behavior, Appearance and Setup; Models' key row on one line, buttons greyed out until there's something to add, red Remove buttons, model rows lined up, the engine's state in words with a dot, no spec ID in the LAN text; "Use a personality"; History without seconds; About's folder buttons lined up; Setup's test result next to the current model; Privacy's example placeholders; the garbled "×" in General → Advanced. Covers APP-5.1, APP-6.1.
 
 ## Manual checklist
 "✓ (auto-verified)" marks a check run automatically with process and window inspection on Windows. The rest needs a human: clicking the tray, logging in again, Linux.

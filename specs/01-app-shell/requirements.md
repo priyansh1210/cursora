@@ -60,7 +60,7 @@ User story (added 2026-10-14): As a user who works in apps running as administra
 - APP-4.4 (auto) THE serialized settings SHALL NOT contain any secret (API keys, tokens). See LLM-6.
 
 ### APP-5 Settings window
-- APP-5.1 (manual) THE Settings window SHALL have these tabs: General · Models · Personality · Skills · Voice · Privacy · History · About.
+- APP-5.1 (manual) THE Settings window SHALL have these tabs: General · Models · Personality · Skills · Voice · Privacy · History · About. (Amended 2026-10-25: the Voice tab appears only once spec 09 is built; until then a "Coming soon." tab looked unfinished, at the user's request for a professional look.)
 - APP-5.2 (manual) THE General tab SHALL contain:
   - hotkeys (ask, snip, push-to-talk). (Amended 2026-10-14: snip and push-to-talk appear once spec 10 and spec 09 are built; until then they would do nothing, issue 37.)
   - Start with system

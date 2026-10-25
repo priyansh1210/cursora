@@ -33,11 +33,12 @@ export default function PersonalityTab({ settings, save }: { settings: Settings;
     <>
       <h2>Personality</h2>
       <label className="row">
-        <input type="checkbox" checked={settings.personalityOn} onChange={(e) => save({ personalityOn: e.target.checked }).catch(() => {})} />
-        <span>
-          Personality <span className="muted">Off: the plain model, with no name or character.</span>
-        </span>
+        <input type="checkbox" checked={settings.personalityOn} aria-describedby="personality-note" onChange={(e) => save({ personalityOn: e.target.checked }).catch(() => {})} />
+        Use a personality
       </label>
+      <p className="muted" id="personality-note">
+        Answers come from the persona chosen below. Turned off, you get the plain model, with no name or character.
+      </p>
 
       <h2>Personas</h2>
       {personas.map((p) => (
@@ -45,7 +46,7 @@ export default function PersonalityTab({ settings, save }: { settings: Settings;
           <div className="row">
             <strong>{p.name}</strong>
             {isBuiltIn(p) && <span className="badge">Built-in</span>}
-            {p.id === active && <span className="badge">Active</span>}
+            {p.id === active && settings.personalityOn && <span className="badge">Active</span>}
             <span className="grow" />
             {p.id !== active && (
               <button type="button" onClick={() => save({ activePersona: p.id, personalityOn: true }).catch(() => {})}>

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import type { Persona } from "./personas";
 import type { Provider } from "./providers";
@@ -83,7 +84,12 @@ export function useSettings() {
   }, []);
 
   useEffect(() => {
-    if (settings) document.documentElement.dataset.theme = settings.theme;
+    if (!settings) return;
+    document.documentElement.dataset.theme = settings.theme;
+    // The title bar too: Windows draws it from its own setting, so a light Cursora had a dark title bar (BUB-8.2).
+    getCurrentWindow()
+      .setTheme(settings.theme === "system" ? null : settings.theme)
+      .catch(() => {});
   }, [settings?.theme]);
 
   const save: Save = (patch) =>

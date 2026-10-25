@@ -60,7 +60,7 @@ export default function History({ settings, save }: { settings: Settings; save: 
               {s.title || "(no question)"}
             </button>
             <span className="muted">
-              {s.app || "Unknown app"} · {new Date(s.updated).toLocaleString()}
+              {s.app || "Unknown app"} · {new Date(s.updated).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}
             </span>
             <button type="button" className="icon" aria-label={`Delete "${s.title}"`} onClick={() => run("history_delete", { id: s.id })}>
               ×

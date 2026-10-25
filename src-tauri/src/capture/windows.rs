@@ -64,8 +64,7 @@ impl Platform for WinPlatform {
             let _ = CloseHandle(process);
             let path = Path::new(&exe_path);
             let exe = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            // shortcut: exe stem, not the product name; read FileDescription if names look wrong in the bubble.
-            let name = path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let name = display_name(&exe_path).unwrap_or_else(|| path.file_stem().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default());
             SourceApp { exe, name, title, elevated, window: hwnd.0 as isize }
         }
     }
@@ -176,6 +175,37 @@ unsafe fn image_path(process: HANDLE) -> String {
     }
 }
 
+/// The name Windows shows for a program, as Task Manager does: its FileDescription ("Google Chrome" for chrome.exe).
+/// None when the file has none, and the exe's stem is used instead (SEL-7.1's display name).
+fn display_name(path: &str) -> Option<String> {
+    use windows::core::PCWSTR;
+    use windows::Win32::Storage::FileSystem::{GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW};
+    let wide = |s: &str| s.encode_utf16().chain([0]).collect::<Vec<u16>>();
+    let file = wide(path);
+    unsafe {
+        let size = GetFileVersionInfoSizeW(PCWSTR(file.as_ptr()), None);
+        if size == 0 {
+            return None;
+        }
+        let mut data = vec![0u8; size as usize];
+        GetFileVersionInfoW(PCWSTR(file.as_ptr()), None, size, data.as_mut_ptr().cast()).ok()?;
+        let (mut ptr, mut len) = (std::ptr::null_mut(), 0u32);
+        // The first language and code page the file lists, then its description in them.
+        let translation = wide("\\VarFileInfo\\Translation");
+        if !VerQueryValueW(data.as_ptr().cast(), PCWSTR(translation.as_ptr()), &mut ptr, &mut len).as_bool() || len < 4 {
+            return None;
+        }
+        let [lang, page] = *(ptr as *const [u16; 2]);
+        let key = wide(&format!("\\StringFileInfo\\{lang:04x}{page:04x}\\FileDescription"));
+        if !VerQueryValueW(data.as_ptr().cast(), PCWSTR(key.as_ptr()), &mut ptr, &mut len).as_bool() || len == 0 {
+            return None;
+        }
+        let text = String::from_utf16_lossy(std::slice::from_raw_parts(ptr as *const u16, len as usize));
+        let text = text.trim_end_matches('\0').trim();
+        (!text.is_empty()).then(|| text.to_string())
+    }
+}
+
 /// A token we may not open belongs to a higher-integrity process, which is exactly the elevated case.
 pub(crate) unsafe fn is_elevated(process: HANDLE) -> bool {
     let mut token = HANDLE::default();
@@ -187,4 +217,16 @@ pub(crate) unsafe fn is_elevated(process: HANDLE) -> bool {
     let ok = unsafe { GetTokenInformation(token, TokenElevation, Some(&mut elevation as *mut _ as *mut _), size_of::<TOKEN_ELEVATION>() as u32, &mut len) }.is_ok();
     let _ = unsafe { CloseHandle(token) };
     ok && elevation.TokenIsElevated != 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::display_name;
+
+    #[test]
+    fn sel_7_1_display_name_is_the_programs_description() {
+        let cmd = format!(r"{}\System32\cmd.exe", std::env::var("SystemRoot").unwrap());
+        assert_eq!(display_name(&cmd).as_deref(), Some("Windows Command Processor"));
+        assert_eq!(display_name(r"C:\no\such\app.exe"), None, "the exe's stem is used then");
+    }
 }
