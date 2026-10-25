@@ -30,7 +30,7 @@ Models tab / Setup ─→ commands: probe, list models, test connection, keys (k
 | `src-tauri/src/llm/openai.rs` | OpenAI-compatible: OpenAI, OpenRouter, Groq, DeepSeek, Mistral, LM Studio, llama.cpp, any custom server, and the built-in engine. Builds the request body, parses the stream, parses the model list. |
 | `src-tauri/src/llm/anthropic.rs`, `gemini.rs` | The same three jobs for each of those APIs. |
 | `src-tauri/src/llm/engine.rs` | The built-in llama-server: start, health wait, idle stop, stop on quit, crash reason (LLM-3). |
-| `src-tauri/src/llm/local.rs` | The LM Studio probe (LLM-2.1), total RAM and the size suggestion (LLM-2.4). |
+| `src-tauri/src/llm/local.rs` | The LM Studio probe (LLM-2.1). |
 | `src-tauri/src/llm/vision.rs` | The table of known vision model names (LLM-5.2 step 3). |
 | `src-tauri/src/llm/commands.rs` | The Models tab and Setup commands. |
 | `src-tauri/src/llm/fixtures/` | Recorded or documented stream bodies and error bodies for the tests. |
@@ -97,7 +97,6 @@ pub fn capabilities(app: &AppHandle, m: &ModelRef) -> Capabilities;  // read by 
 | `models_list(provider)` | command | The provider's model list, with context size and vision where known (LLM-5.1). |
 | `provider_test(provider)` | command | Test connection: the model list, with a 15 s limit. Returns the model count or the error kind (LLM-7.1). |
 | `runtimes_probe()` | command | LM Studio on localhost, with its models (LLM-2.1). |
-| `ram_suggestion()` | command | Total RAM and the suggested model size (LLM-2.4). |
 | `engine_status()` | command | `stopped`, `starting`, `running`, or `failed` with the reason (LLM-3.6). |
 | `enabled_models()` | command | The chosen models of every provider, with locality and whether local-only disables them. Used by the switcher. |
 | `set_model(provider, model)` | command | Makes this the default and updates the calling window's conversation (LLM-5.5). |
@@ -226,7 +225,7 @@ After trimming, the system prompt, the context and the latest question can still
 ### Local runtimes (LLM-2)
 - **Probe (LLM-2.1):** `GET http://localhost:1234/v1/models`, with a 1.5 s limit. It runs when the Models tab or Setup opens and returns LM Studio's base URL and models. **Add** creates a provider from the LM Studio preset.
 - **Custom server (LLM-2.2):** a base URL and an optional key. `normalize_base_url` trims spaces and a trailing `/`, and removes a pasted `/chat/completions`.
-- **RAM (LLM-2.4):** total RAM comes from `GlobalMemoryStatusEx` on Windows and `/proc/meminfo` on Linux, then the requirements table picks the size. It is shown in Setup and next to the engine's file picker.
+- **RAM (LLM-2.4, retired 2026-10-26):** the size hint and its `ram_suggestion` command were removed. Total RAM came from `GlobalMemoryStatusEx` on Windows and `/proc/meminfo` on Linux; git history has the code, for the one-click model download in the backlog.
 - **Ollama** (detection, pulling models, its own API) is in the [backlog](../backlog.md). Until then, it can be added as an OpenAI-compatible server (`http://localhost:11434/v1`). Its context size is then unknown to Cursora, and Ollama cuts long requests at its default window.
 
 ### The built-in engine (LLM-3)
@@ -343,7 +342,6 @@ This becomes the first step of setup and uses the same components as the Models 
 | LLM-1.5 | A fake server that never replies, or pauses mid-stream, with the timeouts set to 200 ms → a `network` error naming the timeout. The defaults are 10/120/60/60. |
 | LLM-2.1 | The probe against a fake LM Studio server (port passed in) finds it with its models. With nothing listening, it finds nothing. |
 | LLM-2.2 | Custom URL normalization. A custom provider's chat goes to `{base}/chat/completions`, with the bearer key only when one is set. |
-| LLM-2.4 | `suggest_size` on each RAM boundary. |
 | LLM-3.3 | `engine_args` contains `--host 127.0.0.1` and never `0.0.0.0`. |
 | LLM-3.4 | A built-in model with an `mmproj` file → `capabilities().vision`. |
 | LLM-4.1 | TS: every preset has a kind and a base URL, the names match the requirement's list, and Custom exists. |

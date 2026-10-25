@@ -338,7 +338,6 @@ pub fn run() {
             llm::commands::models_list,
             llm::commands::provider_test,
             llm::commands::runtimes_probe,
-            llm::commands::ram_suggestion,
             llm::commands::engine_status,
             llm::commands::engine_stop,
             llm::commands::enabled_models,
