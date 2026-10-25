@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — 2026-10-25: public-release plan; rc.1 built and checked; rc.2 tagged at cf22d20 (has fix 45, not 48); next: install the rc.2 .msi on the laptop; then cloud test, setup, model download, updater, signing
+- [Project status](project-status.md) — 2026-10-25: public-release plan; rc.1 built and checked; rc.2 tagged at cf22d20 (has fix 45, not 48); rc.2 installed on the laptop (admin, autostart OK); next: rc.2 + setup + .gguf on the stronger PC; then cloud test, setup, model download, updater, signing
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
 - [No AI attribution in commits/PRs](no-ai-attribution-in-commits.md) — never Claude/Anthropic names, Co-Authored-By or "Generated with" lines
