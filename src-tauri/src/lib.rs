@@ -15,6 +15,7 @@ mod settings;
 mod skills;
 mod snip;
 mod tray;
+mod update;
 #[cfg(not(windows))]
 mod x11;
 
@@ -263,6 +264,7 @@ pub fn run() {
         .plugin(tauri_plugin_log::Builder::new().level(log::LevelFilter::Info).max_file_size(1_000_000).rotation_strategy(RotationStrategy::KeepSome(4)).build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -344,6 +346,10 @@ pub fn run() {
             llm::commands::lan_host,
             llm::commands::model_problem,
             llm::commands::pick_model_file,
+            update::update_status,
+            update::update_check,
+            update::update_install,
+            update::update_skip,
         ])
         .setup(move |app| {
             if let Some(note) = admin_note {
@@ -374,6 +380,8 @@ pub fn run() {
             app.manage(skills::Draft::default());
             app.manage(BubbleState::default());
             app.manage(llm::engine::Engine::default());
+            app.manage(update::UpdateState::default());
+            update::start(app.handle().clone());
             llm::engine::watch_idle(app.handle().clone());
             llm::engine::preload(app.handle());
             bubble::create(app.handle())?;
