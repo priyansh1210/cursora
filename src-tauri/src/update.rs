@@ -34,6 +34,19 @@ fn offer(version: &str, skipped: Option<&str>) -> bool {
     !version.contains('-') && skipped != Some(version)
 }
 
+/// What the person reads in About; the plugin's own words go to the log.
+fn plain(e: &tauri_plugin_updater::Error) -> &'static str {
+    use tauri_plugin_updater::Error::*;
+    match e {
+        ReleaseNotFound | Reqwest(_) | Network(_) => "Couldn't reach the update server. Check your internet connection, then try again.",
+        Minisign(_) | Base64(_) | SignatureUtf8(_) | SignedVersionMismatch { .. } | MissingSignedVersion => {
+            "The update's signature didn't match Cursora's, so it wasn't installed."
+        }
+        AuthenticationFailed => "The update needs administrator permission, which wasn't given.",
+        _ => "Something went wrong with the update. Try again later.",
+    }
+}
+
 fn installable(_app: &AppHandle) -> bool {
     #[cfg(target_os = "linux")]
     return _app.env().appimage.is_some();
@@ -98,7 +111,7 @@ async fn check(app: &AppHandle) -> Status {
         // Only About says so; the next check is the retry (UPD-1.4).
         Err(e) => {
             log::info!("update check: {e}");
-            (Status::Failed { reason: format!("Couldn't check for updates: {e}") }, None)
+            (Status::Failed { reason: plain(&e).into() }, None)
         }
     };
     app.state::<UpdateState>().0.lock().unwrap().1 = update;
@@ -159,7 +172,7 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
         Ok(()) => app.restart(),
         Err(e) => {
             log::warn!("update: {e}");
-            let reason = format!("The update wasn't installed: {e}");
+            let reason = plain(&e).to_string();
             set(&app, Status::Failed { reason: reason.clone() });
             Err(reason)
         }
