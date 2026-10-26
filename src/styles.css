@@ -782,6 +782,23 @@ body:has(.chat) {
   margin: 4px 0;
   max-height: 6em;
 }
+/* Quick actions (spec 14): small buttons above the input, before the first question. */
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 12px;
+}
+.quick button {
+  min-height: 26px;
+  padding: 2px 10px;
+  border-radius: 13px;
+  font-size: 12px;
+}
+.chat:not(.bubble) > .quick {
+  margin-left: var(--side);
+  margin-right: var(--side);
+}
 /* The / list: a small popover above the input. */
 ul.complete {
   list-style: none;

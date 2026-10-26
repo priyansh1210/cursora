@@ -175,6 +175,7 @@ mod tests {
             unavailable: None,
             own_model: None,
             write_back: None,
+            quick: vec![],
         }
     }
 

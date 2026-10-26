@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { useEnabledModels } from "./Models";
 import type { Fields, Invalid, Skill } from "./skills";
-import type { Settings } from "./useSettings";
+import type { Save, Settings } from "./useSettings";
 
 type Listing = { skills: Skill[]; invalid: Invalid[] };
 type Form = { fields: Fields; editing: string | null; key: number };
@@ -14,8 +14,8 @@ const SAMPLE = "The Eiffel Tower is a wrought-iron lattice tower in Paris, Franc
 const fieldsOf = (s: Skill): Fields => ({ name: s.name, description: s.description, args: s.args ?? "", vision: s.vision, model: s.model ?? "", temperature: s.temperature, template: s.template, replace: s.replace });
 const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path;
 
-/** Settings → Skills (SKL-4.1, 4.6). */
-export default function SkillsTab({ settings }: { settings: Settings }) {
+/** Settings → Skills (SKL-4.1, 4.6), and the bubble's quick actions (QAC-3). */
+export default function SkillsTab({ settings, save }: { settings: Settings; save: Save }) {
   const [listing, setListing] = useState<Listing>({ skills: [], invalid: [] });
   const [form, setForm] = useState<Form>();
   const [confirming, setConfirming] = useState<string>();
@@ -47,11 +47,19 @@ export default function SkillsTab({ settings }: { settings: Settings }) {
   };
   const fail = (e: unknown) => setNote(String(e));
   const builtIns = listing.skills.filter((s) => !s.file || s.overrides).map((s) => s.name);
+  const { quick } = settings;
+  const pin = (name: string) =>
+    save({ quick: { ...quick, pinned: quick.pinned.includes(name) ? quick.pinned.filter((n) => n !== name) : [...quick.pinned, name] } }).catch(() => {});
 
   return (
     <>
       <h2>Skills</h2>
       <p className="muted">Type / in the bubble to use them. Your own skills are Markdown files in the skills folder.</p>
+      <label className="row">
+        <input type="checkbox" checked={quick.on} onChange={(e) => save({ quick: { ...quick, on: e.target.checked } }).catch(() => {})} />
+        Show quick actions in the bubble
+      </label>
+      <p className="muted note">Buttons over a selection that suit the app it came from. Pinned skills come first.</p>
       {form && <SkillForm key={form.key} form={form} settings={settings} builtIns={builtIns} onDone={close} />}
       {listing.skills.map((s) => (
         <section className="card" key={s.name} aria-label={`/${s.name}`}>
@@ -62,6 +70,9 @@ export default function SkillsTab({ settings }: { settings: Settings }) {
             {s.overrides && <span className="badge">Overrides built-in</span>}
             {s.vision && <span className="badge">Needs vision</span>}
             <span className="grow" />
+            <button type="button" title="Show first among the bubble's quick actions" onClick={() => pin(s.name)}>
+              {quick.pinned.includes(s.name) ? "Unpin" : "Pin"}
+            </button>
             {s.file ? (
               <button type="button" onClick={() => open(fieldsOf(s), s.file)}>
                 Edit
