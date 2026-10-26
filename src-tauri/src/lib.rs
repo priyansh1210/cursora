@@ -347,6 +347,10 @@ pub fn run() {
             llm::commands::lan_host,
             llm::commands::model_problem,
             llm::commands::pick_model_file,
+            llm::download::model_choices,
+            llm::download::model_folder,
+            llm::download::model_download,
+            llm::download::model_download_cancel,
             update::update_status,
             update::update_check,
             update::update_install,
@@ -381,6 +385,7 @@ pub fn run() {
             app.manage(skills::Draft::default());
             app.manage(BubbleState::default());
             app.manage(llm::engine::Engine::default());
+            app.manage(llm::download::Download::default());
             app.manage(update::UpdateState::default());
             update::start(app.handle().clone());
             llm::engine::watch_idle(app.handle().clone());
