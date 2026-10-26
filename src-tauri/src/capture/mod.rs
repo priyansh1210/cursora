@@ -144,6 +144,10 @@ pub trait Platform {
     fn clipboard_restore(&self, snapshot: Self::Snapshot);
     fn clipboard_read(&self) -> Clip;
     fn send_copy(&self, key: CopyKey);
+    /// A clipboard holding just this text, for `clipboard_restore` to put in place (WRT-4.1).
+    fn text_snapshot(&self, text: &str) -> Self::Snapshot;
+    /// Ctrl+V to the app in front (WRT-1.1).
+    fn send_paste(&self);
     /// The selection is read from PRIMARY (Linux), so keys are only ever sent to file managers (LNX-3.1 to 3.3).
     fn primary(&self) -> bool {
         false
@@ -238,6 +242,44 @@ pub fn truncate(mut text: String, max_chars: usize) -> (String, bool) {
 fn text_content(text: String, max_chars: usize) -> Content {
     let (text, truncated) = truncate(text, max_chars);
     Content::Text { text, truncated }
+}
+
+/// How an answer can go back into the app the bubble opened over (spec 13).
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum WriteBack {
+    Replace,
+    Insert,
+}
+
+/// WRT-3.1: never where a paste could do harm or can't be checked; text replaces, nothing selected inserts.
+pub fn write_back(content: &Content, app: &SourceApp, cfg: &CaptureSettings, session: Session) -> Option<WriteBack> {
+    let unsafe_app = cfg.unsafe_apps.iter().any(|a| a.eq_ignore_ascii_case(&app.exe)); // a pasted line break could run a command
+    if session == Session::Wayland || app.window == 0 || app.elevated || unsafe_app || blocked(&cfg.blocklist, app) {
+        return None;
+    }
+    match content {
+        Content::Text { .. } => Some(WriteBack::Replace),
+        Content::None => Some(WriteBack::Insert),
+        Content::Files(_) | Content::Snip(_) => None,
+    }
+}
+
+/// Pastes `text` into the app in front, then puts the user's clipboard back (WRT-1.1, 4.1).
+pub fn paste<P: Platform>(p: &P, text: &str) -> Result<(), &'static str> {
+    if !p.extra_modifiers_released(Duration::from_millis(300)) {
+        return Err("Shift, Alt or Windows was still held down, so nothing was put in.");
+    }
+    let Some(snapshot) = p.clipboard_snapshot() else {
+        return Err("Your clipboard couldn't be saved, so nothing was put in.");
+    };
+    p.clipboard_restore(p.text_snapshot(text));
+    p.send_paste();
+    // shortcut: a fixed wait for the app to read the paste; a very busy app could read the restored clipboard
+    // instead. Upgrade to delayed rendering (answer the app's own request) if anyone sees the old clipboard pasted.
+    std::thread::sleep(Duration::from_millis(500));
+    p.clipboard_restore(snapshot);
+    Ok(())
 }
 
 /// Simulated copy. Success is judged only by a clipboard change, and the user's clipboard is always restored (SEL-3).
@@ -341,6 +383,12 @@ mod tests {
                 *self.clipboard.borrow_mut() = clip;
                 self.seq.set(self.seq.get() + 1);
             }
+        }
+        fn text_snapshot(&self, text: &str) -> Clip {
+            Clip::Text(text.into())
+        }
+        fn send_paste(&self) {
+            self.log(format!("paste {:?}", self.clipboard.borrow()));
         }
         fn primary(&self) -> bool {
             self.primary
@@ -600,6 +648,34 @@ mod tests {
     fn lnx_4_3_only_windows_and_x11_identify_the_app_in_front() {
         assert!(identifies_apps(Session::Windows) && identifies_apps(Session::X11));
         assert!(!identifies_apps(Session::Wayland) && !identifies_apps(Session::Unknown));
+    }
+
+    #[test]
+    fn wrt_3_1_write_back_only_where_a_paste_is_safe_and_checkable() {
+        let text = Content::Text { text: "teh draft".into(), truncated: false };
+        let app = |exe: &str| SourceApp { window: 42, ..Fake::new(exe).app };
+        let c = cfg();
+        assert_eq!(write_back(&text, &app("notepad.exe"), &c, Session::Windows), Some(WriteBack::Replace));
+        assert_eq!(write_back(&Content::None, &app("notepad.exe"), &c, Session::X11), Some(WriteBack::Insert));
+        assert_eq!(write_back(&Content::Files(FileContext::default()), &app("explorer.exe"), &c, Session::Windows), None, "files");
+        assert_eq!(write_back(&text, &app("WINDOWSTERMINAL.EXE"), &c, Session::Windows), None, "a terminal, in any letter case");
+        assert_eq!(write_back(&text, &app("KeePass.exe"), &c, Session::Windows), None, "blocked");
+        assert_eq!(write_back(&text, &SourceApp { elevated: true, ..app("notepad.exe") }, &c, Session::Windows), None, "elevated");
+        assert_eq!(write_back(&text, &Fake::new("notepad.exe").app, &c, Session::Windows), None, "no window to go back to");
+        assert_eq!(write_back(&text, &app("gedit"), &c, Session::Wayland), None, "no keys on Wayland");
+    }
+
+    #[test]
+    fn wrt_4_1_the_paste_puts_the_text_in_then_restores_the_users_clipboard() {
+        let fake = Fake::new("notepad.exe");
+        assert_eq!(paste(&fake, "the new text"), Ok(()));
+        assert_eq!(*fake.calls.borrow(), ["snapshot", "restore", r#"paste Text("the new text")"#, "restore"]);
+        assert_eq!(*fake.clipboard.borrow(), Clip::Text("what the user copied earlier".into()));
+
+        let busy = Fake { clipboard_busy: true, ..Fake::new("notepad.exe") };
+        assert!(paste(&busy, "x").is_err() && !busy.called("paste"), "a clipboard that can't be saved isn't touched");
+        let held = Fake { modifiers_held: true, ..Fake::new("notepad.exe") };
+        assert!(paste(&held, "x").is_err() && !held.called("paste") && !held.called("snapshot"), "Alt+V isn't Ctrl+V");
     }
 
     #[test]

@@ -1,5 +1,5 @@
 //! Conversations in the bubble and the expanded window (spec 03). Rust owns them; the views only draw them.
-use crate::capture::{Capture, Content, Notice, SourceApp};
+use crate::capture::{Capture, Content, Notice, SourceApp, WriteBack};
 use crate::history::History;
 use crate::persona::{self, Persona};
 use crate::privacy::{Hidden, Restorer};
@@ -174,6 +174,9 @@ pub struct Conversation {
     /// The model this conversation answers with instead of the default: a snip's one-time switch (VIS-1.2).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub own_model: Option<ModelRef>,
+    /// Replace or Insert (spec 13). Never read back from History, whose conversations have no app window any more.
+    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    pub write_back: Option<WriteBack>,
 }
 
 /// One conversation per window label: the bubble's and the expanded window's.
@@ -211,7 +214,11 @@ pub fn now_ms() -> i64 {
 
 /// Starts the bubble's conversation for a new capture (BUB-5.3). Any earlier one is already in history.
 pub fn start(app: &AppHandle, capture: Capture) -> Conversation {
-    let persona = persona::in_use(&app.state::<AppState>().settings.lock().unwrap()).map(|p| p.name);
+    let (persona, write_back) = {
+        let state = app.state::<AppState>();
+        let s = state.settings.lock().unwrap();
+        (persona::in_use(&s).map(|p| p.name), crate::capture::write_back(&capture.content, &capture.app, &s.capture, crate::session::current()))
+    };
     let model = llm::active(app);
     let conv = Conversation {
         id: now_ms(),
@@ -224,9 +231,59 @@ pub fn start(app: &AppHandle, capture: Capture) -> Conversation {
         dropped: 0,
         unavailable: model.err(),
         own_model: None,
+        write_back,
     };
     put(app, bubble::LABEL, conv.clone());
     conv
+}
+
+/// Replace or Insert (spec 13): a finished answer goes into the app the bubble opened over, only once that
+/// app is back in front (WRT-4.2). The bubble stays until the paste has worked, so a failure can be shown in it.
+#[tauri::command]
+pub async fn write_back(window: WebviewWindow, app: AppHandle, index: usize) -> Result<(), String> {
+    let (text, source) = {
+        let slots = slots(&app);
+        let conv = &slots.get(window.label()).ok_or("This conversation is closed.")?.conv;
+        if conv.write_back.is_none() {
+            return Err("This answer can't be put into the app.".into());
+        }
+        let turn = conv.turns.get(index).filter(|t| t.status == TurnStatus::Done).ok_or("That answer isn't finished.")?;
+        (plain_text(&turn.answer), conv.app.clone())
+    };
+    let name = if source.name.is_empty() { source.exe.clone() } else { source.name.clone() };
+    let pasted = tauri::async_runtime::spawn_blocking(move || {
+        if !bubble::bring_back(source.window) {
+            return Err(format!("Cursora couldn't bring {name} back to the front, so nothing was put in. Copy the answer instead."));
+        }
+        crate::capture::paste(&crate::capture::OsPlatform::new(), &text).map_err(String::from)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    pasted?;
+    if window.label() == bubble::LABEL {
+        bubble::hide(&app);
+    }
+    Ok(())
+}
+
+/// The answer as plain text for an app (WRT-1.2): Markdown's marks go; line breaks, list dashes and code stay.
+/// Single `*` and `_` stay too, since they're often real text (2*3, file_name).
+pub fn plain_text(markdown: &str) -> String {
+    let link = regex::Regex::new(r"\[([^\]]+)\]\(([^)\s]+)\)").expect("a valid pattern");
+    let lines: Vec<String> = markdown
+        .trim()
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("```"))
+        .map(|line| {
+            let mut l = line.strip_prefix("> ").or(line.strip_prefix('>').filter(|r| r.is_empty())).unwrap_or(line);
+            let hashes = l.len() - l.trim_start_matches('#').len();
+            if (1..=6).contains(&hashes) && l[hashes..].starts_with(' ') {
+                l = &l[hashes + 1..];
+            }
+            link.replace_all(&l.replace("**", "").replace("__", "").replace('`', ""), "$1 ($2)").into_owned()
+        })
+        .collect();
+    lines.join("\n")
 }
 
 /// The model switcher picked another model (LLM-5.5): the window's conversation answers with it from the next question.
@@ -528,7 +585,7 @@ fn resolve(app: &AppHandle, label: &str, question: &str) -> Result<Resolved, Str
 /// The request for `conv`'s latest question, running the skill if there is one.
 fn build(conv: &Conversation, s: &Settings, skill: Option<&(skills::Skill, String)>, info: &ModelInfo) -> Result<Request, String> {
     let language = skills::language(persona::in_use(s).as_ref());
-    let instructions = skill.map(|(sk, input)| skills::render(&sk.template, &skills::Vars { input, app: &conv.app.name, language: &language, date: &skills::today() }));
+    let instructions = skill.map(|(sk, input)| skills::instructions(sk, &skills::Vars { input, app: &conv.app.name, language: &language, date: &skills::today() }));
     // Unknown sizes: no current cloud chat model has less than 32k.
     let assumed = info.context_tokens.or((info.locality == Locality::Cloud).then_some(CLOUD_CONTEXT_TOKENS));
     request(conv, s, instructions.as_deref(), info.locality, budget(assumed))
@@ -741,6 +798,7 @@ pub fn sample(text: &str, question: &str) -> Conversation {
         dropped: 0,
         unavailable: None,
         own_model: None,
+        write_back: None,
     }
 }
 
@@ -801,6 +859,14 @@ fn echo_image(i: &Image) -> String {
 mod tests {
     use super::*;
 
+    #[test]
+    fn wrt_1_2_an_answer_goes_into_an_app_as_plain_text() {
+        let md = "## Fixed\n\nThe **quick** brown fox, see [docs](https://ex.com/a_b).\n\n- one\n- `two`\n\n```js\nlet x = 2*3;\n```\n> quoted\n>\n#hashtag stays";
+        let plain = "Fixed\n\nThe quick brown fox, see docs (https://ex.com/a_b).\n\n- one\n- two\n\nlet x = 2*3;\nquoted\n\n#hashtag stays";
+        assert_eq!(plain_text(md), plain);
+        assert_eq!(plain_text("  just text \n"), "just text");
+    }
+
     fn turn(q: &str, a: &str, status: TurnStatus) -> Turn {
         Turn { question: q.into(), answer: a.into(), status, error: None, asked: 0, answered: None, local: false, note: None }
     }
@@ -817,6 +883,7 @@ mod tests {
             dropped: 0,
             unavailable: None,
             own_model: None,
+            write_back: None,
         }
     }
 
