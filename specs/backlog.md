@@ -9,12 +9,10 @@ These are ideas, not commitments. An item gets a numbered spec folder only when 
 | Wayland global-shortcuts portal | Register the hotkey through the XDG Desktop Portal *GlobalShortcuts* interface where the desktop has it (GNOME 48 and later, KDE Plasma), so users don't bind `cursora --ask` by hand. Was LNX-2.2; moved here on 2026-10-13: Ubuntu 22.04 and 24.04 don't have it, and it can't be tested on any machine available. |
 | Wayland screenshot portal | Snip on Wayland through the XDG Desktop Portal *Screenshot* interface (the desktop's own region picker), so users don't copy a screenshot to the clipboard first. Was VIS-4.2; moved here on 2026-10-14: it can't be tested on any machine available, and GNOME's portal differs between Ubuntu releases. Until then, snip reads a screenshot the user copied (`wl-paste --type image/png`). |
 | Whole-document questions | Ask about the whole PDF, Word file, web page or text file the selection came from, or a file dropped on the bubble, with page references. Offered 2026-10-26. |
-| Indian languages | Hindi and regional languages for translating and explaining, Hinglish to English and back, and answers in the user's language. Fits the audience the honest assessment suggested. Offered 2026-10-26. |
 | Cursor companion avatar | An animated character that follows the cursor, with thinking and mood states. Skins match the persona. |
 | Hover to define | Hold Alt and hover over a word to get a tooltip definition or translation. No selection needed. |
 | Memory | A user profile ("I'm a CS student") plus local RAG over saved notes, using embeddings from a local embedding model. |
 | Smart routing | Quick skills go to a small local model and hard questions go to the cloud. Falls back to local when offline or when the API fails. |
-| Sticky answers | Pin an answer on screen, or save it to Markdown, Obsidian or Notion. |
 | Tools & MCP | Web search, calculator and opening links. MCP server support so any tool can be plugged in. |
 | Usage & cost dashboard | Per-provider token and cost tracking with a monthly budget cap. |
 | Profiles | Work, Study and Personal profiles, each with its own persona, model, skills and privacy rules. |
