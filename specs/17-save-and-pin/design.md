@@ -30,7 +30,7 @@ Settings → General → Saved answers: the folder, [Change…] (pick_folder), [
 | `specs/03-bubble-ui/requirements.md` | BUB-6.1 and BUB-9.3 amended. |
 
 ## Key mechanics
-- **Which answer:** each turn is named by `asked`, the time it was asked in milliseconds. It's unique within a conversation and doesn't move when the view adds a turn of its own. `kept` finds that turn in the calling window's conversation and refuses one that is streaming, has an error, is empty, or is Cursora's own reply (`local`) (SAV-1.3). The buttons show under the same rule: status done or cancelled, not local.
+- **Which answer:** each turn is named by `asked`, the time it was asked in milliseconds. It's unique within a conversation and doesn't move when the view adds a turn of its own. The view takes Rust's copy of the conversation when an answer is done (`chat-done`), so it holds Rust's `asked`, not the one it stamped on its own placeholder turn (a review finding: a 1 ms difference, or a Regenerate, made Pin and Save fail). `kept` finds that turn in the calling window's conversation and refuses one that is streaming, has an error, is empty, or is Cursora's own reply (`local`) (SAV-1.3). The buttons show under the same rule: status done or cancelled, not local.
 - **A pinned note** (SAV-1.1, 1.2): `pin_answer` stores a copy of the question and answer under a new label `pin-<n>` (a counter), so later changes to the conversation don't reach it. Then it opens a window:
   - **Its window:** a normal window with a title bar (the question's first line, up to 60 characters), 360 × 260, at least 240 × 140, always on top, not focused, so typing stays where it was. The title bar gives moving, resizing and Close without new code, and follows the theme like the expanded window.
   - **Where it opens:** beside the calling window: to its right, or to its left when there's no room, each new note 24 px lower than the last.
@@ -54,7 +54,7 @@ Settings → General → Saved answers: the folder, [Change…] (pick_folder), [
 - **The file name** (SAV-2.3): `"<date> <question>"`. Characters Windows or Linux refuse (`\ / : * ? " < > |` and control characters) become spaces, runs of spaces become one, and dots and spaces at the end go. The name is cut to 80 characters, never mid-character, then `.md` is added. A command such as `/explain` gives `2026-10-26 explain.md`. The date at the front means no name is ever a Windows device name (`CON`, `NUL`).
 - **Never overwriting** (SAV-2.3): the file is opened with `create_new`. If the name is taken, it tries `… (2).md`, `… (3).md` and so on. Two saves at once can't both get the same name, because there's no check-then-write gap.
 - **The folder** (SAV-2.4): `saved_answers_folder`, or `document_dir()/Cursora`, or `home_dir()/Documents/Cursora` when the system names no Documents folder. `create_dir_all` runs before each save. An error becomes "Couldn't save the answer in <folder>: <the system's reason>", shown under the answer, which stays in the bubble.
-- **Show in folder:** `show_saved(path)` accepts only a `.md` file directly inside the saved-answers folder, then calls the opener plugin's `reveal_item_in_dir`, which selects it in Explorer or the Linux file manager.
+- **Show in folder:** `show_saved(path)` accepts any existing `.md` file, so it still works after the folder setting changes (revealing a file never opens it), then calls the opener plugin's `reveal_item_in_dir`, which selects it in Explorer or the Linux file manager.
 - **History off** (SAV-2.6): `save_answer` never looks at the history settings and writes only the one file.
 
 ## Decisions
@@ -66,6 +66,7 @@ Settings → General → Saved answers: the folder, [Change…] (pick_folder), [
 
 ## Platform notes
 - **Linux X11:** always on top works under Openbox and GNOME on Xorg. **Wayland:** GNOME doesn't let apps keep a window on top, so a note there is an ordinary window (best effort, constitution §7).
+- **Show in folder on Linux** goes through the file manager's portal. Without it (WSL, some minimal desktops) the folder opens instead, with `xdg-open`, and a failure is said in plain words (R73).
 - **Documents folder:** Tauri's `document_dir()` follows `XDG_DOCUMENTS_DIR` on Linux and the Known Folder on Windows, OneDrive-redirected or not.
 
 ## Test strategy

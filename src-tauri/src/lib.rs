@@ -5,6 +5,7 @@ mod chat;
 mod cli;
 mod history;
 mod hotkey;
+mod keep;
 mod llm;
 mod persona;
 mod privacy;
@@ -62,6 +63,8 @@ struct AppInfo {
     running_as_admin: bool,
     /// Outside Program Files the setting is unavailable (APP-3.8).
     in_program_files: bool,
+    /// Where Save writes while no folder is chosen (SAV-2.4, 2.5).
+    saved_answers_default: String,
 }
 
 #[tauri::command]
@@ -78,7 +81,19 @@ fn app_info(app: AppHandle) -> AppInfo {
         can_run_as_admin: admin::available(),
         running_as_admin: admin::elevated(),
         in_program_files: admin::in_program_files(),
+        saved_answers_default: keep::default_folder(app.path().document_dir().ok(), app.path().home_dir().ok()).map(|p| p.display().to_string()).unwrap_or_default(),
     }
+}
+
+/// "Change…": a folder, for the model download (MDL-1.1) and for saved answers (SAV-2.5).
+#[tauri::command]
+async fn pick_folder(app: AppHandle) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog().file().pick_folder(move |f| {
+        let _ = tx.send(f.map(|f| f.to_string()));
+    });
+    rx.await.ok().flatten()
 }
 
 #[tauri::command]
@@ -87,6 +102,7 @@ fn open_folder(app: AppHandle, kind: String) -> Result<(), String> {
         "config" => app.path().app_config_dir().map_err(|e| e.to_string()),
         "log" => app.path().app_log_dir().map_err(|e| e.to_string()),
         "skills" => skills::dir(&app),
+        "saved" => keep::folder(&app),
         _ => Err(format!("unknown folder {kind:?}")),
     }?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -352,13 +368,17 @@ pub fn run() {
             llm::commands::model_problem,
             llm::commands::pick_model_file,
             llm::download::model_choices,
-            llm::download::model_folder,
+            pick_folder,
             llm::download::model_download,
             llm::download::model_download_cancel,
             update::update_status,
             update::update_check,
             update::update_install,
             update::update_skip,
+            keep::pin_answer,
+            keep::pinned,
+            keep::save_answer,
+            keep::show_saved,
         ])
         .setup(move |app| {
             if let Some(note) = admin_note {
@@ -390,6 +410,7 @@ pub fn run() {
             app.manage(BubbleState::default());
             app.manage(llm::engine::Engine::default());
             app.manage(llm::download::Download::default());
+            app.manage(keep::Pins::default());
             app.manage(update::UpdateState::default());
             update::start(app.handle().clone());
             llm::engine::watch_idle(app.handle().clone());

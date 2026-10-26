@@ -535,7 +535,7 @@ function DownloadModel({ onReady }: { onReady: (path: string) => void }) {
         <span className="muted folder" title={folder}>
           Saves to {folder}
         </span>
-        <button type="button" disabled={running} onClick={() => invoke<string | null>("model_folder").then((f) => f && setFolder(f))}>
+        <button type="button" disabled={running} onClick={() => invoke<string | null>("pick_folder").then((f) => f && setFolder(f))}>
           Change…
         </button>
       </div>
