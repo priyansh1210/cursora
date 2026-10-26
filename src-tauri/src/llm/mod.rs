@@ -474,6 +474,17 @@ fn first_local(m: &ModelSettings) -> Option<ModelRef> {
     m.providers.iter().filter(|p| p.locality(&m.trusted_hosts) != Locality::Cloud).find_map(|p| Some(ModelRef { provider: p.id.clone(), model: p.models.first()?.clone() }))
 }
 
+/// LLM-5.7: with no default, the first model that this change added becomes it; in local-only mode, only a local one.
+pub fn new_default(old: &ModelSettings, new: &ModelSettings, local_only: bool) -> Option<ModelRef> {
+    if new.default.is_some() {
+        return None;
+    }
+    new.providers.iter().filter(|p| !local_only || p.locality(&new.trusted_hosts) != Locality::Cloud).find_map(|p| {
+        let before = old.providers.iter().find(|o| o.id == p.id).map_or(&[][..], |o| &o.models);
+        p.models.iter().find(|m| !before.contains(m)).map(|m| ModelRef { provider: p.id.clone(), model: m.clone() })
+    })
+}
+
 /// PRI-1.3: the model to switch to as local-only mode comes on, if the default is a cloud model and a local one exists.
 pub fn local_default(m: &ModelSettings) -> Option<ModelRef> {
     let d = m.default.as_ref()?;
@@ -525,6 +536,26 @@ pub mod tests {
             let plain = chat_request(kind, "https://host/", "m", &conversation(), Some("k"), None).unwrap().body.unwrap();
             assert!(plain.get("temperature").is_none() && plain.get("generationConfig").is_none(), "{kind:?}");
         }
+    }
+
+    #[test]
+    fn llm_5_7_a_model_added_with_no_default_becomes_the_default() {
+        let to = |p: &str, m: &str| Some(ModelRef { provider: p.into(), model: m.into() });
+        let engine = provider("e", Kind::Builtin, "");
+        let none = ModelSettings::default();
+        let added = ModelSettings { providers: vec![engine.clone()], ..ModelSettings::default() };
+        assert_eq!(new_default(&none, &added, false), to("e", "m"), "a downloaded model, with no default");
+        assert_eq!(new_default(&none, &ModelSettings { default: to("x", "y"), ..added.clone() }, false), None, "a default stays");
+        let mut cloud = provider("c", Kind::OpenAiCompatible, "https://api.openai.com/v1");
+        cloud.models.clear(); // added with its key; models are chosen next
+        let keyed = ModelSettings { providers: vec![cloud.clone()], ..ModelSettings::default() };
+        assert_eq!(new_default(&none, &keyed, false), None, "no model yet");
+        cloud.models = vec!["gpt-4o-mini".into(), "gpt-4o".into()];
+        let chosen = ModelSettings { providers: vec![cloud], ..ModelSettings::default() };
+        assert_eq!(new_default(&keyed, &chosen, false), to("c", "gpt-4o-mini"), "models chosen for a provider");
+        assert_eq!(new_default(&keyed, &chosen, true), None, "local-only: never a cloud model");
+        assert_eq!(new_default(&added, &none, false), None, "removing a provider picks nothing");
+        assert_eq!(new_default(&added, &added, false), None, "nothing added");
     }
 
     #[test]
