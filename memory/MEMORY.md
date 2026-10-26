@@ -3,7 +3,7 @@
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
 - [No AI attribution in commits/PRs](no-ai-attribution-in-commits.md) — never Claude/Anthropic names, Co-Authored-By or "Generated with" lines
 - [PRs without gh](github-pr-without-gh.md) — open PRs via the GitHub API with the stored git credential
-- [Working rules](working-rules-cursora.md) — one name per thing, no macOS, ask before rerunning reaped jobs, ignore Prettier
+- [Working rules](working-rules-cursora.md) — one name per thing, no macOS, ask before rerunning reaped jobs, ignore Prettier, the user merges PRs (never self-merge)
 - [Plain step-by-step instructions](plain-step-by-step-instructions.md) — hands-on checks: one small, plain step at a time
 - [No emoji in the UI](no-emoji-in-ui.md) — user finds emoji unprofessional; use src/icons.tsx line icons or words
 - [Spec 09 voice optional](spec-09-voice-shelved.md) — Optional since 2026-10-25 (PR #21); not part of the release; don't propose it

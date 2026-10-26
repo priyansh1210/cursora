@@ -1,6 +1,6 @@
 ---
 name: working-rules-cursora
-description: "The user's standing rules for Cursora work not written in CLAUDE.md (one name per thing, no macOS, reaper, Prettier, test input)"
+description: "The user's standing rules for Cursora work not written in CLAUDE.md (one name per thing, no macOS, reaper, Prettier, test input, the user merges PRs)"
 metadata:
   node_type: memory
   type: feedback
@@ -13,6 +13,7 @@ metadata:
 - **Memory reaper:** if a long run (WSL e2e, builds) is killed for low memory, ask before restarting it.
 - **Prettier:** the repo doesn't use Prettier; ignore its warnings.
 - **Test automation never types into the user's own apps**; scripts guard the foreground window (see specs/issues.md test notes).
+- **Never merge PRs yourself:** "from now no self merging the prs - i will merge prs" (2026-10-26). Open the PR, wait for CI, then tell the user it is ready; the user merges. The overnight permission for specs 13 to 15 has ended.
 
 **Why:** stated by the user across sessions while building specs 01–10.
 
