@@ -432,6 +432,7 @@ export function AddProvider({ save, onAdded }: { save: Save; onAdded: (p: Provid
           }}
         >
           <option value="">Choose…</option>
+          <option value="download">Download a free model</option>
           <option value="builtin">Built-in engine (a .gguf model file)</option>
           {PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -440,6 +441,7 @@ export function AddProvider({ save, onAdded }: { save: Save; onAdded: (p: Provid
           ))}
         </select>
       </label>
+      {source === "download" && <DownloadModel onReady={(path) => void add(engineProvider(path, null))} />}
       {source === "builtin" && (
         <button type="button" onClick={() => invoke<string | null>("pick_model_file").then((f) => void (f && add(engineProvider(f, null))))}>
           Choose a .gguf file
@@ -468,5 +470,94 @@ export function AddProvider({ save, onAdded }: { save: Save; onAdded: (p: Provid
         </form>
       )}
     </>
+  );
+}
+
+type Choice = { id: string; label: string; note: string; size: number };
+type Progress = { done: number; total: number };
+const gb = (bytes: number) => (bytes / 1e9).toFixed(1);
+
+/** One-click model download (MDL-1): three sizes, one recommended, the folder, then progress and Cancel. */
+function DownloadModel({ onReady }: { onReady: (path: string) => void }) {
+  const [choices, setChoices] = useState<{ models: Choice[]; recommended: string }>();
+  const [id, setId] = useState("");
+  const [folder, setFolder] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<Progress>();
+  const [note, setNote] = useState<string>();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    void invoke<{ models: Choice[]; recommended: string; folder: string }>("model_choices").then((c) => {
+      setChoices(c);
+      setId(c.recommended);
+      setFolder(c.folder);
+    });
+    const off = listen<Progress>("model-progress", (e) => setProgress(e.payload));
+    return () => void off.then((f) => f());
+  }, []);
+  if (!choices) return null;
+  const download = () => {
+    setBusy(true);
+    setProgress(undefined);
+    setNote(undefined);
+    setError(undefined);
+    invoke<string | null>("model_download", { id, folder })
+      .then(
+        (path) => (path ? onReady(path) : setNote("Paused. Download again to continue where it stopped.")),
+        (e) => setError(String(e)),
+      )
+      .finally(() => {
+        setBusy(false);
+        setProgress(undefined);
+      });
+  };
+  // Only this page's own download: a late progress event must not bring the bar back after it ends.
+  const running = busy;
+  const percent = progress ? Math.floor((progress.done / progress.total) * 100) : 0;
+
+  return (
+    <div className="download">
+      <div role="radiogroup" aria-label="Model size">
+        {choices.models.map((m) => (
+          <label className="row" key={m.id}>
+            <input type="radio" name="model-size" checked={id === m.id} disabled={running} onChange={() => setId(m.id)} />
+            <span>
+              <strong>{m.label}</strong> · {gb(m.size)} GB <span className="muted">· {m.note}</span>
+            </span>
+            {m.id === choices.recommended && <span className="badge">Recommended</span>}
+          </label>
+        ))}
+      </div>
+      <div className="row">
+        <span className="muted folder" title={folder}>
+          Saves to {folder}
+        </span>
+        <button type="button" disabled={running} onClick={() => invoke<string | null>("model_folder").then((f) => f && setFolder(f))}>
+          Change…
+        </button>
+      </div>
+      {running ? (
+        <div className="row">
+          <div className="progress" role="progressbar" aria-label="Download progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+            <span style={{ width: `${percent}%` }} />
+          </div>
+          <span>{!progress ? "Starting…" : progress.done < progress.total ? `${gb(progress.done)} of ${gb(progress.total)} GB` : "Checking the file…"}</span>
+          <button type="button" onClick={() => void invoke("model_download_cancel")}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button type="button" className="primary" onClick={download}>
+          Download
+        </button>
+      )}
+      <p className="muted note">Free Qwen models (Apache 2.0 license) from Hugging Face. They run on this computer, so your questions stay on it.</p>
+      {note && (
+        <p className="note" role="status">
+          {note}
+        </p>
+      )}
+      {error && <p role="alert" className="error">{error}</p>}
+    </div>
   );
 }
