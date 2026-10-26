@@ -22,8 +22,8 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 13 | [Write back into apps](13-write-back/requirements.md) | WRT | Approved¹ | [Approved¹](13-write-back/design.md) | [In progress](13-write-back/tasks.md) | In progress |
 | 14 | [Quick actions](14-quick-actions/requirements.md) | QAC | Approved¹ | [Approved¹](14-quick-actions/design.md) | [In progress](14-quick-actions/tasks.md) | In progress |
 | 15 | [One-click model download](15-model-download/requirements.md) | MDL | Approved¹ | [Approved¹](15-model-download/design.md) | [In progress](15-model-download/tasks.md) | In progress |
-| 16 | [Indian languages](16-indian-languages/requirements.md) | LNG | Draft | — | — | Draft |
-| 17 | [Save and pin answers](17-save-and-pin/requirements.md) | SAV | Draft | — | — | Draft |
+| 16 | [Indian languages](16-indian-languages/requirements.md) | LNG | Approved | [Draft](16-indian-languages/design.md) | — | Approved (requirements) |
+| 17 | [Save and pin answers](17-save-and-pin/requirements.md) | SAV | Approved | [Draft](17-save-and-pin/design.md) | — | Approved (requirements) |
 
 ¹ Approved under the user's go-ahead of 2026-10-26 to build improvements #1 to #5 while away; the choices made for the user are listed in each spec's requirements.md, for review.
 

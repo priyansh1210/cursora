@@ -77,7 +77,7 @@ User story (added 2026-10-14): As a user who works in apps running as administra
 User story: As a new user, I want a short setup, so that my first Ctrl+G just works.
 - APP-6.1 (manual) WHEN Cursora runs for the first time THE SYSTEM SHALL show onboarding with three steps:
   1. Choose an AI source: detected local runtimes, the built-in engine (pick a `.gguf`), or a cloud API key. Setup SHALL NOT continue past this step until the chosen model passes Test connection (LLM-7.1). For the built-in engine, the user also picks how long the model stays loaded (LLM-3.5), with "Always on" preselected.
-  2. Choose a persona, or turn personality off.
+  2. Choose a persona, or turn personality off, and My language (LNG-1.1; added 2026-10-26).
   3. Choose the hotkeys: ask (default Ctrl+G), snip (default Ctrl+Shift+G), and push-to-talk (optional, unset by default). (Amended 2026-10-14: snip and push-to-talk appear once spec 10 and spec 09 are built, as in APP-5.2.)
   4. A "try it" page with sample text and the hotkey.
 
