@@ -38,6 +38,8 @@ export type Conversation = {
   ownModel?: ModelRef;
   /** How an answer can go into the app the bubble opened over (spec 13); absent when it can't. */
   writeBack?: "replace" | "insert";
+  /** The buttons over a selection (spec 14), pinned skills first; a button sends its command as if typed. */
+  quick?: { label: string; command: string }[];
 };
 export type Delta = { id: number; offset: number; text: string };
 export type Done = { id: number; status: TurnStatus; error: ChatError | null; dropped: number };
