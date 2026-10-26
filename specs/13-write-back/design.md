@@ -37,7 +37,7 @@ It's `None` for any of these:
 - a Wayland session
 - an app with no window (`window == 0`)
 - an app that is blocked or elevated
-- an app on `cfg.unsafe_apps` (case-insensitive, like `copy_key`)
+- an app on `cfg.unsafe_apps` (case-insensitive, like `copy_key`), or a terminal in `quick::TERMINALS` (that list has the Linux terminals; `unsafe_apps` has only Windows names, issue 55)
 - files or a snip as the context
 
 `Replace` for text, `Insert` for none. `chat::start` stores it on the conversation. `#[serde(skip_deserializing)]` keeps it from coming back from History (the window is gone by then), while the view still receives it.

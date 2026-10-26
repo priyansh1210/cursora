@@ -7,7 +7,7 @@
 - [x] 5. Check in the bubble on Windows (2026-10-26, test copy and Echo), then `/ponytail-review` (three small fixes applied: typed text goes with the command, two dead table entries, a shorter label).
 
 ## Manual checklist
-- [ ] QAC-1.1 Six buttons over a selection before the first question; Fix runs /fix and offers Replace. Windows ☑ (test window) X11 ☐
-- [ ] QAC-1.2 Alt+1 to Alt+6 press them; tooltips show the keys. Windows ☑ (Alt+1, then Replace) X11 ☐
-- [ ] QAC-3.2 The setting hides them; Pin puts a skill first. Windows ☑ X11 ☐
+- [ ] QAC-1.1 Six buttons over a selection before the first question; Fix runs /fix and offers Replace. Windows ☑ (test window) X11 ☑ (2026-10-26, WSL: Fix, Rewrite, Shorter, Explain, Summarize, Translate over mousepad text; Explain error, Explain command, Explain over an xterm line)
+- [ ] QAC-1.2 Alt+1 to Alt+6 press them; tooltips show the keys. Windows ☑ (Alt+1, then Replace) X11 ☑ (2026-10-26: "/fix (Alt+1)" to "/translate (Alt+6)"; Alt+1 ran /fix and offered Replace)
+- [ ] QAC-3.2 The setting hides them; Pin puts a skill first. Windows ☑ X11 ☑ (2026-10-26: /define pinned came first as Alt+1; the box off left no button row; both set back)
 - [ ] Real apps: Windows Terminal (Explain error first), VS Code (Explain, Find bugs), Outlook or Slack (Reply first).

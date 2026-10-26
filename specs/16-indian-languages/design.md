@@ -1,6 +1,6 @@
 # 16: Indian languages (design)
 
-Status: **Draft**. Implements [requirements.md](requirements.md). Two settings and one place in Rust that decides the reply language. The prompt builder, `{{language}}` and the new `{{my_language}}` all ask that place. Templates and CSS do the rest: no new module.
+Status: **Approved** (2026-10-26, PR #46). Implements [requirements.md](requirements.md). Two settings and one place in Rust that decides the reply language. The prompt builder, `{{language}}` and the new `{{my_language}}` all ask that place. Templates and CSS do the rest: no new module.
 
 ## Overview
 ```

@@ -1,6 +1,6 @@
 # 17: Save and pin answers (design)
 
-Status: **Draft**. Implements [requirements.md](requirements.md). Rust owns the conversation (spec 03 design, decision 2), so both buttons send only which answer, and Rust copies or writes it. A pinned note is a small normal window with the answer. A saved answer is a Markdown file written by a new `keep.rs`.
+Status: **Approved** (2026-10-26, PR #46). Implements [requirements.md](requirements.md). Rust owns the conversation (spec 03 design, decision 2), so both buttons send only which answer, and Rust copies or writes it. A pinned note is a small normal window with the answer. A saved answer is a Markdown file written by a new `keep.rs`.
 
 ## Overview
 ```

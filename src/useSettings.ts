@@ -42,6 +42,9 @@ export type Settings = {
   updates: { check: boolean; skipped: string | null };
   /** The bubble's quick actions (spec 14). */
   quick: { on: boolean; pinned: string[] };
+  /** Spec 16 (LNG-1.1, 1.3). */
+  myLanguage: string;
+  answerInMyLanguage: boolean;
 };
 
 export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";

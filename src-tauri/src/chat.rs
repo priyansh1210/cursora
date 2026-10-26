@@ -596,8 +596,8 @@ fn resolve(app: &AppHandle, label: &str, question: &str) -> Result<Resolved, Str
 
 /// The request for `conv`'s latest question, running the skill if there is one.
 fn build(conv: &Conversation, s: &Settings, skill: Option<&(skills::Skill, String)>, info: &ModelInfo) -> Result<Request, String> {
-    let language = skills::language(persona::in_use(s).as_ref());
-    let instructions = skill.map(|(sk, input)| skills::instructions(sk, &skills::Vars { input, app: &conv.app.name, language: &language, date: &skills::today() }));
+    let (language, my_language) = skills::languages(s);
+    let instructions = skill.map(|(sk, input)| skills::instructions(sk, &skills::Vars { input, app: &conv.app.name, language: &language, my_language: &my_language, date: &skills::today() }));
     // Unknown sizes: no current cloud chat model has less than 32k.
     let assumed = info.context_tokens.or((info.locality == Locality::Cloud).then_some(CLOUD_CONTEXT_TOKENS));
     request(conv, s, instructions.as_deref(), info.locality, budget(assumed))
@@ -668,7 +668,7 @@ fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: 
 /// so a value keeps its number even after early turns are dropped from the request (PRI-3.1).
 pub fn request(conv: &Conversation, s: &Settings, skill: Option<&str>, locality: Locality, budget: usize) -> Result<Request, String> {
     let share_title = s.capture.share_window_title;
-    let (mut messages, dropped) = assemble(conv, persona::in_use(s).as_ref(), skill, share_title, budget);
+    let (mut messages, dropped) = assemble(conv, persona::in_use(s).as_ref(), prompt::reply_language(s).as_deref(), skill, share_title, budget);
     let mut hidden = Hidden::default();
     if privacy::applies(&s.privacy, locality) && !messages.is_empty() {
         let detectors = privacy::Detectors::new(&s.privacy)?;
@@ -761,9 +761,10 @@ pub fn too_long(messages: &[Message], context_tokens: u32) -> Option<ChatError> 
 /// system prompt, then the context on the oldest kept question (so exactly once), then the turns.
 /// Oldest pairs go first when over budget; the system prompt, context and latest question always stay.
 /// Errored turns, empty answers and local replies aren't sent back; a cancelled partial answer is.
-/// `persona` is None while personality is off (PER-2.1); `skill` is the rendered instructions of a skill, if one runs.
-pub fn assemble(conv: &Conversation, persona: Option<&Persona>, skill: Option<&str>, share_title: bool, budget: usize) -> (Vec<Message>, usize) {
-    let system = prompt::system(persona, skill);
+/// `persona` is None while personality is off (PER-2.1); `language` is `prompt::reply_language` (LNG-1.3);
+/// `skill` is the rendered instructions of a skill, if one runs.
+pub fn assemble(conv: &Conversation, persona: Option<&Persona>, language: Option<&str>, skill: Option<&str>, share_title: bool, budget: usize) -> (Vec<Message>, usize) {
+    let system = prompt::system(persona, language, skill);
     let context = prompt::context(&conv.app, &conv.content, share_title);
     let Some((latest, earlier)) = conv.turns.split_last() else { return (vec![], 0) };
     let pairs: Vec<&Turn> = earlier.iter().filter(|t| t.status != TurnStatus::Error && !t.answer.is_empty() && !t.local).collect();
@@ -911,7 +912,7 @@ mod tests {
         let c = Conversation { content: snip(true), ..conv(vec![turn("q1", "a1", TurnStatus::Done), turn("q2", "", TurnStatus::Streaming)]) };
         let json = serde_json::to_string(&c).unwrap();
         assert!(json.contains("THUMB") && !json.contains("FULL"), "the page and history get the thumbnail only");
-        let images = |c: &Conversation| assemble(c, None, None, false, usize::MAX).0.iter().map(|m| m.images.iter().map(|i| i.base64.clone()).collect::<Vec<_>>()).collect::<Vec<_>>();
+        let images = |c: &Conversation| assemble(c, None, None, None, false, usize::MAX).0.iter().map(|m| m.images.iter().map(|i| i.base64.clone()).collect::<Vec<_>>()).collect::<Vec<_>>();
         let none = Vec::<String>::new;
         assert_eq!(images(&c), [none(), vec!["FULL".to_string()], none(), none()], "once, with the context, in a follow-up too");
         let reopened: Conversation = serde_json::from_str(&json).unwrap();
@@ -942,7 +943,7 @@ mod tests {
     #[test]
     fn bub_5_1_follow_ups_send_the_conversation_with_the_context_once() {
         let c = conv(vec![turn("q1", "a1", TurnStatus::Done), turn("q2", "a2", TurnStatus::Done), turn("q3", "", TurnStatus::Streaming)]);
-        let (m, dropped) = assemble(&c, None, None, false, budget(None));
+        let (m, dropped) = assemble(&c, None, None, None, false, budget(None));
         assert_eq!(dropped, 0);
         let roles: Vec<Role> = m.iter().map(|m| m.role).collect();
         assert_eq!(roles, [Role::System, Role::User, Role::Assistant, Role::User, Role::Assistant, Role::User]);
@@ -951,19 +952,19 @@ mod tests {
         assert_eq!(m[5].text, "q3");
         // Errored turns aren't sent back; a cancelled partial answer is.
         let c = conv(vec![turn("bad", "", TurnStatus::Error), turn("half", "partial", TurnStatus::Cancelled), turn("q", "", TurnStatus::Streaming)]);
-        let (m, _) = assemble(&c, None, None, false, budget(None));
+        let (m, _) = assemble(&c, None, None, None, false, budget(None));
         assert_eq!(m.iter().map(|m| m.text.lines().last().unwrap()).collect::<Vec<_>>()[1..], ["half", "partial", "q"]);
         // No context: nothing is wrapped.
         let mut c = conv(vec![turn("q", "", TurnStatus::Streaming)]);
         c.content = Content::None;
-        assert_eq!(context_count(&assemble(&c, None, None, false, budget(None)).0), 0);
+        assert_eq!(context_count(&assemble(&c, None, None, None, false, budget(None)).0), 0);
     }
 
     #[test]
     fn per_3_1_persona_replies_are_never_sent_to_the_model() {
         let local = Turn { local: true, ..turn("/persona ada", "Now speaking as **Ada**.", TurnStatus::Done) };
         let c = conv(vec![local, turn("q1", "a1", TurnStatus::Done), turn("q2", "", TurnStatus::Streaming)]);
-        let (m, _) = assemble(&c, None, None, false, budget(None));
+        let (m, _) = assemble(&c, None, None, None, false, budget(None));
         assert_eq!(m.len(), 4);
         assert!(m.iter().all(|m| !m.text.contains("/persona") && !m.text.contains("Ada")));
         assert!(m[1].text.contains("SELECTED") && m[1].text.ends_with("q1"), "the context moves to the first real question");
@@ -1017,14 +1018,14 @@ mod tests {
             turn("middle question", &long, TurnStatus::Done),
             turn("latest", "", TurnStatus::Streaming),
         ]);
-        let fixed = tokens(&prompt::system(None, None)) + tokens(&prompt::context(&c.app, &c.content, false).unwrap()) + tokens("latest");
-        let (m, dropped) = assemble(&c, None, None, false, fixed + 110); // room for one pair only
+        let fixed = tokens(&prompt::system(None, None, None)) + tokens(&prompt::context(&c.app, &c.content, false).unwrap()) + tokens("latest");
+        let (m, dropped) = assemble(&c, None, None, None, false, fixed + 110); // room for one pair only
         assert_eq!(dropped, 1);
         assert!(m.iter().all(|m| !m.text.contains("old question")));
         assert!(m[1].text.contains("SELECTED") && m[1].text.ends_with("middle question"), "context moves to the oldest kept question");
         assert_eq!((m[0].role, m.last().unwrap().text.as_str()), (Role::System, "latest"));
         // Even a budget too small for the essentials keeps them.
-        let (m, dropped) = assemble(&c, None, None, false, 1);
+        let (m, dropped) = assemble(&c, None, None, None, false, 1);
         assert_eq!(dropped, 2);
         assert_eq!(m.len(), 2);
         assert_eq!(context_count(&m), 1);
