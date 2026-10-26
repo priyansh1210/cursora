@@ -29,6 +29,7 @@ pub struct Settings {
     pub models: crate::llm::ModelSettings,
     pub snip: SnipSettings,
     pub updates: UpdateSettings,
+    pub quick: QuickSettings,
 }
 
 impl Default for Settings {
@@ -51,6 +52,7 @@ impl Default for Settings {
             models: crate::llm::ModelSettings::default(),
             snip: SnipSettings::default(),
             updates: UpdateSettings::default(),
+            quick: QuickSettings::default(),
         }
     }
 }
@@ -138,6 +140,22 @@ pub struct UpdateSettings {
 impl Default for UpdateSettings {
     fn default() -> Self {
         Self { check: true, skipped: None }
+    }
+}
+
+/// Spec 14.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct QuickSettings {
+    /// The bubble's buttons (QAC-3.2).
+    pub on: bool,
+    /// Skill names shown first among them (QAC-3.1).
+    pub pinned: Vec<String>,
+}
+
+impl Default for QuickSettings {
+    fn default() -> Self {
+        Self { on: true, pinned: vec![] }
     }
 }
 

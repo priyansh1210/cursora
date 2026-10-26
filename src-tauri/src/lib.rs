@@ -9,6 +9,7 @@ mod llm;
 mod persona;
 mod privacy;
 mod prompt;
+mod quick;
 mod secrets;
 mod session;
 mod settings;
