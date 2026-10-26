@@ -112,7 +112,8 @@ diag() {
   import -window root ~/x11-sav/screen.png 2>/dev/null && echo '--- screenshot: \\wsl$\Ubuntu-24.04\home\cursora\x11-sav\screen.png'
 }
 notes() { xdotool search --onlyvisible --name "$1" 2>/dev/null | wc -l; }
-bubble() { xdotool search --onlyvisible --name '^Cursora$' 2>/dev/null | head -1; }
+# --case: xdotool ignores letter case by default, and the tray icon's window is called "cursora".
+bubble() { xdotool search --onlyvisible --case --name '^Cursora$' 2>/dev/null | head -1; }
 geom() { xdotool getwindowgeometry --shell "$1" | tr '\n' ' '; }
 brightness() { import -window "$1" -crop 1x1+4+4 -depth 8 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}' | head -1 | cut -c2-3 | xargs -I{} printf '%d' 0x{}; }
 
@@ -122,7 +123,7 @@ ask() {
   xdotool search --sync --name 'note.txt' windowactivate --sync >/dev/null 2>&1
   xdotool key --clearmodifiers ctrl+a; sleep 0.5
   $app --ask
-  xdotool search --sync --onlyvisible --name '^Cursora$' >/dev/null
+  xdotool search --sync --onlyvisible --case --name '^Cursora$' >/dev/null
   sleep 1.5
   b=$(bubble)
   [ "$(xdotool getactivewindow)" = "$b" ] || xdotool windowactivate --sync "$b"
