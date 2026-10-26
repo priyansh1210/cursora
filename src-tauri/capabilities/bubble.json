@@ -1,10 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "bubble",
-  "description": "The bubble and the expanded chat window",
+  "description": "The bubble, the expanded chat window and pinned notes",
   "windows": [
     "bubble",
-    "chat"
+    "chat",
+    "pin-*"
   ],
   "permissions": [
     "core:default",
