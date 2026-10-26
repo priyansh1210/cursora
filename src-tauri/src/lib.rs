@@ -117,6 +117,7 @@ pub fn update_settings(app: &AppHandle, mut settings: Settings) -> Result<(), St
     let old = state.settings.lock().unwrap().clone();
     hotkey::validate(&settings.hotkeys, &old.hotkeys)?;
     persona::validate_all(&settings)?; // PER-1.1
+    persona::check_language("My language", &settings.my_language)?; // LNG-1.1
     privacy::validate(&settings.privacy)?; // PRI-3.4
     // Turning it on asks Windows; this copy then quits, and the admin one reopens Settings (APP-3.4).
     let restart = settings.run_as_admin && !old.run_as_admin && admin::available() && admin::in_program_files() && !admin::elevated();

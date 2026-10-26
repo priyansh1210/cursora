@@ -22,7 +22,7 @@ const COMMANDS: [(&str, &str, &str); 4] = [
     (HELP, "", "List the skills and commands"),
 ];
 
-const VARIABLES: [&str; 4] = ["input", "app", "language", "date"];
+const VARIABLES: [&str; 5] = ["input", "app", "language", "my_language", "date"];
 const FIELDS: [&str; 7] = ["name", "description", "args", "requires", "model", "temperature", "output"];
 const MAX_BYTES: u64 = 64 * 1024;
 
@@ -88,6 +88,8 @@ pub struct Vars<'a> {
     pub input: &'a str,
     pub app: &'a str,
     pub language: &'a str,
+    /// My language, whatever the reply language is (LNG-1.5).
+    pub my_language: &'a str,
     pub date: &'a str,
 }
 
@@ -178,7 +180,7 @@ pub fn parse(text: &str) -> Result<Skill, (usize, String)> {
             let close = rest[start..].find("}}").ok_or((i + 1, "'{{' is never closed with '}}'".to_string()))?;
             let var = rest[start + 2..start + close].trim();
             if !VARIABLES.contains(&var) {
-                return Err((i + 1, format!("unknown variable {{{{{var}}}}}: use {{{{input}}}}, {{{{app}}}}, {{{{language}}}} or {{{{date}}}}")));
+                return Err((i + 1, format!("unknown variable {{{{{var}}}}}: use {{{{input}}}}, {{{{app}}}}, {{{{language}}}}, {{{{my_language}}}} or {{{{date}}}}")));
             }
             rest = &rest[start + close + 2..];
         }
@@ -257,6 +259,7 @@ pub fn render(template: &str, v: &Vars) -> String {
             "input" => v.input,
             "app" => v.app,
             "language" => v.language,
+            "my_language" => v.my_language,
             "date" => v.date,
             _ => &rest[start..close + 2],
         });
@@ -438,13 +441,10 @@ pub fn dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_config_dir().map(|d| d.join("skills")).map_err(|e| e.to_string())
 }
 
-/// `{{language}}`: the persona's reply language, if personality is on and it has one (SKL-1.2).
-pub fn language(persona: Option<&crate::persona::Persona>) -> String {
-    persona.and_then(|p| p.reply_language.clone()).unwrap_or_else(|| crate::prompt::QUESTION_LANGUAGE.into())
-}
-
-fn persona_in_use(app: &AppHandle) -> Option<crate::persona::Persona> {
-    crate::persona::in_use(&app.state::<crate::AppState>().settings.lock().unwrap())
+/// `{{language}}` and `{{my_language}}` (SKL-1.2, LNG-1.5): the reply language, or the question's (LNG-1.3), and My language.
+pub fn languages(s: &crate::settings::Settings) -> (String, String) {
+    let reply = crate::prompt::reply_language(s).unwrap_or_else(|| crate::prompt::QUESTION_LANGUAGE.into());
+    (reply, crate::prompt::language_name(&s.my_language))
 }
 
 /// The skill called `name`, read from the files now.
@@ -497,8 +497,8 @@ pub fn skills_list(app: AppHandle) -> Listing {
 #[tauri::command]
 pub fn skill_check(app: AppHandle, fields: Fields) -> Result<String, String> {
     let s = parse(&to_file(&fields)).map_err(|(_, e)| e)?;
-    let language = language(persona_in_use(&app).as_ref());
-    Ok(render(&s.template, &Vars { input: "(text after the command)", app: crate::chat::SAMPLE_APP, language: &language, date: &today() }))
+    let (language, my_language) = languages(&app.state::<crate::AppState>().settings.lock().unwrap());
+    Ok(render(&s.template, &Vars { input: "(text after the command)", app: crate::chat::SAMPLE_APP, language: &language, my_language: &my_language, date: &today() }))
 }
 
 #[tauri::command]
@@ -531,7 +531,8 @@ fn test(app: &AppHandle, skill: &Skill, sample: &str) -> Result<String, String> 
     }
     let s = app.state::<crate::AppState>().settings.lock().unwrap().clone();
     let conv = crate::chat::sample(sample, &format!("/{}", skill.name));
-    let instructions = instructions(skill, &Vars { input: "", app: &conv.app.name, language: &language(crate::persona::in_use(&s).as_ref()), date: &today() });
+    let (language, my_language) = languages(&s);
+    let instructions = instructions(skill, &Vars { input: "", app: &conv.app.name, language: &language, my_language: &my_language, date: &today() });
     let req = crate::chat::request(&conv, &s, Some(&instructions), model.info().locality, usize::MAX)?; // redacted like any request (PRI-3)
     let mut answer = String::new();
     match crate::chat::run_turn(&*model, &req.messages, &std::sync::atomic::AtomicBool::new(false), &mut |t| answer.push_str(t)) {
@@ -639,7 +640,7 @@ mod tests {
 
     #[test]
     fn wrt_5_1_a_replacement_skill_asks_for_the_new_text_only() {
-        let v = Vars { input: "", app: "Notepad", language: "English", date: "2026-10-26" };
+        let v = Vars { input: "", app: "Notepad", language: "English", my_language: "English", date: "2026-10-26" };
         let replace = parse(&file("name: tidy\ndescription: d\noutput: replace", "Tidy the text.")).unwrap();
         assert_eq!(instructions(&replace, &v), format!("Tidy the text.\n{REPLACE_RULE}"));
         let chat = parse(&file("name: tidy\ndescription: d\noutput: chat", "Tidy the text.")).unwrap();
@@ -658,13 +659,47 @@ mod tests {
     }
 
     #[test]
-    fn skl_1_2_templates_use_the_four_variables_and_no_others() {
+    fn lng_1_2_translate_goes_into_my_language_or_english_from_it() {
+        let (skills, _) = load(None);
+        let translate = skills.iter().find(|s| s.name == "translate").unwrap();
+        let v = |mine: &'static str| Vars { input: "", app: "Notepad", language: crate::prompt::QUESTION_LANGUAGE, my_language: mine, date: "2026-10-26" };
+        let hindi = render(&translate.template, &v("Hindi"));
+        assert!(hindi.contains("translate into Hindi, unless the text is already in Hindi. Then translate into English"), "{hindi}");
+        let english = render(&translate.template, &v("English"));
+        assert!(english.contains("translate into English, unless the text is already in English. Then translate into English, or into Spanish when the text is English."), "as before: {english}");
+        assert!(render(&translate.template, &Vars { input: "French", ..v("Hindi") }).contains("Target language: French\n"));
+    }
+
+    #[test]
+    fn lng_1_5_my_language_is_a_variable_and_language_follows_the_reply_language() {
+        let s = parse(&file("name: a\ndescription: d", "Into {{ my_language }}, answering in {{language}}.")).unwrap();
+        let mut settings = crate::settings::Settings { my_language: "Tamil".into(), ..Default::default() };
+        let render_with = |settings: &crate::settings::Settings| {
+            let (language, my_language) = languages(settings);
+            render(&s.template, &Vars { input: "", app: "Notepad", language: &language, my_language: &my_language, date: "2026-10-26" })
+        };
+        assert_eq!(render_with(&settings), format!("Into Tamil, answering in {}.", crate::prompt::QUESTION_LANGUAGE));
+        settings.answer_in_my_language = true;
+        assert_eq!(render_with(&settings), "Into Tamil, answering in Tamil.");
+    }
+
+    #[test]
+    fn lng_2_1_fix_rewrite_and_simplify_keep_the_texts_own_language() {
+        let (skills, _) = load(None);
+        for name in ["fix", "rewrite", "simplify"] {
+            let s = skills.iter().find(|s| s.name == name).unwrap();
+            assert!(s.template.contains("Keep the text in its own language, whatever language you were told to reply in."), "{name}");
+        }
+    }
+
+    #[test]
+    fn skl_1_2_templates_use_the_five_variables_and_no_others() {
         let s = parse(&file("name: a\ndescription: d", "To {{ language }}: {{input}}\nFrom {{app}} on {{date}}.")).unwrap();
-        let v = Vars { input: "French", app: "Notepad", language: "Hindi", date: "2026-10-13" };
+        let v = Vars { input: "French", app: "Notepad", language: "Hindi", my_language: "Tamil", date: "2026-10-13" };
         assert_eq!(render(&s.template, &v), "To Hindi: French\nFrom Notepad on 2026-10-13.");
         let braces = parse(&file("name: a\ndescription: d", "Write {a}} like this for {{input}}.")).unwrap();
         assert_eq!(render(&braces.template, &v), "Write {a}} like this for French.", "a lone '}}' first doesn't stop the filling-in");
-        assert_eq!(language(None), crate::prompt::QUESTION_LANGUAGE);
+        assert_eq!(languages(&crate::settings::Settings::default()), (crate::prompt::QUESTION_LANGUAGE.into(), "English".into()));
         let (line, e) = parse(&file("name: a\ndescription: d", "ok\nUse {{selection}} here")).unwrap_err();
         assert_eq!(line, 6);
         assert!(e.contains("unknown variable {{selection}}"), "{e}");

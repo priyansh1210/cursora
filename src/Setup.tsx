@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState, type ReactNode } from "react";
 import { HotkeyFields } from "./HotkeyInput";
 import { Icon, PATHS } from "./icons";
+import { MyLanguageField } from "./MyLanguage";
 import { AddProvider, describe, editModels } from "./Models";
 import { describePersona, type Persona } from "./personas";
 import { LIFETIMES, type ModelView, type Provider } from "./providers";
@@ -171,13 +172,16 @@ function Personality({ settings, save }: StepProps) {
   );
   return (
     <>
-      <h2>Choose a personality</h2>
+      <h2>Choose a personality and your language</h2>
       <p className="muted">Your cursor's name and style. You can change it or make your own in Settings → Personality, or type /persona in the bubble.</p>
       <fieldset>
         <legend>Personality</legend>
         {personas.map((p) => option(p.id, settings.personalityOn && p.id === active, () => void choose({ activePersona: p.id, personalityOn: true }), p.name, describePersona(p)))}
         {option("off", !settings.personalityOn, () => void choose({ personalityOn: false }), "Personality off", "The plain model, with no name or character.")}
       </fieldset>
+      {/* LNG-1.1: met in the first minute; "Always answer in my language" stays in Settings. */}
+      <MyLanguageField settings={settings} save={save} />
+      <p className="muted">Translate puts text into this language. You can change it in Settings → General.</p>
     </>
   );
 }

@@ -30,6 +30,10 @@ pub struct Settings {
     pub snip: SnipSettings,
     pub updates: UpdateSettings,
     pub quick: QuickSettings,
+    /// Spec 16: the default target of `/translate` and `{{my_language}}` (LNG-1.1, 1.2).
+    pub my_language: String,
+    /// Every answer in `my_language` unless the persona sets its own (LNG-1.3).
+    pub answer_in_my_language: bool,
 }
 
 impl Default for Settings {
@@ -53,6 +57,8 @@ impl Default for Settings {
             snip: SnipSettings::default(),
             updates: UpdateSettings::default(),
             quick: QuickSettings::default(),
+            my_language: "English".into(),
+            answer_in_my_language: false,
         }
     }
 }
