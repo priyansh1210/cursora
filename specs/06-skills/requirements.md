@@ -25,7 +25,7 @@
   | `temperature` | no | 0–2 |
   | `output` | no | `chat`, or `replace` (spec 13, WRT-5.1) |
 
-- SKL-1.2 (auto) Templates MAY use the variables `{{input}}` (text typed after the command), `{{app}}` (source app name), `{{language}}` (the persona's reply language) and `{{date}}`. Captured text and files SHALL **always** be attached automatically by the prompt builder (PER-4.2), so skills never need to place them. Any unknown `{{variable}}` SHALL be a validation error.
+- SKL-1.2 (auto) Templates MAY use the variables `{{input}}` (text typed after the command), `{{app}}` (source app name), `{{language}}` (the reply language: the persona's, else My language while "Always answer in my language" is on, LNG-1.3), `{{my_language}}` (My language, LNG-1.5) and `{{date}}`. (Amended 2026-10-26 for spec 16: `{{my_language}}` added, `{{language}}` follows LNG-1.3.) Captured text and files SHALL **always** be attached automatically by the prompt builder (PER-4.2), so skills never need to place them. Any unknown `{{variable}}` SHALL be a validation error.
 - SKL-1.3 (auto) WHEN a skill file is invalid (bad YAML, missing field, bad name, unknown variable, duplicate or reserved name) THE SYSTEM SHALL skip it and show it in Settings → Skills with the error and line number. It SHALL NOT crash, and SHALL keep the other skills working.
 - SKL-1.4 (auto) Skills SHALL be loaded from two places:
   - the bundled built-ins (read-only)

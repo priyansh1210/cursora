@@ -64,6 +64,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
   - **Copy:** Markdown, or plain text when Shift is held
   - **Regenerate**, on the latest answer only
   - **Speak:** when speech is available (VOC)
+  - **Pin** and **Save**, on a finished answer (spec 17; added 2026-10-26)
 
   Each question SHALL offer **Save as skill** (SKL-4.3).
 
@@ -87,7 +88,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
   - search their text
   - reopen a conversation in the expanded window
   - delete one conversation, or clear all
-- BUB-9.3 (auto) WHILE "Save history" is off THE SYSTEM SHALL write no conversation data to disk.
+- BUB-9.3 (auto) WHILE "Save history" is off THE SYSTEM SHALL write no conversation data to disk. (Amended 2026-10-26: except an answer the user saves with **Save**, SAV-2.6.)
 - BUB-9.4 (auto) THE SYSTEM SHALL delete conversations older than the retention period (default 90 days; configurable, including "forever").
 
 ## Open questions
