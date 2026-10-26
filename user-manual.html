@@ -229,7 +229,7 @@
     <p>The first time Cursora starts, a short setup window opens. A green bar at the top shows how far along you are.</p>
     <ol>
       <li><b>Choose an AI source.</b> The easiest is <span class="ui">Download a free model</span>: one click, and it runs on this computer. You can also pick a model already running on this computer (LM Studio is found automatically), the built-in engine with a <code>.gguf</code> model file, or a cloud provider with your API key. Cursora tests the model before you can go on, so your first question just works. For the built-in engine, you also choose how long the model stays loaded.</li>
-      <li><b>Choose a personality.</b> Pick one of the ready-made personas, or turn personality off for the plain model.</li>
+      <li><b>Choose a personality and your language.</b> Pick one of the ready-made personas, or turn personality off for the plain model. Then set <b>My language</b>, for example Hindi: Translate puts text into it.</li>
       <li><b>Choose your hotkeys.</b> <kbd>Ctrl</kbd> + <kbd>G</kbd> to ask and <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> to snip are set for you; click one and press new keys to change it.</li>
       <li><b>Start with your computer?</b> Leave it ticked to have Cursora ready every time you log in.</li>
     </ol>
@@ -306,7 +306,7 @@
       <tr><td><code>/explain</code></td><td>Explain what the selection means</td></tr>
       <tr><td><code>/simplify</code></td><td>Rewrite the selection in simpler words</td></tr>
       <tr><td><code>/define</code></td><td>Define a word or phrase</td></tr>
-      <tr><td><code>/translate &lt;language&gt;</code></td><td>Translate the selection, for example <code>/translate French</code></td></tr>
+      <tr><td><code>/translate &lt;language&gt;</code></td><td>Translate the selection, for example <code>/translate French</code>. With no language, into My language, or into English when the text is already in My language</td></tr>
       <tr><td><code>/fix</code></td><td>Fix grammar, spelling and punctuation</td></tr>
       <tr><td><code>/rewrite &lt;tone&gt;</code></td><td>Rewrite the selection in another tone, for example <code>/rewrite formal</code></td></tr>
       <tr><td><code>/code</code></td><td>Explain what the code does</td></tr>
@@ -404,6 +404,8 @@
       <tr><td><b>Start with system</b></td><td>Starts Cursora when you log in.</td></tr>
       <tr><td><b>Run as administrator</b></td><td>Windows only, for administrator accounts, when Cursora is installed in Program Files. Turn it on to use Cursora in apps that run as administrator. Windows asks once.</td></tr>
       <tr><td><b>Pause Cursora</b></td><td>Turns the hotkeys off until you resume. The tray icon turns grey.</td></tr>
+      <tr><td><b>My language</b></td><td>The language <b>Translate</b> puts text into when you don't name one. Hindi, Hinglish (Hindi in English letters), Bengali, Marathi, Telugu, Tamil, Gujarati, Urdu, Kannada, Odia, Malayalam, Punjabi and Assamese are suggested, and you can type any other. The Small download can't write Indian languages: use Medium, or a cloud model such as Gemini.</td></tr>
+      <tr><td><b>Always answer in my language</b></td><td>Every answer comes in My language, also when you ask in English. Off by default: answers come in the language you write in. A persona with its own reply language still uses that. <b>Fix</b>, <b>Rewrite</b> and <b>Simplify</b> always keep the text's own language.</td></tr>
       <tr><td><b>Theme</b></td><td>System, Light or Dark.</td></tr>
       <tr><td><b>Re-run setup</b></td><td>Opens the first-time setup again.</td></tr>
       <tr><td><b>Advanced</b></td><td>Share the window title with the AI (off by default); the apps where <kbd>Ctrl</kbd> + <kbd>C</kbd> could stop a running program, where Cursora uses <kbd>Ctrl</kbd> + <kbd>Insert</kbd> instead; and a copy shortcut for a particular app.</td></tr>

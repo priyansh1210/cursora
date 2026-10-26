@@ -10,6 +10,10 @@ import Privacy from "./Privacy";
 import { useAppInfo, useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
 import logo from "../src-tauri/icons/icon.svg";
 import { Icon, PATHS } from "./icons";
+import { MyLanguageField } from "./MyLanguage";
+
+/** LNG-4.1, shown while My language isn't English. */
+const MODELS_FOR_LANGUAGES = "The Small download can't write Indian languages: use Medium, or a cloud model such as Gemini.";
 
 // Voice joins between Skills and Privacy once spec 09 is built (APP-5.1).
 const TABS = ["General", "Models", "Personality", "Skills", "Privacy", "History", "About"] as const;
@@ -108,6 +112,17 @@ function General({ settings, save }: { settings: S; save: Save }) {
           </p>
         </>
       )}
+      <h2>Language</h2>
+      <MyLanguageField settings={settings} save={save} />
+      <label className="row">
+        <input type="checkbox" checked={settings.answerInMyLanguage} onChange={(e) => set({ answerInMyLanguage: e.target.checked })} />
+        Always answer in my language
+      </label>
+      <p className="muted">
+        {settings.answerInMyLanguage ? "Every answer comes in your language, unless the persona has its own." : "Answers come in the language you write in. Translate uses your language."}
+        {/* LNG-4.1: from the trial in tasks.md, task 5. */}
+        {settings.myLanguage.toLowerCase() !== "english" && ` ${MODELS_FOR_LANGUAGES}`}
+      </p>
       <h2>Appearance</h2>
       <label className="row">
         <span>Theme</span>
