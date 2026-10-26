@@ -15,7 +15,7 @@ Why the Store: code signing outside it costs about $270–310 a year for an indi
 
 ### STO-1 The package
 User story: As the developer, I want each release to come with a Store package, built the same way every time.
-- STO-1.1 (manual) WHEN a `v*` tag is built THE SYSTEM (CI) SHALL also build an x64 MSIX package of Cursora with the built-in engine, and attach it to the release draft. The developer uploads it to Partner Center for certification.
+- STO-1.1 (manual) WHEN a `v*` tag is built THE SYSTEM (CI) SHALL also build an x64 MSIX package of Cursora with the built-in engine, and keep it with that build run in the private repo. The developer downloads it from there and uploads it to Partner Center for certification. (Amended 2026-10-26, in the design: an unsigned package on the public download page can't be installed by anyone, so it would only confuse visitors.)
 - STO-1.2 (auto) THE package manifest SHALL declare:
   - the package identity and publisher that Partner Center assigns
   - the version, from `tauri.conf.json` as `X.Y.Z.0`
