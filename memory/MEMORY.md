@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — 2026-10-25: rc.1/rc.2 checked (R62); Gemini answers (flash-lite); design pass on branch design-pass; next: specs for model download and auto-update (releases repo cursora-releases)
+- [Project status](project-status.md) — 2026-10-26: improvements #1-#5 built (specs 13-15; PRs #41, #42 merged, spec 15 PR next); stopped for the user's review
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
 - [No AI attribution in commits/PRs](no-ai-attribution-in-commits.md) — never Claude/Anthropic names, Co-Authored-By or "Generated with" lines
