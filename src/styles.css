@@ -740,6 +740,15 @@ body:has(.chat) {
 .answer {
   overflow-wrap: anywhere;
 }
+/* LNG-3.2: each paragraph takes the direction of its first letter, so Urdu runs right to left next to English. Code stays left to right. */
+.answer > :not(pre),
+.answer li,
+.question,
+.preview,
+textarea {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
 .answer > :first-child {
   margin-top: 0;
 }

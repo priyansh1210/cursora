@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
+import { LanguageSuggestions } from "./MyLanguage";
 import { BLANK, clean, describePersona, GENDERS, isBuiltIn, TONES, type Persona } from "./personas";
 import { editSettings, type Save, type Settings } from "./useSettings";
 
@@ -147,7 +148,8 @@ function Editor({ initial, save, onDone }: { initial: Persona; save: Save; onDon
       </label>
       <label className="row">
         <span>Reply language</span>
-        <input value={p.replyLanguage ?? ""} placeholder="Same as my question" onChange={(e) => set({ replyLanguage: e.target.value })} />
+        <input list="languages" value={p.replyLanguage ?? ""} placeholder="Same as my question" onChange={(e) => set({ replyLanguage: e.target.value })} />
+        <LanguageSuggestions />
       </label>
       <label className="row">
         <span>Your expertise</span>

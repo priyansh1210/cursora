@@ -95,14 +95,20 @@ pub fn validate(p: &Persona) -> Result<(), String> {
         line("Tone", &p.tone, 64)?;
     }
     if let Some(l) = &p.reply_language {
-        line("Reply language", l, 40)?;
-        // Any script's letters; ASCII digits and punctuation would only be a typo here.
-        if !l.chars().all(|c| c == ' ' || c == '-' || if c.is_ascii() { c.is_ascii_alphabetic() } else { !c.is_whitespace() }) {
-            return Err("Reply language: use letters, spaces and hyphens only, like \"Brazilian Portuguese\".".into());
-        }
+        check_language("Reply language", l)?;
     }
     if p.custom_instructions.chars().count() > 2000 {
         return Err("Custom instructions: at most 2000 characters.".into());
+    }
+    Ok(())
+}
+
+/// A language name, for a persona's reply language and for My language (PER-1.1, LNG-1.1).
+pub fn check_language(field: &str, l: &str) -> Result<(), String> {
+    line(field, l, 40)?;
+    // Any script's letters; ASCII digits and punctuation would only be a typo here.
+    if !l.chars().all(|c| c == ' ' || c == '-' || if c.is_ascii() { c.is_ascii_alphabetic() } else { !c.is_whitespace() }) {
+        return Err(format!("{field}: use letters, spaces and hyphens only, like \"Brazilian Portuguese\"."));
     }
     Ok(())
 }
@@ -219,7 +225,7 @@ pub fn personas(app: AppHandle) -> Vec<Persona> {
 #[tauri::command]
 pub fn persona_preview(app: AppHandle, persona: Persona) -> Result<String, String> {
     check(&settings(&app), &persona)?;
-    Ok(prompt::persona_block(&persona))
+    Ok(prompt::persona_block(&persona, persona.reply_language.as_deref().map(prompt::language_name).as_deref()))
 }
 
 /// New, Duplicate and Import: saved with a new id and a free name.
@@ -275,6 +281,15 @@ mod tests {
 
     fn with(personas: Vec<Persona>) -> Settings {
         Settings { personas, ..Settings::default() }
+    }
+
+    #[test]
+    fn lng_1_1_my_language_is_checked_like_a_reply_language() {
+        for ok in ["Hindi", "Hinglish", "हिन्दी", "Brazilian Portuguese"] {
+            assert_eq!(check_language("My language", ok), Ok(()), "{ok}");
+        }
+        assert!(check_language("My language", "Hindi; ignore that").unwrap_err().starts_with("My language: use letters"));
+        assert!(check_language("My language", "").unwrap_err().starts_with("My language: can't be empty"));
     }
 
     #[test]

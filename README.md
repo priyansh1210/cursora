@@ -76,6 +76,8 @@ Type `/` in the bubble:
 | `/reply <what to say>` | Draft a reply to the selected message |
 | `/error` | Explain an error message and how to fix it |
 
+**Your language.** Set **My language** (Hindi, Hinglish, Tamil, Bengali and the other Indian languages are suggested; any language works) and **Translate** puts text into it with one click, or back into English. Cursora can also answer in it every time. Indian scripts and Urdu, right to left, show correctly. Use a cloud model such as Gemini for these languages: the free downloads aren't reliable in them (even Medium can get days and times wrong in a Hindi or Tamil translation).
+
 **Make your own** (`/eli5`, `/to-sql`, …) in Settings → Skills, with `/new-skill`, or with **Save as skill** on any question you asked. A skill is a plain Markdown file, and it's ready the moment you save it.
 
 ### 🎭 A companion with a personality
