@@ -33,7 +33,8 @@ User story: As a user, I want Hindi, Tamil or Urdu to look right in Cursora and 
 
 ### LNG-4 Which models do this well
 User story: As a user, I want to know which model to use for my language before I'm disappointed by a weak one.
-- LNG-4.1 (manual) WHILE My language isn't English THE My language setting SHALL show one plain line saying which models handle Indian languages well. The line is written after trying the three downloadable models (spec 15) and Gemini with Hindi and with Tamil; what was found is kept in tasks.md.
+- LNG-4.1 (manual) WHILE My language is one of the suggested Indian languages (LNG-1.1, Hinglish too) THE My language setting SHALL show one plain line saying which models handle Indian languages well. The line is written after trying the three downloadable models (spec 15) and Gemini with Hindi and with Tamil; what was found is kept in [evaluation.md](evaluation.md). (Amended 2026-10-26 at the user's request: was "isn't English", which showed the line to a French user.)
+- LNG-4.2 (manual) WHILE My language is one of them THE download choices (MDL-1.1) SHALL show the same line. (Added 2026-10-26 at the user's request, after the trial found none of the downloads reliable in Indian languages; issue 52.)
 
 ## Choices made with the user (2026-10-26)
 1. **Answers follow the language the user writes in.** **Always answer in my language** is off by default, and turns every answer into My language for those who want it.

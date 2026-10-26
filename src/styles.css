@@ -945,7 +945,11 @@ ul.complete li[aria-selected="true"] {
 }
 .history li .link {
   flex: 1;
-  justify-content: flex-start;
+  min-width: 0; /* a long question is cut short, so the date and × stay in view (issue 58) */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
   font-size: 14px;
   color: var(--fg);
   text-align: left;
