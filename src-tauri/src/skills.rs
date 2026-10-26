@@ -380,18 +380,23 @@ pub fn help(entries: &[Entry]) -> String {
 
 /// Today's local date for `{{date}}`.
 pub fn today() -> String {
+    local_time()[..10].to_string()
+}
+
+/// The local date and time, "2026-10-26 21:14", for a saved answer (SAV-2.2).
+pub fn local_time() -> String {
     #[cfg(windows)]
     {
         // SAFETY: GetLocalTime only fills in the returned struct.
         let t = unsafe { windows::Win32::System::SystemInformation::GetLocalTime() };
-        format!("{:04}-{:02}-{:02}", t.wYear, t.wMonth, t.wDay)
+        format!("{:04}-{:02}-{:02} {:02}:{:02}", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute)
     }
     #[cfg(not(windows))]
     {
         // SAFETY: localtime_r writes only into `tm`, which outlives the call.
         let mut tm: libc::tm = unsafe { std::mem::zeroed() };
         unsafe { libc::localtime_r(&libc::time(std::ptr::null_mut()), &mut tm) };
-        format!("{:04}-{:02}-{:02}", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday)
+        format!("{:04}-{:02}-{:02} {:02}:{:02}", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min)
     }
 }
 

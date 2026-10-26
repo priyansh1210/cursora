@@ -120,6 +120,20 @@ function General({ settings, save }: { settings: S; save: Save }) {
         {/* LNG-4.1: from the trial in tasks.md, task 5. */}
         {isIndian(settings.myLanguage) && ` ${MODELS_FOR_LANGUAGES}`}
       </p>
+      <h2>Saved answers</h2>
+      {/* SAV-2.5: where Save writes; Change… picks another folder, such as an Obsidian vault. */}
+      <div className="row saved-answers">
+        <span className="muted folder" title={settings.savedAnswersFolder ?? info?.savedAnswersDefault}>
+          {settings.savedAnswersFolder ?? info?.savedAnswersDefault}
+        </span>
+        <span className="grow" />
+        <button type="button" onClick={() => void invoke<string | null>("pick_folder").then((f) => f && void set({ savedAnswersFolder: f }))}>
+          Change…
+        </button>
+        <button type="button" onClick={() => invoke("open_folder", { kind: "saved" }).catch(() => {})}>
+          Open
+        </button>
+      </div>
       <h2>Appearance</h2>
       <label className="row">
         <span>Theme</span>

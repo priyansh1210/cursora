@@ -70,10 +70,10 @@ export default function Chat() {
         if (last.answer.length !== e.payload.offset) return void reload(); // missed some text: fetch it all
         setConv(withLast(c, { answer: last.answer + e.payload.text }));
       }),
+      // Rust's copy once an answer is done: the page's own turn has the page's clock in `asked`,
+      // and Pin and Save name an answer by Rust's (SAV-1.3). Rust records the end before it sends this.
       listen<Done>("chat-done", (e) => {
-        const c = convRef.current;
-        if (!c || c.id !== e.payload.id) return;
-        setConv({ ...withLast(c, { status: e.payload.status, error: e.payload.error }), dropped: e.payload.dropped });
+        if (convRef.current?.id === e.payload.id) void reload();
       }),
     ];
     // Once listening, fetch what is already there: `cursora --ask` can open the bubble before this page loads (APP-2.3).
@@ -154,14 +154,6 @@ export default function Chat() {
     );
   };
 
-  // Links open in the default browser, and only on click (BUB-4.2).
-  const onAnswerClick = (e: MouseEvent) => {
-    const a = (e.target as HTMLElement).closest("a");
-    if (!a) return;
-    e.preventDefault();
-    void openUrl(a.href);
-  };
-
   return (
     <div
       ref={rootRef}
@@ -230,7 +222,7 @@ export default function Chat() {
               })
             }
           />
-          <div ref={turnsRef} className="turns" role="log" aria-label="Conversation" onClick={onAnswerClick}>
+          <div ref={turnsRef} className="turns" role="log" aria-label="Conversation" onClick={openLink}>
             {conv.dropped > 0 && <p className="muted note">Earlier messages were left out to fit the model.</p>}
             {conv.turns.map((t, i) => (
               <TurnView
@@ -499,23 +491,16 @@ function TurnView({
   onWriteBack: () => Promise<void>;
 }) {
   const html = useMemo(() => render(turn.answer), [turn.answer]);
-  const [copied, setCopied] = useState(false);
-  const [notPut, setNotPut] = useState<string>(); // why Replace or Insert didn't happen (WRT-1.3)
-  const notPutRef = useRef<HTMLParagraphElement>(null);
+  const [failed, setFailed] = useState<string>(); // why Replace, Insert, Pin or Save didn't happen (WRT-1.3, SAV-2.4)
+  const failedRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
-    notPutRef.current?.scrollIntoView({ block: "nearest" }); // it appears below the answer's actions, often out of view
-  }, [notPut]);
+    failedRef.current?.scrollIntoView({ block: "nearest" }); // it appears below the answer's actions, often out of view
+  }, [failed]);
+  const [saved, setSaved] = useState<string>(); // the file's path (SAV-2.1)
+  useEffect(() => setSaved(undefined), [turn.asked]); // Regenerate makes a new answer in the same place
   const answerRef = useRef<HTMLDivElement>(null);
   const err = turn.error && errorText(turn.error.kind, turn.error.message);
-
-  // Markdown by default; Shift copies the rendered plain text (BUB-6.1).
-  const copy = (e: MouseEvent) => {
-    const text = e.shiftKey ? answerRef.current?.innerText ?? "" : turn.answer;
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    });
-  };
+  const keep = turn.status === "done" || turn.status === "cancelled"; // SAV-1.3, as `chat::keepable`
 
   return (
     <article className={turn.local ? "turn local" : "turn"}>
@@ -548,16 +533,40 @@ function TurnView({
               className="link lead"
               aria-label={writeBack === "replace" ? "Replace the selected text in the app with this answer" : "Insert this answer where the cursor was in the app"}
               onClick={() => {
-                setNotPut(undefined);
-                onWriteBack().catch((e) => setNotPut(String(e)));
+                setFailed(undefined);
+                onWriteBack().catch((e) => setFailed(String(e)));
               }}
             >
               {writeBack === "replace" ? "Replace" : "Insert"}
             </button>
           )}
-          <button type="button" className="link" onClick={copy} aria-label="Copy the answer. Hold Shift for plain text" title="Copy (Shift: plain text)">
-            {copied ? "Copied" : "Copy"}
-          </button>
+          <CopyButton markdown={turn.answer} plain={() => answerRef.current?.innerText ?? ""} />
+          {keep && (
+            <button type="button" className="link" aria-label="Pin this answer on screen in a note" onClick={() => invoke("pin_answer", { asked: turn.asked }).catch((e) => setFailed(String(e)))}>
+              Pin
+            </button>
+          )}
+          {keep &&
+            (saved ? (
+              <>
+                <span className="muted">Saved</span>
+                <button type="button" className="link" aria-label="Show the saved answer in its folder" onClick={() => invoke("show_saved", { path: saved }).catch((e) => setFailed(String(e)))}>
+                  Show in folder
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="link"
+                aria-label="Save this answer as a Markdown file"
+                onClick={() => {
+                  setFailed(undefined);
+                  invoke<string>("save_answer", { asked: turn.asked }).then(setSaved, (e) => setFailed(String(e)));
+                }}
+              >
+                Save
+              </button>
+            ))}
           {latest && (
             <button type="button" className="link" onClick={onRetry} aria-label="Regenerate the answer">
               Regenerate
@@ -571,11 +580,35 @@ function TurnView({
           )}
         </div>
       )}
-      {notPut && (
-        <p ref={notPutRef} role="alert" className="error note">
-          {notPut}
+      {failed && (
+        <p ref={failedRef} role="alert" className="error note">
+          {failed}
         </p>
       )}
     </article>
   );
+}
+
+/** Copy: Markdown by default; Shift copies the rendered plain text (BUB-6.1). The bubble and a pinned note use it. */
+export function CopyButton({ markdown, plain }: { markdown: string; plain: () => string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = (e: MouseEvent) => {
+    void navigator.clipboard.writeText(e.shiftKey ? plain() : markdown).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  };
+  return (
+    <button type="button" className="link" onClick={copy} aria-label="Copy the answer. Hold Shift for plain text" title="Copy (Shift: plain text)">
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+/** Links in an answer open in the default browser, and only on click (BUB-4.2). */
+export function openLink(e: MouseEvent) {
+  const a = (e.target as HTMLElement).closest("a");
+  if (!a) return;
+  e.preventDefault();
+  void openUrl(a.href);
 }
