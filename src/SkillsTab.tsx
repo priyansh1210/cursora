@@ -8,10 +8,10 @@ import type { Settings } from "./useSettings";
 type Listing = { skills: Skill[]; invalid: Invalid[] };
 type Form = { fields: Fields; editing: string | null; key: number };
 
-const EMPTY: Fields = { name: "", description: "", args: "", vision: false, model: "", temperature: null, template: "" };
+const EMPTY: Fields = { name: "", description: "", args: "", vision: false, model: "", temperature: null, template: "", replace: false };
 const VARIABLES = ["input", "app", "language", "date"];
 const SAMPLE = "The Eiffel Tower is a wrought-iron lattice tower in Paris, France. It was finished in 1889 for the World's Fair.";
-const fieldsOf = (s: Skill): Fields => ({ name: s.name, description: s.description, args: s.args ?? "", vision: s.vision, model: s.model ?? "", temperature: s.temperature, template: s.template });
+const fieldsOf = (s: Skill): Fields => ({ name: s.name, description: s.description, args: s.args ?? "", vision: s.vision, model: s.model ?? "", temperature: s.temperature, template: s.template, replace: s.replace });
 const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path;
 
 /** Settings → Skills (SKL-4.1, 4.6). */
@@ -176,6 +176,10 @@ function SkillForm({ form, settings, builtIns, onDone }: { form: Form; settings:
       <label className="row">
         <span>Needs vision</span>
         <input type="checkbox" checked={f.vision} onChange={(e) => set({ vision: e.target.checked })} />
+      </label>
+      <label className="row">
+        <span>Answer replaces the selection</span>
+        <input type="checkbox" checked={f.replace} onChange={(e) => set({ replace: e.target.checked })} />
       </label>
       <label className="row">
         <span>Model</span>

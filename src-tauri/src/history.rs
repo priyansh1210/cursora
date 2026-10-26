@@ -174,6 +174,7 @@ mod tests {
             dropped: 0,
             unavailable: None,
             own_model: None,
+            write_back: None,
         }
     }
 

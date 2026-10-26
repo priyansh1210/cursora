@@ -22,6 +22,7 @@ const XK_CONTROL_R: u32 = 0xffe4;
 const XK_SHIFT_L: u32 = 0xffe1;
 const XK_INSERT: u32 = 0xff63;
 const XK_C: u32 = 0x63;
+const XK_V: u32 = 0x76;
 
 /// X11: everything through the X server. Wayland: only `wl-paste`, no keys and no clipboard (spec 08).
 pub struct LinuxPlatform {
@@ -30,6 +31,20 @@ pub struct LinuxPlatform {
 }
 
 impl LinuxPlatform {
+    /// Presses the keys in order, then releases them in reverse, through XTest (Ctrl+C, Ctrl+V).
+    fn send_keys(&self, keysyms: &[u32]) {
+        let Some(x) = &self.x11 else { return };
+        let Some(codes) = keysyms.iter().map(|&k| x.keycode(k).ok().flatten()).collect::<Option<Vec<u8>>>() else {
+            return log::warn!("X11: the keyboard has no key for {keysyms:x?}");
+        };
+        let presses = codes.iter().map(|&c| (KEY_PRESS_EVENT, c));
+        let releases = codes.iter().rev().map(|&c| (KEY_RELEASE_EVENT, c));
+        let sent = presses.chain(releases).try_for_each(|(kind, code)| x.conn.xtest_fake_input(kind, code, x11rb::CURRENT_TIME, x.root, 0, 0, 0).map(drop));
+        if let Err(e) = sent.and_then(|_| x.conn.flush()) {
+            log::warn!("X11 keys: {e}");
+        }
+    }
+
     pub fn new() -> Self {
         match session::current() {
             Session::X11 => LinuxPlatform { x11: X11::connect().map_err(|e| log::warn!("X11: {e}")).ok(), wl_paste: false },
@@ -135,22 +150,23 @@ impl Platform for LinuxPlatform {
     }
 
     fn send_copy(&self, key: CopyKey) {
-        let Some(x) = &self.x11 else { return };
         let keysyms: &[u32] = match key {
             CopyKey::CtrlC => &[XK_CONTROL_L, XK_C],
             CopyKey::CtrlInsert => &[XK_CONTROL_L, XK_INSERT],
             CopyKey::CtrlShiftC => &[XK_CONTROL_L, XK_SHIFT_L, XK_C],
             CopyKey::Never => return,
         };
-        let Some(codes) = keysyms.iter().map(|&k| x.keycode(k).ok().flatten()).collect::<Option<Vec<u8>>>() else {
-            return log::warn!("X11: the keyboard has no key for {key:?}");
-        };
-        let presses = codes.iter().map(|&c| (KEY_PRESS_EVENT, c));
-        let releases = codes.iter().rev().map(|&c| (KEY_RELEASE_EVENT, c));
-        let sent = presses.chain(releases).try_for_each(|(kind, code)| x.conn.xtest_fake_input(kind, code, x11rb::CURRENT_TIME, x.root, 0, 0, 0).map(drop));
-        if let Err(e) = sent.and_then(|_| x.conn.flush()) {
-            log::warn!("X11 copy key: {e}");
-        }
+        self.send_keys(keysyms);
+    }
+
+    /// UTF8_STRING and STRING, the two text targets apps ask for; served like a restored clipboard.
+    fn text_snapshot(&self, text: &str) -> Vec<Item> {
+        let Some(x) = &self.x11 else { return Vec::new() };
+        [x.atoms.UTF8_STRING, AtomEnum::STRING.into()].map(|t| Item { target: t, type_: t, format: 8, data: text.as_bytes().to_vec() }).into()
+    }
+
+    fn send_paste(&self) {
+        self.send_keys(&[XK_CONTROL_L, XK_V]);
     }
 
     fn primary(&self) -> bool {

@@ -51,6 +51,8 @@ pub struct Skill {
     pub model: Option<String>,
     pub temperature: Option<f64>,
     pub template: String,
+    /// `output: replace`: the answer is the new text, ready for Replace (WRT-5.1).
+    pub replace: bool,
     /// None for a built-in.
     pub file: Option<PathBuf>,
     /// A user skill that replaces the built-in of the same name.
@@ -76,6 +78,7 @@ pub struct Fields {
     pub model: String,
     pub temperature: Option<f64>,
     pub template: String,
+    pub replace: bool,
 }
 
 /// The values a template's variables stand for (SKL-1.2).
@@ -161,9 +164,11 @@ pub fn parse(text: &str) -> Result<Skill, (usize, String)> {
         },
         None => None,
     };
-    if let Some((n, o)) = get("output").filter(|(_, o)| *o != "chat") {
-        return Err((n, format!("'output' can only be 'chat', not '{o}'")));
-    }
+    let replace = match get("output") {
+        Some((_, "replace")) => true,
+        Some((n, o)) if o != "chat" => return Err((n, format!("'output' can be 'chat' or 'replace', not '{o}'"))),
+        _ => false,
+    };
     // SKL-1.2: every {{variable}} is known; they don't span lines.
     for (i, line) in lines.iter().enumerate().skip(end + 1) {
         let mut rest = *line;
@@ -181,7 +186,16 @@ pub fn parse(text: &str) -> Result<Skill, (usize, String)> {
         return Err((end + 2, "the instructions below the fields are empty".into()));
     }
     let vision = !requires.is_empty();
-    Ok(Skill { name: name.into(), description: description.into(), args, vision, model, temperature, template, file: None, overrides: false })
+    Ok(Skill { name: name.into(), description: description.into(), args, vision, model, temperature, template, replace, file: None, overrides: false })
+}
+
+/// What a replacement skill's answer must be, so Replace can put it straight back into the app (WRT-5.1).
+pub const REPLACE_RULE: &str = "Reply with the new text only: no introduction, no quotes around it, no explanation.";
+
+/// A skill's instructions for the model: its template filled in, then the replacement rule for `output: replace`.
+pub fn instructions(skill: &Skill, v: &Vars) -> String {
+    let text = render(&skill.template, v);
+    if skill.replace { format!("{text}\n{REPLACE_RULE}") } else { text }
 }
 
 fn valid_name(name: &str) -> bool {
@@ -222,6 +236,9 @@ pub fn to_file(f: &Fields) -> String {
     }
     if let Some(t) = f.temperature {
         out += &format!("temperature: {t}\n");
+    }
+    if f.replace {
+        out += "output: replace\n";
     }
     out + "---\n" + f.template.trim() + "\n"
 }
@@ -512,7 +529,7 @@ fn test(app: &AppHandle, skill: &Skill, sample: &str) -> Result<String, String> 
     }
     let s = app.state::<crate::AppState>().settings.lock().unwrap().clone();
     let conv = crate::chat::sample(sample, &format!("/{}", skill.name));
-    let instructions = render(&skill.template, &Vars { input: "", app: &conv.app.name, language: &language(crate::persona::in_use(&s).as_ref()), date: &today() });
+    let instructions = instructions(skill, &Vars { input: "", app: &conv.app.name, language: &language(crate::persona::in_use(&s).as_ref()), date: &today() });
     let req = crate::chat::request(&conv, &s, Some(&instructions), model.info().locality, usize::MAX)?; // redacted like any request (PRI-3)
     let mut answer = String::new();
     match crate::chat::run_turn(&*model, &req.messages, &std::sync::atomic::AtomicBool::new(false), &mut |t| answer.push_str(t)) {
@@ -604,7 +621,7 @@ mod tests {
             ("---\nname: a\ndescription: d\nrequires: [audio]\n---\nx", 4, "can only list 'vision'"),
             ("---\nname: a\ndescription: d\nmodel: llama3.2\n---\nx", 4, "<provider>/<model>"),
             ("---\nname: a\ndescription: d\ntemperature: 3\n---\nx", 4, "from 0 to 2"),
-            ("---\nname: a\ndescription: d\noutput: replace\n---\nx", 4, "can only be 'chat'"),
+            ("---\nname: a\ndescription: d\noutput: diff\n---\nx", 4, "can be 'chat' or 'replace'"),
             ("---\nname: a\ndescription: d\n---\n\n", 5, "instructions below the fields are empty"),
         ];
         for (text, line, error) in cases {
@@ -612,9 +629,30 @@ mod tests {
             assert!(e.contains(error) && l == line, "{text:?}: got line {l} {e:?}, want line {line} {error:?}");
         }
         // The form's fields make a file that reads back the same, quoting what plain YAML would misread.
-        let f = Fields { name: "eli5".into(), description: "Say \"it\": simply".into(), args: "<topic>".into(), vision: true, model: "Ollama/llama3.2".into(), temperature: Some(0.5), template: "Explain {{input}}.".into() };
+        let f = Fields { name: "eli5".into(), description: "Say \"it\": simply".into(), args: "<topic>".into(), vision: true, model: "Ollama/llama3.2".into(), temperature: Some(0.5), template: "Explain {{input}}.".into(), replace: true };
         let s = parse(&to_file(&f)).unwrap();
         assert_eq!((s.description.as_str(), s.args.as_deref(), s.vision, s.model.as_deref(), s.temperature, s.template.as_str()), ("Say \"it\": simply", Some("<topic>"), true, Some("Ollama/llama3.2"), Some(0.5), "Explain {{input}}."));
+        assert!(s.replace, "output: replace survives the form");
+    }
+
+    #[test]
+    fn wrt_5_1_a_replacement_skill_asks_for_the_new_text_only() {
+        let v = Vars { input: "", app: "Notepad", language: "English", date: "2026-10-26" };
+        let replace = parse(&file("name: tidy\ndescription: d\noutput: replace", "Tidy the text.")).unwrap();
+        assert_eq!(instructions(&replace, &v), format!("Tidy the text.\n{REPLACE_RULE}"));
+        let chat = parse(&file("name: tidy\ndescription: d\noutput: chat", "Tidy the text.")).unwrap();
+        assert_eq!((chat.replace, instructions(&chat, &v)), (false, "Tidy the text.".to_string()));
+        assert!(!parse(&file("name: tidy\ndescription: d", "x")).unwrap().replace, "chat unless it says otherwise");
+    }
+
+    #[test]
+    fn wrt_5_2_fix_rewrite_simplify_and_translate_are_replacement_skills() {
+        let (skills, _) = load(None);
+        let mut replacing: Vec<&str> = skills.iter().filter(|s| s.replace).map(|s| s.name.as_str()).collect();
+        replacing.sort();
+        assert_eq!(replacing, ["fix", "rewrite", "simplify", "translate"]);
+        let fix = skills.iter().find(|s| s.name == "fix").unwrap();
+        assert!(!fix.template.contains("what changed"), "only the fixed text, ready to put back");
     }
 
     #[test]

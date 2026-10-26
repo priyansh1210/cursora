@@ -8,11 +8,13 @@ export type Skill = {
   model: string | null;
   temperature: number | null;
   template: string;
+  /** `output: replace` (WRT-5.1). */
+  replace: boolean;
   file: string | null;
   overrides: boolean;
 };
 export type Invalid = { file: string; line: number; error: string };
-export type Fields = { name: string; description: string; args: string; vision: boolean; model: string; temperature: number | null; template: string };
+export type Fields = { name: string; description: string; args: string; vision: boolean; model: string; temperature: number | null; template: string; replace: boolean };
 
 /** The command being typed: the text after "/" while there is no space yet, or null. */
 export function typedCommand(draft: string): string | null {
