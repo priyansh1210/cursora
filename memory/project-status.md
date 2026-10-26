@@ -1,6 +1,6 @@
 ---
 name: project-status
-description: "Where Cursora stands as of 2026-10-26: improvements #1-#5 built overnight as specs 13 (Replace/Insert), 14 (quick actions) and 15 (one-click model download); stopped there for the user's review before any further work"
+description: "Where Cursora stands as of 2026-10-26: improvements #1-#5 built as specs 13-15 (PRs #41-#43 merged) and reviewed; next on the stronger PC: X11 checks in WSL and the Medium/Large downloads; then the user picks from #6-#10"
 metadata:
   type: project
 ---
@@ -8,8 +8,8 @@ metadata:
 **State on 2026-10-26 (night): improvements #1 to #5 are built, then work stopped for the user's review.** The user said "go for 1 to 5", "you can merge PRs", and "when the 5th is done you must stop there; I will review all of 1 to 5, then we start working forward". Specs were approved under that go-ahead; each one's requirements.md lists the choices made for the user ("Defaults taken while the user was away"), and README marks them ¹.
 - **Spec 13, write back (#1 Replace, #4 Insert): PR #41 merged.** Checked on Windows with a test window.
 - **Spec 14, quick actions (#2, #5 app-aware): PR #42 merged.** Buttons by app kind, Alt+1–6, Pin, new `/reply` and `/error`. Checked on Windows.
-- **Spec 15, one-click model download (#3): branch `spec-15-model-download`.** Small/Medium/Large Qwen models from Hugging Face, pinned by revision and SHA-256. Constitution §3 amended (dated 2026-10-26, for review). Small was downloaded for real on the laptop into `D:\cursora-models-test` (kept for the user's review; delete freely), cancelled, resumed, and it answered.
-- **Still open for all three:** X11 checks, real apps (Notepad, Word, Chrome, Outlook/Slack, Windows Terminal, VS Code), Medium/Large downloads.
+- **Spec 15, one-click model download (#3): PR #43 merged.** Small/Medium/Large Qwen models from Hugging Face, pinned by revision and SHA-256. Constitution §3 amended (dated 2026-10-26, for review). Small was downloaded for real on the laptop into `D:\cursora-models-test` (kept for the user's review; delete freely), cancelled, resumed, and it answered.
+- **The user's review (2026-10-26):** the user checks the real apps (Notepad, Word, Chrome, Outlook/Slack, Windows Terminal, VS Code) themselves. **Next on the stronger PC:** the X11 checks of specs 13 to 15 in WSL (as user `cursora`, Xvfb + Openbox like spec 08), and downloading Medium and Large once each and asking a question. The user expects Medium and Large to work, since only the pinned file differs; their URL, size and SHA-256 were checked against Hugging Face's headers on 2026-10-26 and all three match. After that the user picks from improvements #6 to #10 ([[product-direction]]); nothing of them is specced yet.
 - **The test copy:** `target\debug\cursora.exe` is currently built as `com.cursora.dev` ("Cursora Dev", issues.md test notes). Rebuild normally before using the dev build as the main one.
 
 **State on 2026-10-25 (evening):** PRs #21-#29 merged. Version 0.1.0, README says pre-alpha; nothing is public yet. The stronger PC is set up ([[dev-machines]]).
