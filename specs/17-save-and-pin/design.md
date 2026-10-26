@@ -66,6 +66,7 @@ Settings → General → Saved answers: the folder, [Change…] (pick_folder), [
 
 ## Platform notes
 - **Linux X11:** always on top works under Openbox and GNOME on Xorg. **Wayland:** GNOME doesn't let apps keep a window on top, so a note there is an ordinary window (best effort, constitution §7).
+- **Show in folder on Linux** goes through the file manager's portal. Without it (WSL, some minimal desktops) the folder opens instead, with `xdg-open`, and a failure is said in plain words (R73).
 - **Documents folder:** Tauri's `document_dir()` follows `XDG_DOCUMENTS_DIR` on Linux and the Known Folder on Windows, OneDrive-redirected or not.
 
 ## Test strategy

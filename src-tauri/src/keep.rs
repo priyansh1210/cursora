@@ -100,7 +100,10 @@ pub fn show_saved(app: AppHandle, path: PathBuf) -> Result<(), String> {
     if !(path.is_file() && path.extension().is_some_and(|e| e == "md")) {
         return Err("That file isn't there any more.".into());
     }
-    app.opener().reveal_item_in_dir(&path).map_err(|e| e.to_string())
+    let opener = app.opener();
+    // A Linux desktop without the file manager's portal can't select the file, so its folder opens instead.
+    let folder = path.parent().unwrap_or(&path).to_string_lossy().into_owned();
+    opener.reveal_item_in_dir(&path).or_else(|_| opener.open_path(folder, None::<&str>)).map_err(|e| format!("Couldn't show the file: {e}"))
 }
 
 /// SAV-2.4: the chosen folder, or Cursora in Documents.
