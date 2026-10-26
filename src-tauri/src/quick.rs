@@ -19,9 +19,9 @@ pub struct QuickAction {
 
 // shortcut: fixed tables; an app they don't know counts as Other. Add names as users report them.
 /// Also where Replace and Insert are never offered (WRT-3.1).
-pub const TERMINALS: [&str; 14] = [
+pub const TERMINALS: [&str; 13] = [
     "windowsterminal.exe", "alacritty.exe", "wezterm-gui.exe", "kitty", "alacritty", "wezterm", "wezterm-gui", "gnome-terminal-server", "konsole",
-    "xterm", "xfce4-terminal", "tilix", "terminator", "ptyxis",
+    "xterm", "xfce4-terminal", "tilix", "ptyxis", // not Terminator: a Python program, so its name is python3
 ];
 const CODE: [&str; 14] = [
     "code.exe", "code", "cursor.exe", "cursor", "devenv.exe", "idea64.exe", "pycharm64.exe", "webstorm64.exe", "clion64.exe", "rider64.exe",

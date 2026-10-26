@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import { badge, errorText } from "./conversation";
+import { isIndian, MODELS_FOR_LANGUAGES } from "./MyLanguage";
 import { engineProvider, LIFETIMES, newProvider, PRESETS, type ChatError, type Detected, type Enabled, type EngineStatus, type Lifetime, type ModelView, type Provider, type ProviderView } from "./providers";
 import { editSettings, type Save, type Settings } from "./useSettings";
 
@@ -486,7 +487,9 @@ function DownloadModel({ onReady }: { onReady: (path: string) => void }) {
   const [progress, setProgress] = useState<Progress>();
   const [note, setNote] = useState<string>();
   const [error, setError] = useState<string>();
+  const [indian, setIndian] = useState(false); // LNG-4.2
   useEffect(() => {
+    void invoke<Settings>("get_settings").then((s) => setIndian(isIndian(s.myLanguage)));
     void invoke<{ models: Choice[]; recommended: string; folder: string }>("model_choices").then((c) => {
       setChoices(c);
       setId(c.recommended);
@@ -552,6 +555,7 @@ function DownloadModel({ onReady }: { onReady: (path: string) => void }) {
         </button>
       )}
       <p className="muted note">Free Qwen models (Apache 2.0 license) from Hugging Face. They run on this computer, so your questions stay on it.</p>
+      {indian && <p className="muted note">{MODELS_FOR_LANGUAGES}</p>}
       {note && (
         <p className="note" role="status">
           {note}
