@@ -54,7 +54,7 @@ Browsers, editors, terminals, Office, PDF viewers, Electron and Java apps, and e
 ### 💬 A bubble, not another window
 It opens at your cursor, streams the answer as it's written (Markdown, with highlighted code), and takes follow-up questions. **Expand** moves the chat to a bigger window. Press the hotkey again to close it, and you're back where you were.
 
-**Replace** puts the answer back into the app in place of your selection (or **Insert** at the cursor), and one-click buttons suit the app you're in: **Fix** and **Shorter** in documents, **Reply** in email and chat, **Explain error** in terminals, **Find bugs** in code.
+**Replace** puts the answer back into the app in place of your selection (or **Insert** at the cursor), and one-click buttons suit the app you're in: **Fix** and **Shorter** in documents, **Reply** in email and chat, **Explain error** in terminals, **Find bugs** in code. **Pin** keeps an answer on screen in a small note, and **Save** writes it to a Markdown file (Obsidian-ready).
 
 ### ✂️ Snip anything on screen
 Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> and drag a box around an image, a video frame, or a scanned page, then ask about it. Snip appears whenever your model can read images.

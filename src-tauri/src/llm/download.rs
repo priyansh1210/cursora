@@ -177,17 +177,6 @@ pub fn model_choices(app: AppHandle) -> Choices {
     Choices { models: &MODELS, recommended: recommended(total_ram()), folder }
 }
 
-/// "Change…": where the model goes (MDL-1.1).
-#[tauri::command]
-pub async fn model_folder(app: AppHandle) -> Option<String> {
-    use tauri_plugin_dialog::DialogExt;
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    app.dialog().file().pick_folder(move |f| {
-        let _ = tx.send(f.map(|f| f.to_string()));
-    });
-    rx.await.ok().flatten()
-}
-
 #[derive(Serialize, Clone)]
 struct Progress {
     done: u64,

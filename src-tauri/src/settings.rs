@@ -34,6 +34,8 @@ pub struct Settings {
     pub my_language: String,
     /// Every answer in `my_language` unless the persona sets its own (LNG-1.3).
     pub answer_in_my_language: bool,
+    /// Spec 17: where Save writes answers; None is Documents/Cursora (SAV-2.4).
+    pub saved_answers_folder: Option<std::path::PathBuf>,
 }
 
 impl Default for Settings {
@@ -59,6 +61,7 @@ impl Default for Settings {
             quick: QuickSettings::default(),
             my_language: "English".into(),
             answer_in_my_language: false,
+            saved_answers_folder: None,
         }
     }
 }

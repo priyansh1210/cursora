@@ -45,6 +45,8 @@ export type Settings = {
   /** Spec 16 (LNG-1.1, 1.3). */
   myLanguage: string;
   answerInMyLanguage: boolean;
+  /** Spec 17: where Save writes; null is Documents/Cursora (SAV-2.4). */
+  savedAnswersFolder: string | null;
 };
 
 export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";
@@ -65,6 +67,7 @@ export type AppInfo = {
   canRunAsAdmin: boolean;
   runningAsAdmin: boolean;
   inProgramFiles: boolean;
+  savedAnswersDefault: string;
 };
 
 export function useAppInfo() {

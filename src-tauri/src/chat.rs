@@ -389,6 +389,19 @@ pub fn drop_slot(app: &AppHandle, label: &str) {
     retire(app, old);
 }
 
+/// Pin and Save take only a finished answer: done or cancelled, and not Cursora's own reply (SAV-1.3). The page shows them by the same rule.
+pub fn keepable(t: &Turn) -> bool {
+    !t.local && !t.answer.is_empty() && matches!(t.status, TurnStatus::Done | TurnStatus::Cancelled)
+}
+
+/// The answer asked at `asked` (Unix ms, unique in a conversation) in `label`'s conversation, copied for Pin or Save (spec 17).
+pub fn kept(app: &AppHandle, label: &str, asked: i64) -> Result<crate::keep::Kept, String> {
+    let slots = slots(app);
+    let conv = &slots.get(label).ok_or("This conversation is closed.")?.conv;
+    let t = conv.turns.iter().find(|t| t.asked == asked && keepable(t)).ok_or("Only a finished answer can be pinned or saved.")?;
+    Ok(crate::keep::Kept { question: t.question.clone(), answer: t.answer.clone(), app: conv.app.name.clone(), model: conv.model.as_ref().map(|m| m.name.clone()) })
+}
+
 #[tauri::command]
 pub fn get_conversation(window: WebviewWindow, app: AppHandle) -> Option<Conversation> {
     slots(&app).get(window.label()).map(|s| s.conv.clone())
@@ -883,6 +896,16 @@ mod tests {
 
     fn turn(q: &str, a: &str, status: TurnStatus) -> Turn {
         Turn { question: q.into(), answer: a.into(), status, error: None, asked: 0, answered: None, local: false, note: None }
+    }
+
+    #[test]
+    fn sav_1_3_only_a_finished_answer_can_be_pinned_or_saved() {
+        assert!(keepable(&turn("q", "done", TurnStatus::Done)));
+        assert!(keepable(&turn("q", "partial", TurnStatus::Cancelled)), "a stopped answer keeps its part");
+        assert!(!keepable(&turn("q", "so far", TurnStatus::Streaming)), "still being written");
+        assert!(!keepable(&turn("q", "part", TurnStatus::Error)), "an error");
+        assert!(!keepable(&turn("q", "", TurnStatus::Done)), "empty");
+        assert!(!keepable(&Turn { local: true, ..turn("/help", "commands", TurnStatus::Done) }), "Cursora's own reply");
     }
 
     fn conv(turns: Vec<Turn>) -> Conversation {
