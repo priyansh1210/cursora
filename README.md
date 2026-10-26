@@ -88,6 +88,7 @@ Pick a persona (Cursora, Ada, Arjun or Sage) or create your own: name, gender, t
 | **LM Studio**, found automatically | **OpenAI**, **Anthropic**, **Google Gemini** |
 | **Any OpenAI-compatible server:** llama.cpp, vLLM, Jan, LocalAI, KoboldCpp, … | **OpenRouter**, **Groq**, **DeepSeek**, **Mistral** |
 | **Built-in engine:** pick a `.gguf` file. Nothing else to install. | **Any OpenAI-compatible endpoint** |
+| **One-click download:** a free model in three sizes, checked before use | |
 
 A model on your computer needs no internet at all: setup, answers, Settings and History all work offline.
 

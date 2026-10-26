@@ -1,6 +1,7 @@
 //! AI providers (spec 04): configuration, local vs cloud, and which model answers.
 mod anthropic;
 pub mod commands;
+pub mod download;
 pub mod engine;
 mod gemini;
 mod local;

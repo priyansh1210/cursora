@@ -535,6 +535,17 @@ pre.detail {
   border-radius: 999px;
   overflow: hidden;
 }
+/* The model download (MDL-1.4): the bar fills the row beside its numbers. */
+.download .progress {
+  flex: 1;
+  margin: 0;
+}
+.download .folder {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .progress > span {
   display: block;
   height: 100%;
