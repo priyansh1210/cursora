@@ -664,9 +664,10 @@ mod tests {
         let translate = skills.iter().find(|s| s.name == "translate").unwrap();
         let v = |mine: &'static str| Vars { input: "", app: "Notepad", language: crate::prompt::QUESTION_LANGUAGE, my_language: mine, date: "2026-10-26" };
         let hindi = render(&translate.template, &v("Hindi"));
-        assert!(hindi.contains("translate into Hindi, unless the text is already in Hindi. Then translate into English"), "{hindi}");
+        assert!(hindi.contains("when the text is not in Hindi, translate it into Hindi. When it is already in Hindi, translate it into English, unless Hindi is English"), "{hindi}");
+        assert!(!hindi.contains("when the text is English"), "Gemini read that as English text into Spanish, also for a Hindi user (R70)");
         let english = render(&translate.template, &v("English"));
-        assert!(english.contains("translate into English, unless the text is already in English. Then translate into English, or into Spanish when the text is English."), "as before: {english}");
+        assert!(english.contains("When it is already in English, translate it into English, unless English is English: then translate it into Spanish."), "as before: {english}");
         assert!(render(&translate.template, &Vars { input: "French", ..v("Hindi") }).contains("Target language: French\n"));
     }
 
