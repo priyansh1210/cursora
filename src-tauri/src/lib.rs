@@ -310,6 +310,7 @@ pub fn run() {
             chat::remove_context,
             chat::get_conversation,
             chat::expand,
+            chat::write_back,
             chat::prompt_preview,
             chat::send_preview,
             privacy::privacy_detectors,

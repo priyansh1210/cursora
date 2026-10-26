@@ -221,7 +221,14 @@ export default function Chat() {
           <div ref={turnsRef} className="turns" role="log" aria-label="Conversation" onClick={onAnswerClick}>
             {conv.dropped > 0 && <p className="muted note">Earlier messages were left out to fit the model.</p>}
             {conv.turns.map((t, i) => (
-              <TurnView key={i} turn={t} latest={i === conv.turns.length - 1} onRetry={() => regenerate()} />
+              <TurnView
+                key={i}
+                turn={t}
+                latest={i === conv.turns.length - 1}
+                onRetry={() => regenerate()}
+                writeBack={conv.writeBack}
+                onWriteBack={() => invoke<void>("write_back", { index: i })}
+              />
             ))}
           </div>
           {error && <p role="alert" className="error note">{error}</p>}
@@ -457,9 +464,26 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
   );
 }
 
-function TurnView({ turn, latest, onRetry }: { turn: Turn; latest: boolean; onRetry: () => void }) {
+function TurnView({
+  turn,
+  latest,
+  onRetry,
+  writeBack,
+  onWriteBack,
+}: {
+  turn: Turn;
+  latest: boolean;
+  onRetry: () => void;
+  writeBack?: Conversation["writeBack"];
+  onWriteBack: () => Promise<void>;
+}) {
   const html = useMemo(() => render(turn.answer), [turn.answer]);
   const [copied, setCopied] = useState(false);
+  const [notPut, setNotPut] = useState<string>(); // why Replace or Insert didn't happen (WRT-1.3)
+  const notPutRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    notPutRef.current?.scrollIntoView({ block: "nearest" }); // it appears below the answer's actions, often out of view
+  }, [notPut]);
   const answerRef = useRef<HTMLDivElement>(null);
   const err = turn.error && errorText(turn.error.kind, turn.error.message);
 
@@ -496,6 +520,20 @@ function TurnView({ turn, latest, onRetry }: { turn: Turn; latest: boolean; onRe
       )}
       {turn.answer && turn.status !== "streaming" && !turn.local && (
         <div className="actions">
+          {/* Spec 13: first, since putting the answer back is what a fix or rewrite is for. */}
+          {writeBack && turn.status === "done" && (
+            <button
+              type="button"
+              className="link lead"
+              aria-label={writeBack === "replace" ? "Replace the selected text in the app with this answer" : "Insert this answer where the cursor was in the app"}
+              onClick={() => {
+                setNotPut(undefined);
+                onWriteBack().catch((e) => setNotPut(String(e)));
+              }}
+            >
+              {writeBack === "replace" ? "Replace" : "Insert"}
+            </button>
+          )}
           <button type="button" className="link" onClick={copy} aria-label="Copy the answer. Hold Shift for plain text" title="Copy (Shift: plain text)">
             {copied ? "Copied" : "Copy"}
           </button>
@@ -511,6 +549,11 @@ function TurnView({ turn, latest, onRetry }: { turn: Turn; latest: boolean; onRe
             </button>
           )}
         </div>
+      )}
+      {notPut && (
+        <p ref={notPutRef} role="alert" className="error note">
+          {notPut}
+        </p>
       )}
     </article>
   );
