@@ -27,6 +27,9 @@ unset WAYLAND_DISPLAY
 openbox >/dev/null 2>&1 &
 command -v stalonetray >/dev/null && stalonetray >/dev/null 2>&1 &
 sleep 1
+# With no desktop or screen reader, apps keep their windows' contents from AT-SPI until accessibility is on.
+gsettings set org.gnome.desktop.interface toolkit-accessibility true 2>/dev/null
+dbus-send --session --dest=org.a11y.Bus /org/a11y/bus org.freedesktop.DBus.Properties.Set string:org.a11y.Status string:IsEnabled variant:boolean:true 2>/dev/null
 app=~/cursora/src-tauri/target/debug/cursora
 saved=~/Documents/Cursora
 had_saved=$([ -d "$saved" ] && echo yes || echo no)
@@ -81,6 +84,14 @@ if cmd == "alerts":
                     print(acc.queryText().getText(0, -1))
                 except Exception:
                     print(acc.name)
+if cmd == "apps":  # every app AT-SPI knows, with its top-level children
+    for app in pyatspi.Registry.getDesktop(0):
+        if app is None:
+            continue
+        print(f"  app '{app.name}': {app.childCount} children")
+        for i in range(min(app.childCount, 8)):
+            c = app.getChildAtIndex(i)
+            print(f"    {c.getRoleName()}: '{c.name}', {c.childCount} children")
 if cmd == "dump":
     for app in apps():
         for acc, d in walk(app):
@@ -91,6 +102,13 @@ at() { python3 ~/x11-sav/at.py "$@"; }
 pass() { echo "PASS $*"; }
 fail() { echo "FAIL $*"; }
 check() { if eval "$1"; then pass "$2"; else fail "$2"; fi; }
+diag() {
+  echo "--- visible windows:"
+  for w in $(xdotool search --onlyvisible --name '.' 2>/dev/null); do echo "  $w '$(xdotool getwindowname "$w")' $(xdotool getwindowgeometry "$w" | tail -2 | tr -s ' \n' ' ')"; done
+  echo "--- active window: '$(xdotool getactivewindow getwindowname 2>/dev/null)'"
+  echo "--- AT-SPI:"; at apps
+  import -window root ~/x11-sav/screen.png 2>/dev/null && echo '--- screenshot: \\wsl$\Ubuntu-24.04\home\cursora\x11-sav\screen.png'
+}
 notes() { xdotool search --onlyvisible --name "$1" 2>/dev/null | wc -l; }
 bubble() { xdotool search --onlyvisible --name '^Cursora$' 2>/dev/null | head -1; }
 geom() { xdotool getwindowgeometry --shell "$1" | tr '\n' ' '; }
@@ -106,6 +124,7 @@ ask() {
   sleep 1.5
   b=$(bubble)
   [ "$(xdotool getactivewindow)" = "$b" ] || xdotool windowactivate --sync "$b"
+  echo "INFO typing into '$(xdotool getactivewindow getwindowname 2>/dev/null)'"
   xdotool type --delay 15 "$1"; xdotool key Return
   at has "Pin this answer on screen in a note" 20
 }
@@ -116,7 +135,7 @@ mousepad ~/x11-sav/note.txt >/dev/null 2>&1 &
 sleep 3
 
 echo "== SAV-1.1 Pin, from the bubble"
-if ask "When is the report due?"; then pass "a finished answer offers Pin and Save"; else fail "no Pin button after the answer"; at dump | head -60; fi
+if ask "When is the report due?"; then pass "a finished answer offers Pin and Save"; else fail "no Pin button after the answer"; diag; $app --quit; exit 1; fi
 b=$(bubble); bg=$(geom "$b")
 at click "Pin this answer on screen in a note"; sleep 2
 check '[ "$(notes "When is the report due?")" -eq 1 ]' "Pin opened a note titled with the question"
