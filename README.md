@@ -104,7 +104,7 @@ Conversations are saved on your computer for 90 days by default. You can search 
 - 🙈 **Redaction before the cloud:** emails, phone numbers, card numbers, IBANs, API keys, and Aadhaar and PAN numbers become placeholders, and are put back in the answer on your side. **What will be sent** shows the exact outgoing text.
 - 🚫 **Blocked apps:** Cursora never reads from password managers, and you can block any other app from the tray in one click.
 - 📋 **Your clipboard is safe:** whatever you copied before is restored, and terminals never get <kbd>Ctrl</kbd> + <kbd>C</kbd>, so your running process keeps running.
-- 📡 **No telemetry, no analytics, no update checks.** Cursora talks only to the models you set up.
+- 📡 **No telemetry, no analytics.** Cursora talks only to the models you set up, plus a once-a-day check for a new version (it sends nothing about you, and one tick turns it off) and the model downloads you start yourself.
 
 ## 🖥️ Platforms
 
