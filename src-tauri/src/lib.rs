@@ -132,6 +132,9 @@ pub fn update_settings(app: &AppHandle, mut settings: Settings) -> Result<(), St
             settings.models.default = Some(local); // PRI-1.3
         }
     }
+    if let Some(added) = llm::new_default(&old.models, &settings.models, settings.local_only) {
+        settings.models.default = Some(added); // LLM-5.7
+    }
     let hotkey_changed = old.hotkeys.ask != settings.hotkeys.ask || old.paused != settings.paused;
     if hotkey_changed {
         hotkey::apply(app, Some(&old), &settings)?;

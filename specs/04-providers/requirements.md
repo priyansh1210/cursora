@@ -68,6 +68,7 @@ User story: As a user, I want to just pick a model file and go, without installi
 - LLM-5.4 (manual) THE user SHALL pick one default model. Skills can override it (SKL-2.5).
 - LLM-5.5 (manual) Clicking the model name in the bubble header SHALL open a quick switcher of configured models. In local-only mode, cloud models are disabled. (Was BUB-7.2.)
 - LLM-5.6 (auto) THE model list SHALL leave out models that can't answer in text, recognised by name: speech (text-to-speech, transcription, realtime and audio models), music, image and video generation, embedding, moderation and safety-check models, OCR, computer use, and the old completion-only models. Such a model can still be typed by hand (LLM-5.1). (Added 2026-10-15: Gemini's list offered a text-to-speech model and a music model, the user chose them, and neither could answer. Issue 16.)
+- LLM-5.7 (auto) WHEN models are added (a new provider with models, a downloaded model, or models chosen for a provider) AND no default model is set THE first of them SHALL become the default model. In local-only mode only a local one can (PRI-1). Removing the default's provider still leaves no default. (Added 2026-10-26 at the user's request: a model downloaded in Settings → Models didn't become the default, so the bubble had no model; was issue 56.)
 
 ### LLM-6 API key storage
 - LLM-6.1 (auto) THE SYSTEM SHALL store API keys only in the OS keychain (Windows Credential Manager or Linux Secret Service), under service `cursora` and account `<provider-id>`.
