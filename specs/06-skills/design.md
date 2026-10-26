@@ -144,10 +144,12 @@ Local replies are spec 05's local turns: shown and saved, never sent.
 | `simplify` | | Simpler words and shorter sentences, same meaning; only the new text. |
 | `define` | | A one-line definition of the word or phrase in its context, then an example. |
 | `translate` | `<language>` | Into the given language (empty means English, or Spanish if the text is already English); only the translation. |
-| `fix` | | Grammar, spelling and punctuation, keeping meaning and tone; the corrected text, then a short list of changes. |
+| `fix` | | Grammar, spelling and punctuation, keeping meaning and tone; only the corrected text (spec 13, WRT-5.2). |
 | `rewrite` | `<tone>` | In the given tone (empty means clearer and more concise); only the new text. |
 | `code` | | What the code does, step by step, and the language. |
 | `bugs` | | Each bug: where, what goes wrong, how to fix it; says so plainly if there are none. |
+| `reply` | `<what to say>` | A draft reply to the message, in its language and tone (spec 14, QAC-4.1). |
+| `error` | | What the error means, likely causes, then numbered fixes (spec 14, QAC-4.2). |
 
 The full wording is in the files. `specs/06-skills/evaluation.md` records each skill's answer on a sample input with the 0.5B test model, for reference (SKL-3.2 is retired: answer quality depends on the user's model).
 
@@ -190,7 +192,7 @@ None new: a small frontmatter parser instead of a YAML crate, and reading on use
 | SKL-2.5 | `for_skill()`: the skill's model when configured, the active one with a note when not, and when local-only mode blocks a cloud model. |
 | SKL-2.6 | Each reserved name is invalid as a user skill. |
 | SKL-2.7 | `/help` lists skills and commands, not `snip`; `/clear` keeps the capture and empties the turns. |
-| SKL-3.1 | The nine built-ins load and pass validation. |
+| SKL-3.1 | The eleven built-ins load and pass validation. |
 | SKL-4.4 | `skill_save` writes `<name>.md`, and the next `load()` has it. |
 | SKL-4.5 | A temporary folder: a file added, changed and deleted between two loads shows each change. |
 

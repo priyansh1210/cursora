@@ -54,7 +54,7 @@ export default function Settings() {
         ) : tab === "Personality" ? (
           <PersonalityTab settings={settings} save={save} />
         ) : tab === "Skills" ? (
-          <SkillsTab settings={settings} />
+          <SkillsTab settings={settings} save={save} />
         ) : tab === "Privacy" ? (
           <Privacy settings={settings} save={save} />
         ) : tab === "History" ? (

@@ -54,6 +54,8 @@ Browsers, editors, terminals, Office, PDF viewers, Electron and Java apps, and e
 ### 💬 A bubble, not another window
 It opens at your cursor, streams the answer as it's written (Markdown, with highlighted code), and takes follow-up questions. **Expand** moves the chat to a bigger window. Press the hotkey again to close it, and you're back where you were.
 
+**Replace** puts the answer back into the app in place of your selection (or **Insert** at the cursor), and one-click buttons suit the app you're in: **Fix** and **Shorter** in documents, **Reply** in email and chat, **Explain error** in terminals, **Find bugs** in code.
+
 ### ✂️ Snip anything on screen
 Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> and drag a box around an image, a video frame, or a scanned page, then ask about it. Snip appears whenever your model can read images.
 
@@ -71,6 +73,8 @@ Type `/` in the bubble:
 | `/rewrite <tone>` | Rewrite it in another tone |
 | `/code` | Explain what the code does |
 | `/bugs` | Find bugs in the code |
+| `/reply <what to say>` | Draft a reply to the selected message |
+| `/error` | Explain an error message and how to fix it |
 
 **Make your own** (`/eli5`, `/to-sql`, …) in Settings → Skills, with `/new-skill`, or with **Save as skill** on any question you asked. A skill is a plain Markdown file, and it's ready the moment you save it.
 

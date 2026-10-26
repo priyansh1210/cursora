@@ -177,6 +177,9 @@ pub struct Conversation {
     /// Replace or Insert (spec 13). Never read back from History, whose conversations have no app window any more.
     #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
     pub write_back: Option<WriteBack>,
+    /// The buttons over a selection (spec 14); like `write_back`, they belong to the app, so History doesn't keep them.
+    #[serde(default, skip_deserializing, skip_serializing_if = "Vec::is_empty")]
+    pub quick: Vec<crate::quick::QuickAction>,
 }
 
 /// One conversation per window label: the bubble's and the expanded window's.
@@ -214,11 +217,18 @@ pub fn now_ms() -> i64 {
 
 /// Starts the bubble's conversation for a new capture (BUB-5.3). Any earlier one is already in history.
 pub fn start(app: &AppHandle, capture: Capture) -> Conversation {
-    let (persona, write_back) = {
+    let (persona, write_back, quick) = {
         let state = app.state::<AppState>();
         let s = state.settings.lock().unwrap();
-        (persona::in_use(&s).map(|p| p.name), crate::capture::write_back(&capture.content, &capture.app, &s.capture, crate::session::current()))
+        let quick = (s.quick.on && matches!(capture.content, Content::Text { .. }))
+            .then(|| (crate::quick::kind(&capture.app, &s.capture.unsafe_apps), s.quick.pinned.clone()));
+        (persona::in_use(&s).map(|p| p.name), crate::capture::write_back(&capture.content, &capture.app, &s.capture, crate::session::current()), quick)
     };
+    // Outside the lock: `for_skill` takes it too.
+    let quick = quick.map_or_else(Vec::new, |(kind, pinned)| {
+        let (skills, _) = skills::load(skills::dir(app).ok().as_deref());
+        crate::quick::actions(kind, &pinned, &skills, |s| llm::for_skill(app, s.model.as_deref(), None).is_ok_and(|(m, _)| m.info().vision))
+    });
     let model = llm::active(app);
     let conv = Conversation {
         id: now_ms(),
@@ -232,6 +242,7 @@ pub fn start(app: &AppHandle, capture: Capture) -> Conversation {
         unavailable: model.err(),
         own_model: None,
         write_back,
+        quick,
     };
     put(app, bubble::LABEL, conv.clone());
     conv
@@ -526,6 +537,7 @@ pub fn remove_context(window: WebviewWindow, app: AppHandle) -> Option<Conversat
     if slot.conv.turns.is_empty() {
         slot.conv.content = Content::None;
         slot.conv.notice = None;
+        slot.conv.quick.clear(); // they work on the selection (QAC-1.1)
     }
     Some(slot.conv.clone())
 }
@@ -799,6 +811,7 @@ pub fn sample(text: &str, question: &str) -> Conversation {
         unavailable: None,
         own_model: None,
         write_back: None,
+        quick: vec![],
     }
 }
 
@@ -884,6 +897,7 @@ mod tests {
             unavailable: None,
             own_model: None,
             write_back: None,
+            quick: vec![],
         }
     }
 

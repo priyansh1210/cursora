@@ -27,7 +27,7 @@ const FIELDS: [&str; 7] = ["name", "description", "args", "requires", "model", "
 const MAX_BYTES: u64 = 64 * 1024;
 
 /// SKL-3.1, in the same format as the user's files.
-const BUILT_IN: [&str; 9] = [
+const BUILT_IN: [&str; 11] = [
     include_str!("../skills/summary.md"),
     include_str!("../skills/explain.md"),
     include_str!("../skills/simplify.md"),
@@ -37,6 +37,8 @@ const BUILT_IN: [&str; 9] = [
     include_str!("../skills/rewrite.md"),
     include_str!("../skills/code.md"),
     include_str!("../skills/bugs.md"),
+    include_str!("../skills/reply.md"),
+    include_str!("../skills/error.md"),
 ];
 
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -688,7 +690,7 @@ mod tests {
         let got: Vec<(String, usize)> = invalid.iter().map(|i| (i.file.file_name().unwrap().to_string_lossy().into_owned(), i.line)).collect();
         assert_eq!(got, [("bad-name.md", 2), ("bad-yaml.md", 2), ("big.md", 0), ("missing.md", 3), ("reserved.md", 2), ("variable.md", 5), ("z-duplicate.md", 0)].map(|(f, l)| (f.to_string(), l)));
         assert!(invalid.last().unwrap().error.contains("already used by good.md"));
-        assert_eq!(skills.len(), 10, "the nine built-ins and good");
+        assert_eq!(skills.len(), BUILT_IN.len() + 1, "the built-ins and good");
     }
 
     #[test]
@@ -702,7 +704,7 @@ mod tests {
         assert_eq!((s[0].template.as_str(), s[0].overrides, s[0].file.as_deref()), ("Mine.", true, Some(d.join("a.md").as_path())));
         assert_eq!(invalid.len(), 1);
         assert_eq!(invalid[0].file, d.join("b.md"));
-        assert_eq!(load(None).0.len(), 9, "no folder: the built-ins");
+        assert_eq!(load(None).0.len(), BUILT_IN.len(), "no folder: the built-ins");
     }
 
     #[test]
@@ -753,7 +755,7 @@ mod tests {
     #[test]
     fn skl_3_1_the_built_in_skills_are_valid() {
         let names: Vec<String> = BUILT_IN.iter().map(|t| parse(t).map(|s| s.name).unwrap_or_else(|e| panic!("{e:?} in {t}"))).collect();
-        assert_eq!(names, ["summary", "explain", "simplify", "define", "translate", "fix", "rewrite", "code", "bugs"]);
+        assert_eq!(names, ["summary", "explain", "simplify", "define", "translate", "fix", "rewrite", "code", "bugs", "reply", "error"]);
         assert_eq!(load(None), (load(None).0, vec![]));
     }
 

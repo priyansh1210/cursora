@@ -40,6 +40,8 @@ export type Settings = {
     timeouts: { connectSecs: number; firstReplyLocalSecs: number; firstReplyCloudSecs: number; pauseSecs: number };
   };
   updates: { check: boolean; skipped: string | null };
+  /** The bubble's quick actions (spec 14). */
+  quick: { on: boolean; pinned: string[] };
 };
 
 export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";

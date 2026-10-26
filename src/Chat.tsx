@@ -109,6 +109,8 @@ export default function Chat() {
 
   const streaming = conv.turns.at(-1)?.status === "streaming";
   const h = header(conv, settings?.localOnly);
+  // Quick actions show until the first question (QAC-1.1).
+  const quick = conv.turns.length === 0 ? (conv.quick ?? []) : [];
 
   const send = (question: string, confirmed = false) => {
     const q = question.trim();
@@ -161,7 +163,17 @@ export default function Chat() {
   };
 
   return (
-    <div ref={rootRef} className={isBubble ? "chat bubble" : "chat"}>
+    <div
+      ref={rootRef}
+      className={isBubble ? "chat bubble" : "chat"}
+      onKeyDown={(e) => {
+        // Alt+1 to Alt+6 (QAC-1.2); by key position, so layouts where digits need Shift work too.
+        const action = e.altKey && !e.ctrlKey && /^Digit[1-6]$/.test(e.code) ? quick[Number(e.code.slice(5)) - 1] : undefined;
+        if (!action) return;
+        e.preventDefault();
+        send(`${action.command} ${draft}`); // what was typed becomes its text, e.g. Rewrite + "like a pirate"
+      }}
+    >
       <header data-tauri-drag-region>
         <img data-tauri-drag-region src={logo} alt="" width={16} height={16} draggable={false} />
         <span data-tauri-drag-region className={conv.persona ? "who" : "who off"}>{h.persona}</span>
@@ -231,6 +243,15 @@ export default function Chat() {
               />
             ))}
           </div>
+          {quick.length > 0 && (
+            <div role="toolbar" aria-label="Quick actions" className="quick">
+              {quick.map((a, i) => (
+                <button key={a.command} type="button" title={`${a.command} (Alt+${i + 1})`} aria-keyshortcuts={`Alt+${i + 1}`} onClick={() => send(`${a.command} ${draft}`)}>
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          )}
           {error && <p role="alert" className="error note">{error}</p>}
           <Outgoing
             settings={settings}

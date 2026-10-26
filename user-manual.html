@@ -273,6 +273,8 @@
       <div class="card"><h4>Header</h4><p>The persona's name, the personality button, the model (click it to switch to another model), and where the answer comes from: <b>Local</b>, <b>LAN</b> or <b>Cloud</b>.</p></div>
       <div class="card"><h4>Move and resize</h4><p>Drag the bubble by its header. Click the expand button in the header to open the conversation in a larger window you can resize.</p></div>
       <div class="card"><h4>Answer actions</h4><p><b>Copy</b> copies the answer as Markdown; hold <kbd>Shift</kbd> to copy plain text. <b>Regenerate</b> asks again. <b>Save as skill</b> turns your question into a reusable command.</p></div>
+      <div class="card"><h4>Replace and Insert</h4><p><b>Replace</b> puts the answer into the app in place of the text you selected; with nothing selected, <b>Insert</b> puts it where your cursor was. It goes in as plain text, and your clipboard is put back afterwards. They aren't offered in apps where <kbd>Ctrl</kbd> + <kbd>C</kbd> could stop a program, in apps running as administrator, in blocked apps, or on Wayland.</p></div>
+      <div class="card"><h4>Quick actions</h4><p>Over a selection, buttons for the usual jobs show above the input until your first question. They suit the app: <b>Fix</b>, <b>Shorter</b> and <b>Translate</b> in documents, <b>Reply</b> in email and chat apps, <b>Explain error</b> in terminals, <b>Find bugs</b> in code editors. <kbd>Alt</kbd> + <kbd>1</kbd> to <kbd>6</kbd> press them. Pin skills in Settings → Skills to put them first, or turn the buttons off there.</p></div>
       <div class="card"><h4>Stop</h4><p>While an answer is being written, the Send button becomes <b>Stop</b>. The part written so far is kept.</p></div>
     </div>
     <p>The bubble stays open when you click elsewhere or press <kbd>Esc</kbd>, so you can read the answer while you work. Only the ask hotkey closes it.</p>
@@ -309,6 +311,8 @@
       <tr><td><code>/rewrite &lt;tone&gt;</code></td><td>Rewrite the selection in another tone, for example <code>/rewrite formal</code></td></tr>
       <tr><td><code>/code</code></td><td>Explain what the code does</td></tr>
       <tr><td><code>/bugs</code></td><td>Find bugs in the code</td></tr>
+      <tr><td><code>/reply &lt;what to say&gt;</code></td><td>Draft a reply to the selected message, for example <code>/reply say yes to Friday</code></td></tr>
+      <tr><td><code>/error</code></td><td>Explain an error message and how to fix it</td></tr>
     </table>
     <h3>Commands</h3>
     <table>
@@ -346,7 +350,7 @@
     <ul>
       <li><b>LM Studio</b> is found automatically when it's running. Click <b>Use it</b>.</li>
       <li><b>Any OpenAI-compatible server</b> (llama.cpp, vLLM, Jan, LocalAI, KoboldCpp and others): add it by its address.</li>
-      <li><b>The built-in engine:</b> choose <span class="ui">Built-in engine</span> as the source and pick a <code>.gguf</code> model file. Cursora suggests a model size that suits your computer's memory.</li>
+      <li><b>The built-in engine:</b> choose <span class="ui">Built-in engine</span> as the source and pick a <code>.gguf</code> model file.</li>
     </ul>
     <p>For the built-in engine, choose how long the model stays loaded:</p>
     <table>
@@ -443,6 +447,7 @@
       <tr><td><kbd>Enter</kbd></td><td>Bubble</td><td>Sends your question</td></tr>
       <tr><td><kbd>Shift</kbd> + <kbd>Enter</kbd></td><td>Bubble</td><td>Starts a new line</td></tr>
       <tr><td><kbd>/</kbd></td><td>Bubble</td><td>Opens the list of skills and commands</td></tr>
+      <tr><td><kbd>Alt</kbd> + <kbd>1</kbd> to <kbd>6</kbd></td><td>Bubble</td><td>Presses a quick action, before your first question</td></tr>
       <tr><td><kbd>↑</kbd> <kbd>↓</kbd> <kbd>Tab</kbd> <kbd>Esc</kbd></td><td>Skill list</td><td>Move, choose, close</td></tr>
       <tr><td><kbd>Shift</kbd> + click <b>Copy</b></td><td>Bubble</td><td>Copies the answer as plain text</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>Snipping</td><td>Cancels the snip</td></tr>
