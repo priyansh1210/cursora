@@ -3,6 +3,7 @@
 # after `npm run build`:   wsl -d Ubuntu-24.04 -u cursora -- bash specs/17-save-and-pin/x11-check.sh
 # Builds this checkout for Linux, runs it with the Echo test model on an X server of its own (Xvfb + Openbox), drives it
 # through AT-SPI and xdotool, and prints PASS / FAIL / INFO per check. Only mousepad, on a test file, is the "other app".
+# `... x11-check.sh light` runs only the light-theme check.
 set -u
 src="$(cd "$(dirname "$0")/../.." && pwd)"
 
@@ -16,11 +17,12 @@ if [ "${1:-}" != inner ]; then
   Xvfb :99 -screen 0 1600x1000x24 >/dev/null 2>&1 &
   xvfb=$!
   sleep 1
-  DISPLAY=:99 dbus-run-session -- bash "$0" inner
+  DISPLAY=:99 dbus-run-session -- bash "$0" inner "${1:-all}"
   kill $xvfb 2>/dev/null
   exit
 fi
 
+only=${2:-all}
 export DISPLAY=:99 GDK_BACKEND=x11 CURSORA_ECHO=1 XDG_CONFIG_HOME=~/x11-sav/config XDG_DATA_HOME=~/x11-sav/data XDG_CACHE_HOME=~/x11-sav/cache
 unset WAYLAND_DISPLAY
 /usr/libexec/at-spi-bus-launcher --launch-immediately >/dev/null 2>&1 &
@@ -129,10 +131,12 @@ ask() {
   at has "Pin this answer on screen in a note" 20
 }
 
-$app >/dev/null 2>&1 &
-sleep 5
 mousepad ~/x11-sav/note.txt >/dev/null 2>&1 &
 sleep 3
+
+if [ "$only" = all ]; then
+$app >/dev/null 2>&1 &
+sleep 5
 
 echo "== SAV-1.1 Pin, from the bubble"
 if ask "When is the report due?"; then pass "a finished answer offers Pin and Save"; else fail "no Pin button after the answer"; diag; $app --quit; exit 1; fi
@@ -191,13 +195,17 @@ echo "== SAV-1.2 Quit"
 $app --quit; sleep 3
 check '[ "$(notes "When is the report due?")" -eq 0 ] && [ "$(notes "Who signs the contract?")" -eq 0 ]' "the notes close with Cursora"
 
+fi
+
 echo "== SAV-1.4 Light theme"
 python3 -c "import json,os;p=os.path.expanduser('~/x11-sav/config/com.cursora.app/settings.json');s=json.load(open(p));s['theme']='light';json.dump(s,open(p,'w'))"
 $app >/dev/null 2>&1 &
 sleep 5
-ask "Is it light?" >/dev/null && at click "Pin this answer on screen in a note"; sleep 2
-n=$(xdotool search --onlyvisible --name "Is it light?" | head -1)
+if ask "Is it light?"; then at click "Pin this answer on screen in a note"; sleep 2; else fail "no answer to pin after the restart"; fi
+n=$(xdotool search --onlyvisible --name "Is it light" | head -1)
+echo "INFO note: '${n:-none}', its corner's red value (0 to 255): $( [ -n "$n" ] && brightness "$n")"
 check '[ -n "$n" ] && [ "$(brightness "$n")" -gt 170 ]' "the note is light with the light theme"
+[ -n "$n" ] || diag
 $app --quit; sleep 2
 
 # Tidy up what this run made; keep ~/x11-sav for a look afterwards.
