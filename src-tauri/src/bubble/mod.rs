@@ -171,6 +171,26 @@ pub fn close(app: &AppHandle) {
     }
 }
 
+/// Brings the app the bubble opened over to the front, for Replace and Insert. False if it still isn't in front
+/// after a second (WRT-1.3, 4.2). Blocks while it waits.
+pub fn bring_back(window: isize) -> bool {
+    os::activate(window);
+    came_back(|| os::foreground() == window, std::time::Duration::from_secs(1))
+}
+
+fn came_back(in_front: impl Fn() -> bool, within: std::time::Duration) -> bool {
+    let deadline = std::time::Instant::now() + within;
+    loop {
+        if in_front() {
+            return true;
+        }
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
 /// Hides the bubble and clears its view. Returns whether it had focus.
 pub fn hide(app: &AppHandle) -> bool {
     let Some(window) = app.get_webview_window(LABEL) else { return false };
@@ -227,6 +247,15 @@ fn screen(m: &Monitor) -> Screen {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wrt_4_2_the_paste_waits_for_the_app_and_gives_up_if_another_stays_in_front() {
+        let polls = std::cell::Cell::new(0);
+        assert!(came_back(|| (polls.replace(polls.get() + 1)) >= 2, std::time::Duration::from_secs(1)), "in front on the third look");
+        let started = std::time::Instant::now();
+        assert!(!came_back(|| false, std::time::Duration::from_millis(60)), "another window stayed in front");
+        assert!(started.elapsed() >= std::time::Duration::from_millis(60));
+    }
 
     /// 1920×1080 at 100 %, taskbar 40 px at the bottom.
     fn laptop() -> Screen {

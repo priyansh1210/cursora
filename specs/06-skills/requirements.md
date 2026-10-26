@@ -7,7 +7,7 @@
   - **Users creating, editing and sharing their own skills**, with hot reload
   - Reserved system commands
 - **Out:**
-  - `output: replace` (writing back into the app), which is in the backlog
+  - `output: replace` (writing back into the app): spec 13 (WRT-5) adds it
   - `/snip`, which is a system command defined in VIS
 
 ## Requirements
@@ -23,7 +23,7 @@
   | `requires` | no | list; v1 value: `vision` |
   | `model` | no | provider/model reference |
   | `temperature` | no | 0–2 |
-  | `output` | no | v1 value: `chat` |
+  | `output` | no | `chat`, or `replace` (spec 13, WRT-5.1) |
 
 - SKL-1.2 (auto) Templates MAY use the variables `{{input}}` (text typed after the command), `{{app}}` (source app name), `{{language}}` (the persona's reply language) and `{{date}}`. Captured text and files SHALL **always** be attached automatically by the prompt builder (PER-4.2), so skills never need to place them. Any unknown `{{variable}}` SHALL be a validation error.
 - SKL-1.3 (auto) WHEN a skill file is invalid (bad YAML, missing field, bad name, unknown variable, duplicate or reserved name) THE SYSTEM SHALL skip it and show it in Settings → Skills with the error and line number. It SHALL NOT crash, and SHALL keep the other skills working.

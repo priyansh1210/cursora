@@ -10,7 +10,7 @@ use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcess, OpenProc
 use windows::Win32::UI::Accessibility::{CUIAutomation8, IUIAutomation2, IUIAutomationTextPattern, UIA_TextPatternId};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_C, VK_CONTROL, VK_INSERT,
-    VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
+    VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT, VK_V,
 };
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId};
 
@@ -154,6 +154,19 @@ impl Platform for WinPlatform {
         inputs.push(key_input(main, false));
         inputs.push(key_input(main, true));
         inputs.extend(mods.iter().rev().map(|&vk| key_input(vk, true)));
+        unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) };
+    }
+
+    /// CF_UNICODETEXT: UTF-16 with its terminating 0, and Windows' CRLF line breaks, which some apps need.
+    /// Windows makes the other text formats from it.
+    fn text_snapshot(&self, text: &str) -> Self::Snapshot {
+        let text = text.replace("\r\n", "\n").replace('\n', "\r\n");
+        let bytes = text.encode_utf16().chain([0]).flat_map(u16::to_le_bytes).collect();
+        vec![(13, bytes)]
+    }
+
+    fn send_paste(&self) {
+        let inputs = [key_input(VK_CONTROL, false), key_input(VK_V, false), key_input(VK_V, true), key_input(VK_CONTROL, true)];
         unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) };
     }
 }

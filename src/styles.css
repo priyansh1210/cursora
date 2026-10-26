@@ -773,6 +773,11 @@ body:has(.chat) {
   color: var(--fg);
   text-decoration: none;
 }
+/* Replace or Insert (spec 13): the answer's main action. */
+.actions button.link.lead {
+  color: var(--accent-text);
+  font-weight: 600;
+}
 .error pre.detail {
   margin: 4px 0;
   max-height: 6em;

@@ -52,7 +52,7 @@ Explain the captured content as if to a five-year-old. Focus on: {{input}}
 - **Rules:**
   - `name` matches `^[a-z0-9][a-z0-9-]{0,31}$` and isn't reserved (SKL-2.6).
   - `description` is 1–120 characters; `args` is at most 40.
-  - `requires` may only contain `vision`; `output` may only be `chat`.
+  - `requires` may only contain `vision`; `output` may be `chat` or, since spec 13, `replace`.
   - `temperature` is a number from 0 to 2.
   - `model` is `<provider>/<model id>`. The provider is matched by name, ignoring case, or by id. The model id may itself contain `/` (OpenRouter), so the split is at the first `/`.
   - The template (the body) is not empty.

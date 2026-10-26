@@ -36,6 +36,8 @@ export type Conversation = {
   unavailable?: string;
   /** The model this conversation answers with instead of the default: a snip's one-time switch (VIS-1.2). */
   ownModel?: ModelRef;
+  /** How an answer can go into the app the bubble opened over (spec 13); absent when it can't. */
+  writeBack?: "replace" | "insert";
 };
 export type Delta = { id: number; offset: number; text: string };
 export type Done = { id: number; status: TurnStatus; error: ChatError | null; dropped: number };
