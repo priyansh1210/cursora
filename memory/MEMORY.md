@@ -1,4 +1,5 @@
-- [Project status](project-status.md) — 2026-10-26: specs 13-15 merged; spec 16 on PR #47, its Medium/Large trial and the X11 checks of 13-16 done (R66, R67 fixed); open: Gemini row, issues 56-58
+- [Project status](project-status.md) — end of 2026-10-26: specs 13-17 merged; PRs #51, #52 and session-notes wait for the user; next: keep improving, fix open issues (59 first)
+- [Demo video and talk](demo-video-and-talk.md) — D:\cursora-demo (91 s video + scripts), voice-over and class-talk script docs
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
 - [No AI attribution in commits/PRs](no-ai-attribution-in-commits.md) — never Claude/Anthropic names, Co-Authored-By or "Generated with" lines
