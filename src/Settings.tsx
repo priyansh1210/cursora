@@ -13,7 +13,8 @@ import { Icon, PATHS } from "./icons";
 import { MyLanguageField } from "./MyLanguage";
 
 /** LNG-4.1, shown while My language isn't English. */
-const MODELS_FOR_LANGUAGES = "The Small download can't write Indian languages: use Medium, or a cloud model such as Gemini.";
+const MODELS_FOR_LANGUAGES =
+  "The free downloads aren't reliable in Indian languages: even the best of them, Medium, can get days and times wrong in a Hindi or Tamil translation. Use a cloud model such as Gemini for these languages.";
 
 // Voice joins between Skills and Privacy once spec 09 is built (APP-5.1).
 const TABS = ["General", "Models", "Personality", "Skills", "Privacy", "History", "About"] as const;

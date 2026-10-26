@@ -254,7 +254,9 @@ pub enum WriteBack {
 
 /// WRT-3.1: never where a paste could do harm or can't be checked; text replaces, nothing selected inserts.
 pub fn write_back(content: &Content, app: &SourceApp, cfg: &CaptureSettings, session: Session) -> Option<WriteBack> {
-    let unsafe_app = cfg.unsafe_apps.iter().any(|a| a.eq_ignore_ascii_case(&app.exe)); // a pasted line break could run a command
+    // A pasted line break could run a command. The list has only Windows names, so Linux terminals come from quick actions' table.
+    let is = |a: &str| a.eq_ignore_ascii_case(&app.exe);
+    let unsafe_app = cfg.unsafe_apps.iter().any(|a| is(a)) || crate::quick::TERMINALS.iter().any(|a| is(a));
     if session == Session::Wayland || app.window == 0 || app.elevated || unsafe_app || blocked(&cfg.blocklist, app) {
         return None;
     }
@@ -659,6 +661,9 @@ mod tests {
         assert_eq!(write_back(&Content::None, &app("notepad.exe"), &c, Session::X11), Some(WriteBack::Insert));
         assert_eq!(write_back(&Content::Files(FileContext::default()), &app("explorer.exe"), &c, Session::Windows), None, "files");
         assert_eq!(write_back(&text, &app("WINDOWSTERMINAL.EXE"), &c, Session::Windows), None, "a terminal, in any letter case");
+        for exe in ["xterm", "gnome-terminal-server", "konsole", "ptyxis"] {
+            assert_eq!(write_back(&text, &app(exe), &c, Session::X11), None, "{exe}: a Linux terminal, not on the Windows-only list");
+        }
         assert_eq!(write_back(&text, &app("KeePass.exe"), &c, Session::Windows), None, "blocked");
         assert_eq!(write_back(&text, &SourceApp { elevated: true, ..app("notepad.exe") }, &c, Session::Windows), None, "elevated");
         assert_eq!(write_back(&text, &Fake::new("notepad.exe").app, &c, Session::Windows), None, "no window to go back to");

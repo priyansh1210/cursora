@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — 2026-10-26: improvements #1-#5 merged (specs 13-15, PRs #41-#43) and reviewed; next: X11 checks and Medium/Large on the stronger PC, then #6-#10
+- [Project status](project-status.md) — 2026-10-26: specs 13-15 merged; spec 16 on PR #47, its Medium/Large trial and the X11 checks of 13-16 done (R66, R67 fixed); open: Gemini row, issues 56-58
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
 - [No AI attribution in commits/PRs](no-ai-attribution-in-commits.md) — never Claude/Anthropic names, Co-Authored-By or "Generated with" lines

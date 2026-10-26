@@ -19,8 +19,10 @@ LNG-4.1's line under My language comes from this trial. [trial.mjs](trial.mjs) s
 | Model | Date, PC | Hindi | Tamil | Hindi into English | Hinglish | Explain in Hindi | Explain in Tamil |
 |---|---|---|---|---|---|---|---|
 | Small: Qwen2.5 1.5B Instruct Q4_K_M | 2026-10-26, laptop | No: English | No: English | Wrong: made up "6 PM" | No: English | No: English | No: English |
-| Medium: Qwen3 4B Instruct 2507 Q4_K_M | | | | | | | |
-| Large: Qwen2.5 7B Instruct Q4_K_M | | | | | | | |
+| Medium: Qwen3 4B Instruct 2507 Q4_K_M | 2026-10-26, stronger PC | Devanagari, wrong: Saturday for Friday, "one-third o'clock" for 3 pm, the contract garbled | Tamil script, wrong: Friday lost, "subscription" for contract | Right | Hinglish, partly wrong: "le jao" (take away) for bring | Right, with a correct worked example (37.6 s) | Tamil script, then one sentence repeated until the limit (176.8 s) |
+| Large: Qwen2.5 7B Instruct Q4_K_M | 2026-10-26, stronger PC | Devanagari, wrong: "editing" for meeting, Saturday 3 AM | No: meaningless words, English fragments | No: answered in Chinese | No: English | Devanagari, a made-up term for compound interest, English words mixed in; the example right | Tamil script, meaningless terms, no real explanation |
 | Gemini (`gemini-flash-lite-latest`) | | | | | | | |
+
+**Medium and Large** (2026-10-26, stronger PC: the files from the pinned URLs, SHA-256 matching `download.rs`; llama.cpp b11570 CPU build, `-c 4096`; one run each). Medium is the best of the three downloads, and good at Hindi into English and at explaining in Hindi, but its translations into Hindi and Tamil changed the facts (the day and the time), which is worse than no translation, and its Tamil explanation looped. Large (an older Qwen2.5) was worse than Medium in every case. So the LNG-4.1 line no longer points to Medium: it says the free downloads aren't reliable in Indian languages and names a cloud model. Gemini's row is still empty (the user runs it with their key); if it disappoints too, change the line again.
 
 **Small:** it isn't the prompt's wording. Asked again with "Target language: Hindi" stated plainly, it still answered in English, and its Tamil was meaningless words (issue 52).

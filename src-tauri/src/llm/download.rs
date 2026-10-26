@@ -320,9 +320,12 @@ mod tests {
         let d = temp_dir("resume");
         let (path, part) = (d.join("model.gguf"), d.join("model.gguf.part"));
         let cancel = Arc::new(AtomicBool::new(false));
-        let stop = cancel.clone();
+        let (stop, started) = (cancel.clone(), part.clone());
+        // Cancel once data has arrived: a fixed delay raced the client's start when all tests run at once (issue 53).
         std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(100));
+            while started.metadata().map_or(0, |m| m.len()) == 0 {
+                std::thread::sleep(Duration::from_millis(5));
+            }
             stop.store(true, Ordering::SeqCst);
         });
         assert_eq!(block(fetch(&url, body.len() as u64, &sha, &path, &cancel, &mut |_| {})), Err("Cancelled.".into()));

@@ -83,7 +83,8 @@ impl X11 {
     pub fn activate(&self, window: Window) -> R<()> {
         let event = ClientMessageEvent::new(32, window, self.atoms._NET_ACTIVE_WINDOW, [2, CURRENT_TIME, 0, 0, 0]);
         self.conn.send_event(false, self.root, EventMask::SUBSTRUCTURE_REDIRECT | EventMask::SUBSTRUCTURE_NOTIFY, event)?;
-        self.conn.flush()?;
+        // A round trip, not a flush: callers close the connection right away, and the server can drop requests it hasn't read yet (issue 54).
+        self.conn.sync()?;
         Ok(())
     }
 
@@ -201,5 +202,31 @@ impl X11 {
         self.conn.send_event(false, r.requestor, EventMask::NO_EVENT, notify)?;
         self.conn.flush()?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wrt_4_2_the_window_manager_gets_the_focus_request_from_a_closed_connection() {
+        assert!(std::env::var_os("CURSORA_XVFB").is_some(), "the X11 tests need their own X server (scripts/wsl-test.sh, or CURSORA_XVFB=1 xvfb-run -a cargo test)");
+        // Listens on the root window as a window manager does (SubstructureNotify, so other tests' windows still map).
+        let wm = X11::connect().unwrap();
+        wm.conn.change_window_attributes(wm.root, &ChangeWindowAttributesAux::new().event_mask(EventMask::SUBSTRUCTURE_NOTIFY)).unwrap();
+        wm.conn.sync().unwrap();
+        let target = 0x0123_4567;
+        for _ in 0..5 {
+            X11::connect().unwrap().activate(target).unwrap(); // its connection closes at once, as in `bubble::activate`
+            let end = Instant::now() + Duration::from_secs(2);
+            loop {
+                match wm.next_event(end) {
+                    Ok(Event::ClientMessage(e)) if e.window == target && e.type_ == wm.atoms._NET_ACTIVE_WINDOW => break,
+                    Ok(_) => {}
+                    Err(e) => panic!("the window manager never got the request: {e}"),
+                }
+            }
+        }
     }
 }

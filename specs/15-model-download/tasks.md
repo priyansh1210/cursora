@@ -7,6 +7,6 @@
 - [x] 5. Check on Windows: download Small for real, cancel and continue, ask a question (2026-10-26: 190 s, SHA-256 confirmed with `certutil`, the engine answered). Then `/ponytail-review` (fixed: a late progress event could leave the bar stuck; a test for Cancel during silence; two unused fields).
 
 ## Manual checklist
-- [ ] MDL-1.1 The three choices, Recommended, the folder and Change…, in Setup and Models. Windows ☑ (Models; Setup uses the same part) X11 ☐
-- [ ] MDL-1.4 Progress and Cancel; Download again continues. Windows ☑ (cancelled at 178 MB, continued from 16%) X11 ☐
-- [ ] Medium and Large downloaded and answering once each.
+- [ ] MDL-1.1 The three choices, Recommended, the folder and Change…, in Setup and Models. Windows ☑ (Models; Setup uses the same part) X11 ☑ (2026-10-26, WSL: Models and Setup's step 1 both; Medium marked Recommended on 31 GB)
+- [ ] MDL-1.4 Progress and Cancel; Download again continues. Windows ☑ (cancelled at 178 MB, continued from 16%) X11 ☑ (2026-10-26, WSL: "0.9 of 4.7 GB" with Cancel; Large cancelled at 900 MB (19%), "Paused. Download again to continue where it stopped."; two seconds after Download again the part was 1.3 GB, so it continued)
+- [x] Medium and Large downloaded and answering once each. 2026-10-26, stronger PC: in the Linux app (WSL, X11), each downloaded in Settings → Models, kept after its SHA-256 check (about 15 s for Medium in the debug build) and added as a Built-in engine source; each answered in the bubble ("Attendee brings signed contract.", "Bring signed contract to Friday meeting."). Also downloaded on Windows with curl from the pinned URLs into `C:\Users\FITT\Models\cursora`, SHA-256 matching `download.rs`, and answering through `llama-server.exe` in the spec 16 trial. Found: issue 56, the downloaded model doesn't become the default.
