@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import History from "./History";
 import { HotkeyFields } from "./HotkeyInput";
@@ -34,7 +35,10 @@ export default function Settings() {
   });
   useEffect(() => {
     const off = listen<string>("settings-tab", (e) => isTab(e.payload) && setTab(e.payload));
-    return () => void off.then((f) => f());
+    // Fields such as About you and the rules save when they lose focus, and closing the window doesn't take it: the
+    // focus is taken first, so what was just typed is saved (PRF-1.1).
+    const closing = getCurrentWindow().onCloseRequested(() => (document.activeElement as HTMLElement | null)?.blur());
+    return () => [off, closing].forEach((u) => void u.then((f) => f()));
   }, []);
   if (!settings) return null;
 

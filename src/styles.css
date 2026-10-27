@@ -293,6 +293,12 @@ textarea {
   margin: 4px 0 12px;
   font: var(--text-xs) / 1.45 var(--mono);
 }
+/* About you (PRF-1.1) is prose: the body font, across the card. */
+textarea.about-you {
+  max-width: none;
+  margin: 0;
+  font: inherit;
+}
 /* Wide enough for its placeholder (issue 12), like the text areas. */
 input[type="search"] {
   width: 100%;
