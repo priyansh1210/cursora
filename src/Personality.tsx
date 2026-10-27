@@ -32,18 +32,20 @@ export default function PersonalityTab({ settings, save }: { settings: Settings;
 
   return (
     <>
-      <h2>Personality</h2>
+      <div className="group">
       <label className="row">
-        <input type="checkbox" checked={settings.personalityOn} aria-describedby="personality-note" onChange={(e) => save({ personalityOn: e.target.checked }).catch(() => {})} />
+        <input type="checkbox" role="switch" checked={settings.personalityOn} aria-describedby="personality-note" onChange={(e) => save({ personalityOn: e.target.checked }).catch(() => {})} />
         Use a personality
       </label>
       <p className="muted" id="personality-note">
         Answers come from the persona chosen below. Turned off, you get the plain model, with no name or character.
       </p>
+      </div>
 
       <h2>Personas</h2>
+      <div className="group">
       {personas.map((p) => (
-        <section className="card" key={p.id} aria-label={p.name}>
+        <section key={p.id} aria-label={p.name}>
           <div className="row">
             <strong>{p.name}</strong>
             {isBuiltIn(p) && <span className="badge">Built-in</span>}
@@ -81,6 +83,7 @@ export default function PersonalityTab({ settings, save }: { settings: Settings;
           {editing?.id === p.id && <Editor key={p.id} initial={editing} save={save} onDone={() => closeEditor(p)} />}
         </section>
       ))}
+      </div>
       <div className="row">
         <button type="button" onClick={() => void add(BLANK)}>
           New persona
@@ -165,7 +168,7 @@ function Editor({ initial, save, onDone }: { initial: Persona; save: Save; onDon
       </label>
       {preview && (preview.ok ? <pre className="detail" aria-label="Persona instructions">{preview.text}</pre> : <p role="alert" className="error">{preview.text}</p>)}
       <div className="row">
-        <button type="submit" disabled={!preview?.ok}>
+        <button type="submit" className="primary" disabled={!preview?.ok}>
           Save
         </button>
         <button type="button" onClick={onDone}>
