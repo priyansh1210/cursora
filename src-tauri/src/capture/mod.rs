@@ -143,6 +143,27 @@ pub enum Clip {
     Nothing,
 }
 
+/// A hotkey pressed again for the app in front (OFF-1.2): its modifiers, then one key.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Chord {
+    pub ctrl: bool,
+    pub alt: bool,
+    pub shift: bool,
+    pub win: bool,
+    pub key: Key,
+}
+
+/// The keys a passed-on hotkey can end in (OFF-1.3).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Key {
+    /// 'a' to 'z'
+    Letter(char),
+    Digit(u8),
+    /// F1 to F24
+    F(u8),
+    Space,
+}
+
 pub trait Platform {
     type Snapshot;
     fn foreground(&self) -> SourceApp;
@@ -159,6 +180,8 @@ pub trait Platform {
     fn text_snapshot(&self, text: &str) -> Self::Snapshot;
     /// Ctrl+V to the app in front (WRT-1.1).
     fn send_paste(&self);
+    /// A hotkey's keys to the app in front, pressing only the modifiers that aren't still held (OFF-1.2).
+    fn send_chord(&self, chord: &Chord);
     /// The selection is read from PRIMARY (Linux), so keys are only ever sent to file managers (LNX-3.1 to 3.3).
     fn primary(&self) -> bool {
         false
@@ -403,6 +426,9 @@ mod tests {
         fn send_paste(&self) {
             self.log(format!("paste {:?}", self.clipboard.borrow()));
         }
+        fn send_chord(&self, chord: &Chord) {
+            self.log(format!("chord {chord:?}"));
+        }
         fn primary(&self) -> bool {
             self.primary
         }
@@ -416,6 +442,14 @@ mod tests {
 
     fn cfg() -> CaptureSettings {
         CaptureSettings { copy_timeout_ms: 20, ..CaptureSettings::default() }
+    }
+
+    #[test]
+    fn off_1_2_the_platform_gets_the_chord_to_press_again() {
+        let p = Fake::new("code.exe");
+        let chord = Chord { ctrl: true, alt: false, shift: false, win: false, key: Key::Letter('g') };
+        p.send_chord(&chord);
+        assert!(p.called("chord Chord { ctrl: true"), "{:?}", p.calls.borrow());
     }
 
     fn text(c: &Capture) -> &str {

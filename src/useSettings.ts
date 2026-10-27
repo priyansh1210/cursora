@@ -16,7 +16,8 @@ export type Settings = {
   startWithSystem: boolean;
   runAsAdmin: boolean;
   theme: "system" | "light" | "dark";
-  hotkeys: { ask: string; snip: string; pushToTalk: string | null };
+  /** `offIn`: spec 21's apps where both hotkeys pass through (OFF-1.1). */
+  hotkeys: { ask: string; snip: string; pushToTalk: string | null; offIn: Rule[] };
   personalityOn: boolean;
   activePersona: string;
   personas: Persona[];

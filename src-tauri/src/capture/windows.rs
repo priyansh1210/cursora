@@ -1,4 +1,4 @@
-use super::{Clip, CopyKey, Platform, SourceApp};
+use super::{Chord, Key, Clip, CopyKey, Platform, SourceApp};
 use clipboard_win::{raw, Clipboard};
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -10,7 +10,7 @@ use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcess, OpenProc
 use windows::Win32::UI::Accessibility::{CUIAutomation8, IUIAutomation2, IUIAutomationTextPattern, UIA_TextPatternId};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_C, VK_CONTROL, VK_INSERT,
-    VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT, VK_V,
+    VK_F1, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT, VK_SPACE, VK_V,
 };
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId};
 
@@ -167,6 +167,25 @@ impl Platform for WinPlatform {
 
     fn send_paste(&self) {
         let inputs = [key_input(VK_CONTROL, false), key_input(VK_V, false), key_input(VK_V, true), key_input(VK_CONTROL, true)];
+        unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) };
+    }
+
+    fn send_chord(&self, chord: &Chord) {
+        let up = |vk: VIRTUAL_KEY| unsafe { GetAsyncKeyState(vk.0 as i32) } >= 0;
+        let mods: Vec<VIRTUAL_KEY> = [(chord.ctrl, VK_CONTROL), (chord.alt, VK_MENU), (chord.shift, VK_SHIFT), (chord.win, VK_LWIN)]
+            .into_iter()
+            .filter(|&(on, vk)| on && up(vk) && (vk != VK_LWIN || up(VK_RWIN)))
+            .map(|(_, vk)| vk)
+            .collect();
+        let key = match chord.key {
+            Key::Letter(c) => VIRTUAL_KEY(c.to_ascii_uppercase() as u16),
+            Key::Digit(d) => VIRTUAL_KEY(0x30 + u16::from(d)),
+            Key::F(n) => VIRTUAL_KEY(VK_F1.0 + u16::from(n) - 1),
+            Key::Space => VK_SPACE,
+        };
+        let mut inputs: Vec<INPUT> = mods.iter().map(|&vk| key_input(vk, false)).collect();
+        inputs.extend([key_input(key, false), key_input(key, true)]);
+        inputs.extend(mods.iter().rev().map(|&vk| key_input(vk, true)));
         unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) };
     }
 }
