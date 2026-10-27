@@ -1,4 +1,5 @@
-//! Vision snip (spec 10): grab the screen, let the user pick a region, and hand it to a model that can see.
+//! Vision snip (spec 10): grab the screen, let the user pick a region, and hand it to a model that can see, or read its
+//! text for one that can't (spec 20).
 #[cfg(not(windows))]
 mod linux;
 #[cfg(windows)]
@@ -9,6 +10,7 @@ use linux as os;
 #[cfg(windows)]
 use self::windows as os;
 
+pub mod ocr;
 mod overlay;
 
 use crate::bubble::{self, Rect};
@@ -48,6 +50,8 @@ pub struct Prepared {
     pub thumbnail: Image,
     pub width: u32,
     pub height: u32,
+    /// The region at full size, for reading its text (OCR-1.2).
+    pub pixels: RgbImage,
 }
 
 /// A rectangle under 8×8 px is a cancel (VIS-2.3).
@@ -91,9 +95,9 @@ pub fn prepare(grab: &Grab, r: Rect, max_side: u32) -> Result<Prepared, String> 
             px.0 = [bgra[2], bgra[1], bgra[0]];
         }
     }
-    let image = fit(rgb, max_side);
+    let image = fit(rgb.clone(), max_side);
     let thumbnail = fit(image.clone(), THUMBNAIL);
-    Ok(Prepared { width: image.width(), height: image.height(), image: png(&image)?, thumbnail: png(&thumbnail)? })
+    Ok(Prepared { width: image.width(), height: image.height(), image: png(&image)?, thumbnail: png(&thumbnail)?, pixels: rgb })
 }
 
 /// Downscaled so the long side is at most `max`, keeping the shape; never enlarged.
@@ -119,6 +123,8 @@ struct Pending {
     source: SourceApp,
     model: Option<ModelRef>,
     question: Option<String>,
+    /// The answering model can't see, so the region's text is read (OCR-1.2).
+    read_text: bool,
 }
 
 static PENDING: Mutex<Option<Pending>> = Mutex::new(None);
@@ -146,13 +152,15 @@ enum Begin {
     Failed(String),
 }
 
-/// The checks before anything is grabbed: the blocklist first (VIS-3.1), then a model that can see (VIS-1.2).
-fn begin(source: &SourceApp, s: &Settings, sees: bool, grab: impl FnOnce() -> Result<Grab, String>) -> Begin {
+/// The checks before anything is grabbed: the blocklist first (VIS-3.1), then a model that can see (VIS-1.2), or text
+/// recognition for one that can't (OCR-1.1).
+fn begin(source: &SourceApp, s: &Settings, sees: bool, can_read: bool, grab: impl FnOnce() -> Result<Grab, String>) -> Begin {
     if capture::blocked(&s.capture.blocklist, source) {
         return Begin::Blocked;
     }
     match snip_model(sees, &s.models, s.local_only) {
         SnipModel::Active => grab().map_or_else(Begin::Failed, Begin::Grabbed),
+        _ if can_read => grab().map_or_else(Begin::Failed, Begin::Grabbed),
         SnipModel::Other(m) => Begin::NeedsVision(Some(m)),
         SnipModel::None => Begin::NeedsVision(None),
     }
@@ -181,16 +189,17 @@ pub fn start(app: &AppHandle, how: Start) {
             }
             os::grab()
         };
-        let notice = match begin(&source, &s, sees, grab) {
+        let read_text = !sees;
+        let notice = match begin(&source, &s, sees, read_text && ocr::available(), grab) {
             Begin::Grabbed(grab) if wayland => {
                 let whole = Rect { x: 0, y: 0, w: grab.width as i32, h: grab.height as i32 };
-                finish(&app, Pending { grab, source, model: how.model, question: how.question }, whole, None);
+                finish(&app, Pending { grab, source, model: how.model, question: how.question, read_text }, whole, None);
                 return done();
             }
             Begin::Grabbed(grab) => {
                 log::info!("snip: grabbed {}×{} from {}", grab.width, grab.height, source.exe);
                 let shown = (grab.x, grab.y, grab.width, grab.height);
-                *PENDING.lock().unwrap() = Some(Pending { grab, source, model: how.model, question: how.question });
+                *PENDING.lock().unwrap() = Some(Pending { grab, source, model: how.model, question: how.question, read_text });
                 if let Err(e) = overlay::show(&app, shown) {
                     PENDING.lock().unwrap().take();
                     log::warn!("snip: overlay: {e}");
@@ -202,7 +211,7 @@ pub fn start(app: &AppHandle, how: Start) {
                 source.title.clear(); // not shown, not saved, as for Ask
                 Notice::Blocked
             }
-            Begin::NeedsVision(offer) => Notice::NeedsVision { offer: offer.map(|m| offer_for(&s.models, m)) },
+            Begin::NeedsVision(offer) => Notice::NeedsVision { offer: offer.map(|m| offer_for(&s.models, m)), install_tesseract: cfg!(not(windows)) },
             Begin::Failed(reason) => Notice::SnipFailed { reason },
         };
         open(&app, Capture { app: source, method: Method::None, content: Content::None, notice: Some(notice) }, cursor, None);
@@ -257,15 +266,33 @@ pub fn snip_done(window: WebviewWindow, app: AppHandle, rect: Option<CssRect>) {
     done();
 }
 
-/// The region becomes the image of a new conversation; `/snip <question>` asks it at once.
+/// What reading a snip's text brings: the text, or the notice that there was none (OCR-1.2, OCR-1.4). `read` is None when
+/// the model can see, so nothing was read.
+fn read_result(read: Option<Result<String, String>>, offer: impl FnOnce() -> Option<capture::VisionOffer>) -> (Option<String>, Option<Notice>) {
+    match read {
+        None => (None, None),
+        Some(Ok(text)) if !text.is_empty() => (Some(text), None),
+        Some(Ok(_)) => (None, Some(Notice::NoText { offer: offer() })),
+        Some(Err(reason)) => (None, Some(Notice::SnipFailed { reason })),
+    }
+}
+
+/// The region becomes the image of a new conversation, with its text for a model that can't see; `/snip <question>`
+/// asks it at once.
 fn finish(app: &AppHandle, p: Pending, r: Rect, corner: Option<(i32, i32)>) {
     let started = Instant::now();
-    let max_side = app.state::<AppState>().settings.lock().unwrap().snip.max_side;
-    match prepare(&p.grab, r, max_side) {
+    let s = app.state::<AppState>().settings.lock().unwrap().clone();
+    match prepare(&p.grab, r, s.snip.max_side) {
         Ok(img) => {
-            log::info!("snip: {}×{} PNG in {} ms", img.width, img.height, started.elapsed().as_millis());
-            let content = Content::Snip(capture::Snip { thumbnail: img.thumbnail, width: img.width, height: img.height, full: Some(img.image) });
-            open(&app, Capture { app: p.source, method: Method::None, content, notice: None }, corner, p.model);
+            let offer = || match snip_model(false, &s.models, s.local_only) {
+                SnipModel::Other(m) => Some(offer_for(&s.models, m)),
+                _ => None,
+            };
+            let (text, notice) = read_result(p.read_text.then(|| ocr::read(&img.pixels)), offer);
+            let read = text.as_ref().map_or(String::new(), |t| format!(", {} characters read", t.chars().count()));
+            log::info!("snip: {}×{} PNG{read} in {} ms", img.width, img.height, started.elapsed().as_millis());
+            let content = Content::Snip(capture::Snip { thumbnail: img.thumbnail, width: img.width, height: img.height, full: Some(img.image), text });
+            open(&app, Capture { app: p.source, method: Method::None, content, notice }, corner, p.model);
             if let Some(q) = p.question.filter(|q| !q.trim().is_empty()) {
                 let _ = app.emit_to(bubble::LABEL, "snip-ask", q); // `/snip <question>`: sent as if typed, so confirming still applies
             }
@@ -350,19 +377,38 @@ mod tests {
     fn vis_3_1_a_blocked_app_in_front_gets_the_notice_and_nothing_is_grabbed() {
         let s = Settings::default(); // password managers are blocked by default (PRI-2.3)
         let never = || -> Result<Grab, String> { panic!("grabbed in a blocked app") };
-        assert!(matches!(begin(&app("KeePassXC.exe"), &s, true, never), Begin::Blocked));
-        assert!(matches!(begin(&app("notepad.exe"), &s, true, || Ok(grab(10, 10))), Begin::Grabbed(_)));
-        assert!(matches!(begin(&app("notepad.exe"), &s, true, || Err("no screen".into())), Begin::Failed(e) if e == "no screen"));
+        assert!(matches!(begin(&app("KeePassXC.exe"), &s, true, false, never), Begin::Blocked));
+        assert!(matches!(begin(&app("KeePassXC.exe"), &s, false, true, never), Begin::Blocked), "reading text doesn't skip the blocklist");
+        assert!(matches!(begin(&app("notepad.exe"), &s, true, false, || Ok(grab(10, 10))), Begin::Grabbed(_)));
+        assert!(matches!(begin(&app("notepad.exe"), &s, true, false, || Err("no screen".into())), Begin::Failed(e) if e == "no screen"));
     }
 
     #[test]
     fn vis_1_2_without_a_model_that_can_see_nothing_is_grabbed() {
         let never = || -> Result<Grab, String> { panic!("grabbed without vision") };
-        assert!(matches!(begin(&app("notepad.exe"), &Settings::default(), false, never), Begin::NeedsVision(None)));
+        assert!(matches!(begin(&app("notepad.exe"), &Settings::default(), false, false, never), Begin::NeedsVision(None)));
         let mut s = Settings::default();
         s.models = serde_json::from_value(json!({ "providers": [{ "id": "p-lm", "name": "LM Studio", "kind": "openai-compatible", "baseUrl": "http://localhost:1234/v1", "models": ["llava-1.6"] }] })).unwrap();
-        let Begin::NeedsVision(Some(m)) = begin(&app("notepad.exe"), &s, false, never) else { panic!("no offer") };
+        let Begin::NeedsVision(Some(m)) = begin(&app("notepad.exe"), &s, false, false, never) else { panic!("no offer") };
         assert_eq!(offer_for(&s.models, m).label, "llava-1.6 (LM Studio)");
+    }
+
+    #[test]
+    fn ocr_1_1_with_text_recognition_a_model_that_cant_see_still_snips() {
+        assert!(matches!(begin(&app("notepad.exe"), &Settings::default(), false, true, || Ok(grab(10, 10))), Begin::Grabbed(_)));
+        // The full-size region is kept for reading, while the model's image is downscaled.
+        let p = prepare(&grab(3000, 100), Rect { x: -100, y: 0, w: 3000, h: 100 }, 2048).unwrap();
+        assert_eq!((p.pixels.width(), p.width), (3000, 2048));
+    }
+
+    #[test]
+    fn ocr_1_4_no_text_found_says_so_and_offers_a_model_that_can_see() {
+        let offer = || Some(capture::VisionOffer { model: ModelRef { provider: "p".into(), model: "llava".into() }, label: "llava (LM Studio)".into() });
+        assert_eq!(read_result(None, offer), (None, None), "a model that can see: nothing read");
+        assert_eq!(read_result(Some(Ok("Error 404".into())), offer), (Some("Error 404".into()), None));
+        assert_eq!(read_result(Some(Ok(String::new())), offer), (None, Some(Notice::NoText { offer: offer() })));
+        assert_eq!(read_result(Some(Ok(String::new())), || None), (None, Some(Notice::NoText { offer: None })));
+        assert_eq!(read_result(Some(Err("no".into())), offer), (None, Some(Notice::SnipFailed { reason: "no".into() })));
     }
 
     #[test]
@@ -387,8 +433,10 @@ mod tests {
 
     #[test]
     fn vis_2_6_the_snip_code_never_writes_the_screen_or_the_image_anywhere() {
+        // OCR-1.5: text recognition included.
         let fs = ["std::", "fs"].concat();
-        for (file, code) in [("mod.rs", include_str!("mod.rs")), ("overlay.rs", include_str!("overlay.rs")), ("windows.rs", include_str!("windows.rs")), ("linux.rs", include_str!("linux.rs"))] {
+        let files = [("mod.rs", include_str!("mod.rs")), ("overlay.rs", include_str!("overlay.rs")), ("windows.rs", include_str!("windows.rs")), ("linux.rs", include_str!("linux.rs")), ("ocr.rs", include_str!("ocr.rs"))];
+        for (file, code) in files {
             assert!(!code.contains(&fs) && !code.contains(&["File", "::"].concat()), "{file} touches files");
         }
     }
