@@ -112,7 +112,12 @@ diag() {
   import -window root ~/x11-sav/screen.png 2>/dev/null && echo '--- screenshot: \\wsl$\Ubuntu-24.04\home\cursora\x11-sav\screen.png'
 }
 notes() { xdotool search --onlyvisible --name "$1" 2>/dev/null | wc -l; }
-bubble() { xdotool search --onlyvisible --name '^Cursora$' 2>/dev/null | head -1; }
+# By size: xdotool ignores letter case, and the tray icon's window (24 px) is called "cursora".
+bubble() {
+  for w in $(xdotool search --onlyvisible --name '^Cursora$' 2>/dev/null); do
+    [ "$(xdotool getwindowgeometry --shell "$w" | sed -n 's/^WIDTH=//p')" -ge 300 ] 2>/dev/null && { echo "$w"; return; }
+  done
+}
 geom() { xdotool getwindowgeometry --shell "$1" | tr '\n' ' '; }
 brightness() { import -window "$1" -crop 1x1+4+4 -depth 8 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}' | head -1 | cut -c2-3 | xargs -I{} printf '%d' 0x{}; }
 
@@ -122,9 +127,10 @@ ask() {
   xdotool search --sync --name 'note.txt' windowactivate --sync >/dev/null 2>&1
   xdotool key --clearmodifiers ctrl+a; sleep 0.5
   $app --ask
-  xdotool search --sync --onlyvisible --name '^Cursora$' >/dev/null
-  sleep 1.5
+  for _ in $(seq 1 30); do [ -n "$(bubble)" ] && break; sleep 0.3; done
+  sleep 1
   b=$(bubble)
+  [ -n "$b" ] || { echo "INFO the bubble didn't open"; return 1; }
   [ "$(xdotool getactivewindow)" = "$b" ] || xdotool windowactivate --sync "$b"
   echo "INFO typing into '$(xdotool getactivewindow getwindowname 2>/dev/null)'"
   xdotool type --delay 15 "$1"; xdotool key Return
@@ -144,7 +150,7 @@ b=$(bubble); bg=$(geom "$b")
 at click "Pin this answer on screen in a note"; sleep 2
 check '[ "$(notes "When is the report due?")" -eq 1 ]' "Pin opened a note titled with the question"
 n=$(xdotool search --onlyvisible --name "When is the report due?" | head -1)
-if [ -n "$n" ]; then
+if [ -n "$n" ] && [ -n "$b" ]; then
   ng=$(geom "$n"); echo "INFO bubble: $bg"; echo "INFO note:   $ng"
   eval "$(xdotool getwindowgeometry --shell "$b" | sed 's/^/B_/')"; eval "$(xdotool getwindowgeometry --shell "$n" | sed 's/^/N_/')"
   check '[ "$N_X" -ge $((B_X + B_WIDTH)) ] || [ $((N_X + N_WIDTH)) -le "$B_X" ]' "the note sits beside the bubble"

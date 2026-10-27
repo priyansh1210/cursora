@@ -362,7 +362,16 @@ function Engine({ p, set }: { p: Provider; set: (patch: Partial<Provider>) => vo
 }
 
 /** Adding a provider: LM Studio if it is running, the built-in engine, a preset, or any OpenAI-compatible server. Setup uses it too. */
+/** DSN-4.1: the three kinds of AI source, each with what it costs the user. */
+const KINDS = [
+  { id: "download", name: "Download a free model", hint: "Runs on this computer: free, private, works offline. A 1 to 5 GB download.", badge: "Recommended" },
+  { id: "cloud", name: "A cloud provider", hint: "The best answers. OpenAI, Anthropic, Google Gemini and others; needs an API key.", badge: null },
+  { id: "own", name: "A model I already have", hint: "LM Studio, a .gguf file, or a server on your network.", badge: null },
+] as const;
+type SourceKind = (typeof KINDS)[number]["id"];
+
 export function AddProvider({ save, onAdded }: { save: Save; onAdded: (p: Provider) => void }) {
+  const [kind, setKind] = useState<SourceKind>();
   const [source, setSource] = useState("");
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
@@ -383,6 +392,7 @@ export function AddProvider({ save, onAdded }: { save: Save; onAdded: (p: Provid
       const host = p.baseUrl ? await invoke<string | null>("lan_host", { url: p.baseUrl }) : null;
       const trusted = (await invoke<Settings>("get_settings")).models.trustedHosts;
       setSource("");
+      setKind(undefined);
       setKey("");
       if (host && !trusted.includes(host)) setTrust({ host, provider: p }); // LLM-8.3
       else onAdded(p);
@@ -421,27 +431,40 @@ export function AddProvider({ save, onAdded }: { save: Save; onAdded: (p: Provid
           </button>
         </div>
       ))}
-      <label className="row">
-        <span>Source</span>
-        <select
-          value={source}
-          onChange={(e) => {
-            const p = PRESETS.find((x) => x.id === e.target.value);
-            setSource(e.target.value);
-            setName(p?.name ?? "");
-            setUrl(p?.baseUrl ?? "");
-          }}
-        >
-          <option value="">Choose…</option>
-          <option value="download">Download a free model</option>
-          <option value="builtin">Built-in engine (a .gguf model file)</option>
-          {PRESETS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <fieldset aria-label="Kind of AI source">
+        {KINDS.map((k) => (
+          <label key={k.id} className="row">
+            <input type="radio" name="source-kind" checked={kind === k.id} onChange={() => (setKind(k.id), setSource(k.id === "download" ? "download" : ""))} />
+            <span>
+              <strong>{k.name}</strong> {k.badge && <span className="badge">{k.badge}</span>}
+              <br />
+              <span className="muted">{k.hint}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      {(kind === "cloud" || kind === "own") && (
+        <label className="row">
+          <span>{kind === "cloud" ? "Provider" : "Kind"}</span>
+          <select
+            value={source}
+            onChange={(e) => {
+              const p = PRESETS.find((x) => x.id === e.target.value);
+              setSource(e.target.value);
+              setName(p?.name ?? "");
+              setUrl(p?.baseUrl ?? "");
+            }}
+          >
+            <option value="">Choose…</option>
+            {kind === "own" && <option value="builtin">A .gguf model file (built-in engine)</option>}
+            {PRESETS.filter((p) => p.needsKey === (kind === "cloud")).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {source === "download" && <DownloadModel onReady={(path) => void add(engineProvider(path, null))} />}
       {source === "builtin" && (
         <button type="button" onClick={() => invoke<string | null>("pick_model_file").then((f) => void (f && add(engineProvider(f, null))))}>
@@ -467,7 +490,9 @@ export function AddProvider({ save, onAdded }: { save: Save; onAdded: (p: Provid
             <span>API key</span>
             <input type="password" value={key} placeholder={preset.needsKey ? "" : "optional"} onChange={(e) => setKey(e.target.value)} required={preset.needsKey} />
           </label>
-          <button type="submit">Add</button>
+          <button type="submit" className="primary">
+            Add
+          </button>
         </form>
       )}
     </>
