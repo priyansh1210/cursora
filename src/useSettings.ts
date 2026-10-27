@@ -50,6 +50,8 @@ export type Settings = {
   savedAnswersFolder: string | null;
   /** Spec 19: the downloaded speech model's path; null until one is (VIN-1.6). */
   voiceModel: string | null;
+  /** Spec 22: a few lines about the user, sent with every question (PRF-1.2). */
+  aboutYou: string;
 };
 
 export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";

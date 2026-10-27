@@ -38,6 +38,8 @@ pub struct Settings {
     pub saved_answers_folder: Option<std::path::PathBuf>,
     /// Spec 19: the downloaded speech model; None until one is (VIN-1.6).
     pub voice_model: Option<String>,
+    /// Spec 22: a few lines about the user, sent with every question (PRF-1.2).
+    pub about_you: String,
 }
 
 impl Default for Settings {
@@ -65,6 +67,7 @@ impl Default for Settings {
             answer_in_my_language: false,
             saved_answers_folder: None,
             voice_model: None,
+            about_you: String::new(),
         }
     }
 }
