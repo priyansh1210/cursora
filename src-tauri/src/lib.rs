@@ -234,7 +234,8 @@ pub(crate) fn open_window_at(app: &AppHandle, label: &str, tab: &str) {
         return;
     }
     let url = if tab.is_empty() { WebviewUrl::default() } else { WebviewUrl::App(format!("index.html#{tab}").into()) };
-    let (title, width, height) = if label == "setup" { ("Cursora setup", 520.0, 480.0) } else { ("Cursora settings", 880.0, 640.0) };
+    // Setup's first step fits its three source cards without scrolling (DSN-4.2).
+    let (title, width, height) = if label == "setup" { ("Cursora setup", 600.0, 600.0) } else { ("Cursora settings", 880.0, 640.0) };
     if let Err(e) = WebviewWindowBuilder::new(app, label, url).additional_browser_args(BROWSER_ARGS).title(title).inner_size(width, height).build() {
         log::error!("opening {label} window: {e}");
     }

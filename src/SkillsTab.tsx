@@ -53,16 +53,18 @@ export default function SkillsTab({ settings, save }: { settings: Settings; save
 
   return (
     <>
-      <h2>Skills</h2>
-      <p className="muted">Type / in the bubble to use them. Your own skills are Markdown files in the skills folder.</p>
+      <div className="group">
       <label className="row">
-        <input type="checkbox" checked={quick.on} onChange={(e) => save({ quick: { ...quick, on: e.target.checked } }).catch(() => {})} />
+        <input type="checkbox" role="switch" checked={quick.on} onChange={(e) => save({ quick: { ...quick, on: e.target.checked } }).catch(() => {})} />
         Show quick actions in the bubble
       </label>
-      <p className="muted note">Buttons over a selection that suit the app it came from. Pinned skills come first.</p>
+      <p className="muted">Buttons over a selection that suit the app it came from. Pinned skills come first.</p>
+      </div>
       {form && <SkillForm key={form.key} form={form} settings={settings} builtIns={builtIns} onDone={close} />}
+      <h2>Your skills</h2>
+      <div className="group">
       {listing.skills.map((s) => (
-        <section className="card" key={s.name} aria-label={`/${s.name}`}>
+        <section key={s.name} aria-label={`/${s.name}`}>
           <div className="row">
             <strong>/{s.name}</strong>
             {s.args && <code>{s.args}</code>}
@@ -99,6 +101,7 @@ export default function SkillsTab({ settings, save }: { settings: Settings; save
           <p className="muted note">{s.description}</p>
         </section>
       ))}
+      </div>
       {listing.invalid.length > 0 && (
         <>
           <h2>Files with problems</h2>
@@ -239,7 +242,7 @@ function SkillForm({ form, settings, builtIns, onDone }: { form: Form; settings:
         </pre>
       )}
       <div className="row">
-        <button type="submit" disabled={!check?.ok}>
+        <button type="submit" className="primary" disabled={!check?.ok}>
           Save
         </button>
         <button type="button" onClick={onDone}>

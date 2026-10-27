@@ -9,3 +9,4 @@
 - [Spec 09 voice optional](spec-09-voice-shelved.md) — Optional since 2026-10-25 (PR #21); not part of the release; don't propose it
 - [Two dev PCs](dev-machines.md) — laptop PRIYANSH does Windows; the stronger PC DESKTOP-RTIKELL (Chrome Remote Desktop) does Linux in WSL as user `cursora`, never `ethify`; check `hostname`
 - [Product direction](product-direction.md) — 2026-10-26 honest assessment (well built, not unique, setup and trust block users) + user's plan: improve a lot before launch; Store paused; 10 improvement ideas
+- [Spec 18 design refresh](spec-18-design-refresh.md) — 2026-10-27: approved and built (today's green, Geist); PR open; real-app look (issue 63) and manual checklist to do
