@@ -217,11 +217,13 @@
 
   <section id="install">
     <h2>Install</h2>
+    <p>Download the latest release from <a href="https://github.com/priyansh1210/cursora-releases/releases/latest">cursora-releases</a>.</p>
     <ul>
-      <li><b>Windows:</b> run the <code>.msi</code> or <code>.exe</code> installer. Install for all users (into Program Files) if you want to use Cursora in apps that run as administrator; see <a href="#general">General settings</a>.</li>
-      <li><b>Linux:</b> install the <code>.deb</code> package (Ubuntu and Debian), or make the <code>.AppImage</code> executable and run it (any distribution).</li>
+      <li><b>Windows:</b> run the <code>.msi</code> installer. Install for all users (into Program Files) if you want to use Cursora in apps that run as administrator; see <a href="#general">General settings</a>. The installer isn't code-signed yet, so Windows may say it doesn't recognize the app: choose <b>More info</b>, then <b>Run anyway</b>.</li>
+      <li><b>Linux:</b> install the <code>.deb</code> package (Ubuntu and Debian) or the <code>.rpm</code> package (Fedora and openSUSE), or make the <code>.AppImage</code> executable and run it (any distribution).</li>
     </ul>
-    <p>The installers include the <b>built-in engine</b>, so you can run an AI model file on your computer without installing anything else.</p>
+    <p>The installers include the <b>built-in engine</b>, so you can run an AI model file on your computer without installing anything else. On Windows it needs Microsoft's Visual C++ runtime, which most PCs already have; if the engine doesn't start, install the <a href="https://aka.ms/vs/17/release/vc_redist.x64.exe">Visual C++ Redistributable</a>.</p>
+    <p>Cursora keeps itself up to date: once a day it checks for a new version, and every update is signed. Untick <span class="ui">Check for updates automatically</span> in Settings → General to stop it.</p>
   </section>
 
   <section id="setup">

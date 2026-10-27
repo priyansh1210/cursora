@@ -15,13 +15,23 @@ export const PATHS = {
   link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1",
   image: "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM4 16l5-5 4 4 2-2 5 5M15 9h.01",
   file: "M6 3h8l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v4h4",
+  close: "M7 7l10 10M17 7L7 17",
+  chevron: "M10 7l5 5-5 5",
+  // An answer's actions (DSN-2.2)
+  copy: "M10 9h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM15 9V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h4",
+  pin: "M9 4h6M10 4v6l-3 4h10l-3-4V4M12 14v6",
+  save: "M12 4v11M7 10l5 5 5-5M5 20h14",
+  regenerate: "M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6",
+  // The input (DSN-2.3)
+  send: "M12 19V5M6 11l6-6 6 6",
+  stop: "M8 8h8v8H8z",
   // Setup
   check: "M5 12.5l4.5 4.5L19 7.5",
 };
 
-export function Icon({ d, size = 18 }: { d: string; size?: number }) {
+export function Icon({ d, size = 18, stroke = 1.8 }: { d: string; size?: number; stroke?: number }) {
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={d} />
     </svg>
   );

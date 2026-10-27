@@ -3,7 +3,7 @@
 // in dev, run it once to try the built-in engine: `npm run fetch-llama`.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -12,6 +12,20 @@ const ASSETS = {
   win32: { file: `llama-${BUILD}-bin-win-cpu-x64.zip`, sha256: "2ac50506661724876ec12b50fa2f4e2d3ddac4830da8cb799d3703bba4c72da4", strip: 0 },
   linux: { file: `llama-${BUILD}-bin-ubuntu-x64.tar.gz`, sha256: "6fa129f3e6f5a9dab675d0d41436bc797c826a62438ac295d129bbba7b3c637b", strip: 1 },
 };
+
+// What the llama.cpp files import from the Visual C++ runtime (dumpbin /dependents); the api-ms-win-crt-* part is in Windows.
+const VC_RUNTIME = ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"];
+
+/** Visual Studio's folder of redistributable runtime files, the ones Microsoft allows apps to ship. */
+function vcRedist() {
+  const vswhere = join(process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)", "Microsoft Visual Studio", "Installer", "vswhere.exe");
+  const vs = execFileSync(vswhere, ["-latest", "-products", "*", "-property", "installationPath"], { encoding: "utf8" }).trim();
+  const version = readFileSync(join(vs, "VC", "Auxiliary", "Build", "Microsoft.VCRedistVersion.default.txt"), "utf8").trim();
+  const x64 = join(vs, "VC", "Redist", "MSVC", version, "x64");
+  const crt = readdirSync(x64).find((name) => /^Microsoft\.VC\d+\.CRT$/.test(name));
+  if (!crt) throw new Error(`No Visual C++ runtime in ${x64}`);
+  return join(x64, crt);
+}
 
 /** llama-server, its libraries and the licenses; not the other tools or their -impl libraries. */
 export function keep(name) {
@@ -42,6 +56,8 @@ async function main() {
   rmSync(archive);
   // shortcut: Linux symlinks (libllama.so → .so.0 → .so.0.6.0) are bundled as copies, about 15 MB extra; resolve them if size matters.
   for (const name of readdirSync(out)) if (!keep(name)) rmSync(join(out, name), { recursive: true });
+  // A fresh Windows lacks the Visual C++ runtime llama.cpp needs (issue 50): ship it next to llama-server ("app-local").
+  if (process.platform === "win32") for (const dll of VC_RUNTIME) copyFileSync(join(vcRedist(), dll), join(out, dll));
   // llama.cpp is MIT-licensed, and the Windows archive leaves its license out.
   if (!readdirSync(out).includes("LICENSE")) {
     const license = await fetch(`https://raw.githubusercontent.com/ggml-org/llama.cpp/${BUILD}/LICENSE`);

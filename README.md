@@ -44,7 +44,7 @@ Use a model on your own computer or your own cloud API key. Give it a name and a
 **New to Cursora?** Read the [user manual](user-manual.html): download it and open it in your browser.
 
 > [!NOTE]
-> **Pre-alpha.** Everything is built (voice is an optional extra, not planned), and CI passes on Windows and Ubuntu, but the hands-on checks on every platform are still open ([known issues](specs/issues.md)). There's no release yet: [build it from source](#-get-started).
+> **Pre-alpha.** Everything is built (voice is an optional extra, not planned), and CI passes on Windows and Ubuntu, but the hands-on checks on every platform are still open ([known issues](specs/issues.md)). Early releases are out: [download one](#-get-started), or build it from source.
 
 ## 🌟 Features
 
@@ -122,7 +122,26 @@ Conversations are saved on your computer for 90 days by default. You can search 
 
 ## 🚀 Get started
 
-There's no installer yet, so build Cursora from source. On Windows you need:
+### Download
+Get the latest release from **[cursora-releases](https://github.com/priyansh1210/cursora-releases/releases/latest)**:
+
+| System | File |
+|---|---|
+| Windows 10/11 | `Cursora_<version>_x64_en-US.msi` |
+| Ubuntu, Debian | `Cursora_<version>_amd64.deb` |
+| Fedora, openSUSE | `Cursora-<version>-1.x86_64.rpm` |
+| Any other Linux | `Cursora_<version>_amd64.AppImage` |
+
+Cursora then keeps itself up to date: it checks once a day (one tick in Settings turns that off), and every update is signed.
+
+> [!IMPORTANT]
+> The latest release, **v0.1.1**, came out before the newest features: Replace and Insert, quick actions, the one-click model download, Indian languages, and Save and pin. They come with the next release; to use them now, build from source (below).
+
+- The installers aren't code-signed yet, so Windows may say it doesn't recognize the app: choose **More info**, then **Run anyway**.
+- The built-in engine needs Microsoft's Visual C++ runtime, which most PCs already have. If the engine doesn't start, install the [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+
+### Build from source
+On Windows you need:
 - Rust (rustup, stable-msvc)
 - Build Tools for Visual Studio 2022, with the "Desktop development with C++" workload (the compiler only, not the IDE)
 - Node.js 22
@@ -172,7 +191,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 npm run test:linux   # the same Rust tests, built for Linux in WSL (Ubuntu-24.04)
 ```
 
-**Releases:** pushing a `v*` tag makes CI build the installers (`.msi` and `.exe` for Windows, `.deb` and `.AppImage` for Linux, with the built-in engine) as a draft GitHub release.
+**Releases:** pushing a `v*` tag makes CI build the installers (`.msi` for Windows; `.deb`, `.rpm` and `.AppImage` for Linux, all with the built-in engine) and the signed update files, as a draft release in the public [`cursora-releases`](https://github.com/priyansh1210/cursora-releases) repo. Publishing the draft by hand makes it the update every installed Cursora sees. A tag with a `-` (such as `v0.2.0-rc.1`) makes a pre-release.
 
 </details>
 

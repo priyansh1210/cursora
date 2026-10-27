@@ -1,9 +1,11 @@
 ---
 name: project-status
-description: "Where Cursora stands at the end of 2026-10-26: specs 13-17 merged; PRs #51 (X11 check script) and #52 (README releases) wait for the user; next session: keep improving Cursora and fix open issues"
+description: "2026-10-27: specs 13-18 merged and v0.2.0 tagged (a draft in cursora-releases, to publish after spec 18's Linux checks); end of 2026-10-26: the state then, the next steps, open issues (59 first)"
 metadata:
   type: project
 ---
+
+**2026-10-27: release 0.2.0 tagged.** At the user's request ("we should give update in the cursora releases"), PR #55 set version 0.2.0 with `release-notes.md` (specs 13 to 18 and LLM-5.7) and fixed issue 50 (R77: `fetch-llama` ships the Visual C++ runtime next to llama-server). Spec 18 (design refresh) was merged just before it (PR #54), and PRs #51 and #52 from the note below are merged too. The tag `v0.2.0` is on main (`09956c0`), so CI builds a draft in `cursora-releases`. **Before the user publishes it:** spec 18's Linux checks (none done yet), on the stronger PC in WSL, best with the draft's own .deb and AppImage; Claude advised publishing only after they pass, or else saying Linux is in beta. Other Linux gaps: LNG-4.2, SAV-1.4 in light, spec 11's Linux items, and issue 2 (never on a real desktop).
 
 **End of 2026-10-26 (night, laptop): the user stopped here; next session continues improving Cursora and fixing issues.** Merged today: specs 13 to 17 (spec 16 Indian languages: PRs #47 and #48; spec 17 save and pin: PR #50) and LLM-5.7 (PR #49, issue 56). **Waiting for the user's merge:** PR #51 (branch `x11-check-case`: spec 17's X11 check script and results), PR #52 (branch `readme-releases`: README and manual point to the published releases), and the PR from branch `session-notes` (issue 59 and these notes). Open issues: 1, 2, 6, 7, 8, 10, 13, 16, 17, 33, 38, 40, 41, 42, 44, 46, 49, 50, 51, 57, 59. Starting points for the next session: issue 59 (a pinned note opened away from the bubble in the demo, SAV-1.1); issue 51 is probably fixed by spec 16's LNG-2.1 (check it, then move it to Resolved); issue 50 (the .msi lacks the VC++ runtime) before more downloads; `/ponytail-review` of specs 13 and 16 is still open; #6, #8 and #9 of [[product-direction]] wait for the user's decision. Releases: only v0.1.0 and v0.1.1 are published, without specs 13 to 17; a new release needs the user's tag. The demo video and the talk scripts are in [[demo-video-and-talk]].
 

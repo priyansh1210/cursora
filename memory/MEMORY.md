@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — end of 2026-10-26: specs 13-17 merged; PRs #51, #52 and session-notes wait for the user; next: keep improving, fix open issues (59 first)
+- [Project status](project-status.md) — 2026-10-27: specs 13-18 merged, v0.2.0 tagged (a draft until spec 18's Linux checks pass); next: fix open issues (59 first)
 - [Demo video and talk](demo-video-and-talk.md) — D:\cursora-demo (91 s video + scripts), voice-over and class-talk script docs
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
@@ -10,3 +10,4 @@
 - [Spec 09 voice optional](spec-09-voice-shelved.md) — Optional since 2026-10-25 (PR #21); not part of the release; don't propose it
 - [Two dev PCs](dev-machines.md) — laptop PRIYANSH does Windows; the stronger PC DESKTOP-RTIKELL (Chrome Remote Desktop) does Linux in WSL as user `cursora`, never `ethify`; check `hostname`
 - [Product direction](product-direction.md) — 2026-10-26 honest assessment (well built, not unique, setup and trust block users) + user's plan: improve a lot before launch; Store paused; 10 improvement ideas
+- [Spec 18 design refresh](spec-18-design-refresh.md) — 2026-10-27: merged as PR #54 (today's green, Geist); real-app look (issue 63) and manual checklist to do

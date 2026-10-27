@@ -30,11 +30,13 @@ export default function Privacy({ settings, save }: { settings: S; save: Save })
   return (
     <>
       <h2>Local-only</h2>
+      <div className="group">
       <label className="row">
-        <input type="checkbox" checked={settings.localOnly} onChange={(e) => set({ localOnly: e.target.checked })} />
+        <input type="checkbox" role="switch" checked={settings.localOnly} onChange={(e) => set({ localOnly: e.target.checked })} />
         Local-only: nothing leaves this computer
       </label>
       <p className="muted">Only models on this computer, or on a LAN host you trust, can answer. Cloud models are turned off.</p>
+      </div>
       {settings.localOnly && problem && (
         <p role="alert" className="error">
           {problem}{" "}
@@ -48,6 +50,7 @@ export default function Privacy({ settings, save }: { settings: S; save: Save })
       <p className="muted">Cursora reads nothing in these apps: no text, no keys, no clipboard.</p>
       {/* PRI-2.5 */}
       {!identifiesApps && <p role="alert" className="error">Cursora can't tell which app is in front in this session, so the blocklist can't be enforced.</p>}
+      <div className="group">
       {rules.map((r, i) => (
         <RuleRow
           key={`${i}:${kindOf(r)}:${valueOf(r)}`}
@@ -56,10 +59,12 @@ export default function Privacy({ settings, save }: { settings: S; save: Save })
         />
       ))}
       <AddRule onAdd={(r) => setRules([...rules, r])} />
+      </div>
 
       <h2>Hide personal details</h2>
+      <div className="group">
       <label className="row">
-        <input type="checkbox" checked={p.redact} onChange={(e) => void setPrivacy({ redact: e.target.checked }).catch(() => {})} />
+        <input type="checkbox" role="switch" checked={p.redact} onChange={(e) => void setPrivacy({ redact: e.target.checked }).catch(() => {})} />
         Before sending to cloud models
       </label>
       <fieldset disabled={!p.redact}>
@@ -86,17 +91,20 @@ export default function Privacy({ settings, save }: { settings: S; save: Save })
         {/* Saved directly, so a refused pattern shows its reason here only, not also at the top of the tab. */}
         <AddPattern onAdd={(pat) => invoke<void>("set_settings", { settings: { ...settings, privacy: { ...p, patterns: [...p.patterns, pat] } } })} />
         <label className="row">
-          <input type="checkbox" checked={p.redactLocal} onChange={(e) => void setPrivacy({ redactLocal: e.target.checked }).catch(() => {})} />
+          <input type="checkbox" role="switch" checked={p.redactLocal} onChange={(e) => void setPrivacy({ redactLocal: e.target.checked }).catch(() => {})} />
           For local models too
         </label>
       </fieldset>
+      </div>
 
       <h2>Before sending</h2>
+      <div className="group">
       <label className="row">
-        <input type="checkbox" checked={p.confirmCloud} onChange={(e) => void setPrivacy({ confirmCloud: e.target.checked }).catch(() => {})} />
+        <input type="checkbox" role="switch" checked={p.confirmCloud} onChange={(e) => void setPrivacy({ confirmCloud: e.target.checked }).catch(() => {})} />
         Confirm before sending to cloud models
       </label>
       <p className="muted">The bubble shows what will be sent and waits for you to press Send.</p>
+      </div>
     </>
   );
 }

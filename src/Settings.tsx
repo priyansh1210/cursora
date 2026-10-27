@@ -16,6 +16,14 @@ import { isIndian, MODELS_FOR_LANGUAGES, MyLanguageField } from "./MyLanguage";
 const TABS = ["General", "Models", "Personality", "Skills", "Privacy", "History", "About"] as const;
 type Tab = (typeof TABS)[number];
 const isTab = (t: string): t is Tab => (TABS as readonly string[]).includes(t);
+const SUMMARY: Record<Exclude<Tab, "About">, string> = {
+  General: "Hotkeys, startup, language and how Cursora looks.",
+  Models: "Where answers come from: models on this computer, or cloud providers.",
+  Personality: "Who answers: a persona's name, tone and style.",
+  Skills: "Saved instructions you run by typing / in the bubble. Your own are Markdown files in the skills folder.",
+  Privacy: "What Cursora reads, what it hides, and what it sends.",
+  History: "Past conversations, kept only on this computer.",
+};
 
 export default function Settings() {
   const { settings, save, error } = useSettings();
@@ -47,6 +55,12 @@ export default function Settings() {
         </div>
       </nav>
       <section role="tabpanel" aria-label={tab}>
+        {tab !== "About" && (
+          <>
+            <h1>{tab}</h1>
+            <p className="muted lead">{SUMMARY[tab]}</p>
+          </>
+        )}
         {error && <p role="alert" className="error">{error}</p>}
         {tab === "General" ? (
           <General settings={settings} save={save} />
@@ -74,18 +88,19 @@ function General({ settings, save }: { settings: S; save: Save }) {
   return (
     <>
       <h2>Hotkeys</h2>
-      {info?.session === "wayland" ? <WaylandShortcut launcher={info.launcher} /> : info && <HotkeyFields settings={settings} save={save} />}
+      <div className="group">{info?.session === "wayland" ? <WaylandShortcut launcher={info.launcher} /> : info && <HotkeyFields settings={settings} save={save} />}</div>
       <h2>Behavior</h2>
+      <div className="group">
       <label className="row">
-        <input type="checkbox" checked={settings.paused} onChange={(e) => set({ paused: e.target.checked })} />
+        <input type="checkbox" role="switch" checked={settings.paused} onChange={(e) => set({ paused: e.target.checked })} />
         Pause Cursora
       </label>
       <label className="row">
-        <input type="checkbox" checked={settings.startWithSystem} onChange={(e) => set({ startWithSystem: e.target.checked })} />
+        <input type="checkbox" role="switch" checked={settings.startWithSystem} onChange={(e) => set({ startWithSystem: e.target.checked })} />
         Start with system
       </label>
       <label className="row">
-        <input type="checkbox" checked={settings.updates.check} onChange={(e) => set({ updates: { ...settings.updates, check: e.target.checked } })} />
+        <input type="checkbox" role="switch" checked={settings.updates.check} onChange={(e) => set({ updates: { ...settings.updates, check: e.target.checked } })} />
         Check for updates automatically
       </label>
       {info?.canRunAsAdmin && (
@@ -93,6 +108,7 @@ function General({ settings, save }: { settings: S; save: Save }) {
           <label className="row">
             <input
               type="checkbox"
+              role="switch"
               checked={settings.runAsAdmin}
               disabled={!info.inProgramFiles && !settings.runAsAdmin}
               aria-describedby="admin-note"
@@ -109,10 +125,12 @@ function General({ settings, save }: { settings: S; save: Save }) {
           </p>
         </>
       )}
+      </div>
       <h2>Language</h2>
+      <div className="group">
       <MyLanguageField settings={settings} save={save} />
       <label className="row">
-        <input type="checkbox" checked={settings.answerInMyLanguage} onChange={(e) => set({ answerInMyLanguage: e.target.checked })} />
+        <input type="checkbox" role="switch" checked={settings.answerInMyLanguage} onChange={(e) => set({ answerInMyLanguage: e.target.checked })} />
         Always answer in my language
       </label>
       <p className="muted">
@@ -120,7 +138,9 @@ function General({ settings, save }: { settings: S; save: Save }) {
         {/* LNG-4.1: from the trial in tasks.md, task 5. */}
         {isIndian(settings.myLanguage) && ` ${MODELS_FOR_LANGUAGES}`}
       </p>
+      </div>
       <h2>Saved answers</h2>
+      <div className="group">
       {/* SAV-2.5: where Save writes; Change… picks another folder, such as an Obsidian vault. */}
       <div className="row saved-answers">
         <span className="muted folder" title={settings.savedAnswersFolder ?? info?.savedAnswersDefault}>
@@ -134,7 +154,9 @@ function General({ settings, save }: { settings: S; save: Save }) {
           Open
         </button>
       </div>
+      </div>
       <h2>Appearance</h2>
+      <div className="group">
       <label className="row">
         <span>Theme</span>
         <select value={settings.theme} onChange={(e) => set({ theme: e.target.value as S["theme"] })}>
@@ -143,13 +165,16 @@ function General({ settings, save }: { settings: S; save: Save }) {
           <option value="dark">Dark</option>
         </select>
       </label>
+      </div>
       <h2>Setup</h2>
+      <div className="group">
       <div className="row">
         <span className="muted">Choose the AI source, personality and hotkeys again.</span>
         <span className="grow" />
         <button type="button" onClick={() => invoke("open_setup")}>
           Re-run setup
         </button>
+      </div>
       </div>
       <Advanced settings={settings} save={save} windows={info?.os === "windows"} />
     </>
@@ -207,7 +232,7 @@ function Advanced({ settings, save, windows }: { settings: S; save: Save; window
     <details>
       <summary>Advanced</summary>
       <label className="row">
-        <input type="checkbox" checked={capture.shareWindowTitle} onChange={(e) => set({ shareWindowTitle: e.target.checked })} />
+        <input type="checkbox" role="switch" checked={capture.shareWindowTitle} onChange={(e) => set({ shareWindowTitle: e.target.checked })} />
         Share the window title with the AI
       </label>
       {windows && (
