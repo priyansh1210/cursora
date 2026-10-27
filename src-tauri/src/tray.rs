@@ -58,9 +58,12 @@ fn menu(app: &AppHandle, s: &Settings) -> tauri::Result<Menu<Wry>> {
     let open = MenuItem::with_id(app, "settings", "Open Settings", true, None::<&str>)?;
     let personality = CheckMenuItem::with_id(app, "personality", "Personality", true, s.personality_on, None::<&str>)?;
     let local_only = CheckMenuItem::with_id(app, "local_only", "Local-only", true, s.local_only, None::<&str>)?;
-    // PRI-2.4: unless the app is unknown or already blocked.
-    let last = LAST_APP.lock().unwrap().clone().filter(|a| !a.exe.is_empty() && !capture::blocked(&s.capture.blocklist, a));
-    let block = last.map(|a| MenuItem::with_id(app, "block", format!("Block Cursora in {}", if a.name.is_empty() { &a.exe } else { &a.name }), true, None::<&str>)).transpose()?;
+    // PRI-2.4 and OFF-2.1: the app the bubble last opened over, unless it's unknown; Block only while it isn't blocked,
+    // Turn off ticked while it's on the off list.
+    let known = LAST_APP.lock().unwrap().clone().filter(|a| !a.exe.is_empty());
+    let named = |a: &SourceApp| if a.name.is_empty() { a.exe.clone() } else { a.name.clone() };
+    let block = known.as_ref().filter(|a| !capture::blocked(&s.capture.blocklist, a)).map(|a| MenuItem::with_id(app, "block", format!("Block Cursora in {}", named(a)), true, None::<&str>)).transpose()?;
+    let off = known.as_ref().map(|a| CheckMenuItem::with_id(app, "off", format!("Turn Cursora off in {}", named(a)), true, capture::blocked(&s.hotkeys.off_in, a), None::<&str>)).transpose()?;
     let pause = CheckMenuItem::with_id(app, "pause", "Pause Cursora", true, s.paused, None::<&str>)?;
     let stop = MenuItem::with_id(app, "stop_model", "Stop the model", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
@@ -71,6 +74,9 @@ fn menu(app: &AppHandle, s: &Settings) -> tauri::Result<Menu<Wry>> {
     items.extend([&open as &dyn IsMenuItem<Wry>, &personas, &personality, &local_only, &pause]);
     if let Some(block) = &block {
         items.push(block);
+    }
+    if let Some(off) = &off {
+        items.push(off);
     }
     // Only with a built-in model set up (LLM-3.5).
     if s.models.providers.iter().any(|p| p.engine.is_some()) {
@@ -99,6 +105,11 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
         "local_only" => s.local_only = !s.local_only,
         "block" => match LAST_APP.lock().unwrap().clone() {
             Some(a) => s.capture.blocklist.push(Rule::Process(a.exe)),
+            None => return,
+        },
+        "off" => match LAST_APP.lock().unwrap().clone() {
+            Some(a) if capture::blocked(&s.hotkeys.off_in, &a) => s.hotkeys.off_in.retain(|r| !capture::blocked(std::slice::from_ref(r), &a)),
+            Some(a) => s.hotkeys.off_in.push(Rule::Process(a.exe)),
             None => return,
         },
         "pause" => s.paused = !s.paused,

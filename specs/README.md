@@ -27,6 +27,7 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 18 | [Design refresh](18-design-refresh/requirements.md) | DSN | Approved | [Approved](18-design-refresh/design.md) | [In progress](18-design-refresh/tasks.md) | In progress |
 | 19 | [Voice input](19-voice-input/requirements.md) | VIN | Approved² | [Approved²](19-voice-input/design.md) | [In progress](19-voice-input/tasks.md) | In progress |
 | 20 | [Snip with any model](20-snip-any-model/requirements.md) | OCR | Approved² | [Approved²](20-snip-any-model/design.md) | [In progress](20-snip-any-model/tasks.md) | In progress |
+| 21 | [Turn Cursora off per app](21-off-per-app/requirements.md) | OFF | Approved² | [Approved²](21-off-per-app/design.md) | [In progress](21-off-per-app/tasks.md) | In progress |
 
 ¹ Approved under the user's go-ahead of 2026-10-26 to build improvements #1 to #5 while away; the choices made for the user are listed in each spec's requirements.md, for review.
 
