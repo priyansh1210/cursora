@@ -252,7 +252,6 @@ export default function Chat() {
             open={outgoing.open}
             pending={outgoing.pending !== null}
             localOnly={settings?.localOnly ?? false}
-            onToggle={() => setOutgoing((o) => ({ open: !o.open, pending: null }))}
             onSend={() => {
               const p = outgoing.pending;
               if (p?.retry) regenerate(true);
@@ -281,6 +280,7 @@ export default function Chat() {
             </ul>
           )}
           <footer>
+            <div className="composer">
             <textarea
               ref={inputRef}
               rows={2}
@@ -311,15 +311,22 @@ export default function Chat() {
                 }
               }}
             />
-            {streaming ? (
-              <button type="button" onClick={() => void invoke("stop")} aria-label="Stop the answer">
-                Stop
+            <div className="bar">
+              <button type="button" className="link" aria-expanded={outgoing.open} onClick={() => setOutgoing((o) => ({ open: !o.open, pending: null }))}>
+                What will be sent <Icon d={PATHS.chevron} size={14} />
               </button>
-            ) : (
-              <button type="button" className="primary" onClick={() => send(draft)} disabled={!draft.trim()} aria-label="Send">
-                Send
-              </button>
-            )}
+              <span className="grow" />
+              {streaming ? (
+                <button type="button" className="send" onClick={() => void invoke("stop")} aria-label="Stop the answer" title="Stop">
+                  <Icon d={PATHS.stop} size={14} stroke={2.4} />
+                </button>
+              ) : (
+                <button type="button" className="primary send" onClick={() => send(draft)} disabled={!draft.trim()} aria-label="Send" title="Send (Enter)">
+                  <Icon d={PATHS.send} size={16} stroke={2.4} />
+                </button>
+              )}
+            </div>
+            </div>
           </footer>
         </>
       )}
@@ -328,7 +335,7 @@ export default function Chat() {
 }
 
 /** "What will be sent" (PRI-3.6), and the Send that a cloud request waits for while confirming is on (PRI-3.7). */
-function Outgoing(props: { settings?: Settings; question: string; retry: boolean; open: boolean; pending: boolean; localOnly: boolean; onToggle: () => void; onSend: () => void; onCancel: () => void }) {
+function Outgoing(props: { settings?: Settings; question: string; retry: boolean; open: boolean; pending: boolean; localOnly: boolean; onSend: () => void; onCancel: () => void }) {
   const { question, retry, open, pending } = props;
   const [preview, setPreview] = useState<Preview>();
   const [error, setError] = useState<string>();
@@ -351,15 +358,13 @@ function Outgoing(props: { settings?: Settings; question: string; retry: boolean
   useEffect(() => {
     if (sentRef.current) sentRef.current.scrollTop = sentRef.current.scrollHeight;
   }, [preview]);
+  if (!open) return null;
 
   return (
     <section className="outgoing" aria-label="What will be sent">
-      <button type="button" className="link" aria-expanded={open} onClick={props.onToggle}>
-        What will be sent {open ? "▾" : "▸"}
-      </button>
-      {open && error && <p className="error note">{error}</p>}
-      {open && !error && preview && !to && <p className="muted note">Cursora answers this itself; nothing is sent.</p>}
-      {open && !error && to && (
+      {error && <p className="error note">{error}</p>}
+      {!error && preview && !to && <p className="muted note">Cursora answers this itself; nothing is sent.</p>}
+      {!error && to && (
         <>
           <p className="muted note">
             To {badge(to.locality, to.provider, props.localOnly)} · {to.name}
@@ -425,7 +430,7 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
           <span className="grow" />
           {conv.turns.length === 0 && (
             <button type="button" className="icon" aria-label="Remove the captured context" title="Remove" onClick={onRemove}>
-              ×
+              <Icon d={PATHS.close} size={14} />
             </button>
           )}
         </div>
@@ -530,7 +535,7 @@ function TurnView({
           {writeBack && turn.status === "done" && (
             <button
               type="button"
-              className="link lead"
+              className="primary"
               aria-label={writeBack === "replace" ? "Replace the selected text in the app with this answer" : "Insert this answer where the cursor was in the app"}
               onClick={() => {
                 setFailed(undefined);
@@ -542,40 +547,41 @@ function TurnView({
           )}
           <CopyButton markdown={turn.answer} plain={() => answerRef.current?.innerText ?? ""} />
           {keep && (
-            <button type="button" className="link" aria-label="Pin this answer on screen in a note" onClick={() => invoke("pin_answer", { asked: turn.asked }).catch((e) => setFailed(String(e)))}>
-              Pin
+            <button type="button" className="icon" aria-label="Pin this answer on screen in a note" title="Pin on screen" onClick={() => invoke("pin_answer", { asked: turn.asked }).catch((e) => setFailed(String(e)))}>
+              <Icon d={PATHS.pin} size={16} />
             </button>
           )}
           {keep &&
             (saved ? (
               <>
-                <span className="muted">Saved</span>
-                <button type="button" className="link" aria-label="Show the saved answer in its folder" onClick={() => invoke("show_saved", { path: saved }).catch((e) => setFailed(String(e)))}>
-                  Show in folder
+                <button type="button" className="icon" aria-label="Show the saved answer in its folder" title="Show in folder" onClick={() => invoke("show_saved", { path: saved }).catch((e) => setFailed(String(e)))}>
+                  <Icon d={PATHS.folder} size={16} />
                 </button>
+                <span className="muted">Saved</span>
               </>
             ) : (
               <button
                 type="button"
-                className="link"
+                className="icon"
                 aria-label="Save this answer as a Markdown file"
+                title="Save as a Markdown file"
                 onClick={() => {
                   setFailed(undefined);
                   invoke<string>("save_answer", { asked: turn.asked }).then(setSaved, (e) => setFailed(String(e)));
                 }}
               >
-                Save
+                <Icon d={PATHS.save} size={16} />
               </button>
             ))}
           {latest && (
-            <button type="button" className="link" onClick={onRetry} aria-label="Regenerate the answer">
-              Regenerate
+            <button type="button" className="icon" onClick={onRetry} aria-label="Regenerate the answer" title="Regenerate">
+              <Icon d={PATHS.regenerate} size={16} />
             </button>
           )}
           {/* SKL-4.3: the question becomes a skill's instructions in Settings → Skills. */}
           {!turn.question.startsWith("/") && (
-            <button type="button" className="link" onClick={() => void invoke("skill_new", { question: turn.question })}>
-              Save as skill
+            <button type="button" className="icon" aria-label="Save as skill" title="Save this question as a skill" onClick={() => void invoke("skill_new", { question: turn.question })}>
+              <Icon d={PATHS.skills} size={16} />
             </button>
           )}
         </div>
@@ -599,8 +605,8 @@ export function CopyButton({ markdown, plain }: { markdown: string; plain: () =>
     });
   };
   return (
-    <button type="button" className="link" onClick={copy} aria-label="Copy the answer. Hold Shift for plain text" title="Copy (Shift: plain text)">
-      {copied ? "Copied" : "Copy"}
+    <button type="button" className="icon" onClick={copy} aria-label="Copy the answer. Hold Shift for plain text" title={copied ? "Copied" : "Copy (Shift: plain text)"}>
+      <Icon d={copied ? PATHS.check : PATHS.copy} size={16} />
     </button>
   );
 }

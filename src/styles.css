@@ -1,50 +1,100 @@
-/* Cursora's look: light grey surfaces with green accents, and a dark grey theme to match (BUB-8.2). */
+/* Cursora's look (spec 18): one set of tokens for type, space, shape and colour, in a light and a dark theme (BUB-8.2).
+   Colours appear only in the token blocks (DSN-1.1); text and focus rings meet WCAG AA in both themes (DSN-1.3). */
+
+/* Geist and Geist Mono ship with the app (OFL, fonts/OFL.txt), never fetched: one variable file each, Latin only.
+   Other scripts fall through to the system fonts, so Windows draws Hindi and the rest with Nirmala UI (LNG-3.1). */
+@font-face {
+  font-family: "Geist";
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fonts/Geist.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fonts/GeistMono.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 :root {
   color-scheme: light;
-  font: 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --bg: #f3f4f3;
+  font: 14px/1.5 "Geist", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  /* Type: 12 · 13 · 14 · 16 · 20. Nothing smaller than 12 px (DSN-1.2). */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --mono: "Geist Mono", "Cascadia Code", ui-monospace, Consolas, monospace;
+  /* Space: a 4 px grid. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  /* Shape */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-full: 999px;
+  --control: 32px;
+
+  --bg: #f4f5f4;
   --surface: #ffffff;
-  --sidebar: #e8ebe8;
-  --hover: #e3e7e3;
-  --fg: #1b211d;
-  --muted: #5c6660;
-  --line: #d8ddd9;
+  --surface-2: #eef0ee;
+  --sidebar: #eaedea;
+  --hover: #e4e8e5;
+  --selected: #ffffff;
+  --fg: #18201b;
+  --muted: #56615a;
+  --line: #dde2de;
+  --line-strong: #c3cbc5;
   --accent: #15803d;
   --accent-hover: #166534;
   --accent-text: #166534;
   --on-accent: #ffffff;
-  --accent-soft: #e1f3e6;
-  --focus: #22c55e;
+  --accent-soft: #e2f3e7;
+  --focus: #15803d;
   --error: #b42318;
   --error-soft: #fdecea;
-  --code-bg: #eceeec;
-  --shadow: 0 1px 2px rgb(20 30 24 / 6%), 0 4px 14px rgb(20 30 24 / 7%);
-  --radius: 10px;
+  --code-bg: #eef0ee;
+  --switch-thumb-on: #ffffff;
+  --shade: rgb(0 0 0 / 45%);
+  --snip-bg: #000000;
+  --snip-edge: #22c55e;
+  --snip-label: #08130c;
+  --shadow: 0 1px 2px rgb(20 30 24 / 6%), 0 4px 16px rgb(20 30 24 / 8%);
   --hl-keyword: #0f766e;
-  --hl-string: #a16207;
+  --hl-string: #92400e;
   --hl-number: #c2410c;
   --hl-title: #1d4ed8;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #161917;
-    --surface: #1f2320;
-    --sidebar: #1a1d1b;
-    --hover: #282d29;
-    --fg: #e5e9e6;
-    --muted: #98a39c;
-    --line: #2f3531;
+    --bg: #141715;
+    --surface: #1c201d;
+    --surface-2: #232825;
+    --sidebar: #181b19;
+    --hover: #2a302c;
+    --selected: #2a302c;
+    --fg: #e6eae7;
+    --muted: #9ba69f;
+    --line: #2d332f;
+    --line-strong: #414a44;
     --accent: #22c55e;
     --accent-hover: #4ade80;
     --accent-text: #4ade80;
-    --on-accent: #08130c;
+    --on-accent: #052e14;
     --accent-soft: rgb(34 197 94 / 14%);
     --focus: #4ade80;
     --error: #f87171;
     --error-soft: rgb(248 113 113 / 12%);
-    --code-bg: #262b27;
-    --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 14px rgb(0 0 0 / 25%);
+    --code-bg: #232825;
+    --switch-thumb-on: #052e14;
+    --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 16px rgb(0 0 0 / 28%);
     --hl-keyword: #5eead4;
     --hl-string: #fcd34d;
     --hl-number: #fdba74;
@@ -53,23 +103,27 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #161917;
-  --surface: #1f2320;
-  --sidebar: #1a1d1b;
-  --hover: #282d29;
-  --fg: #e5e9e6;
-  --muted: #98a39c;
-  --line: #2f3531;
+  --bg: #141715;
+  --surface: #1c201d;
+  --surface-2: #232825;
+  --sidebar: #181b19;
+  --hover: #2a302c;
+  --selected: #2a302c;
+  --fg: #e6eae7;
+  --muted: #9ba69f;
+  --line: #2d332f;
+  --line-strong: #414a44;
   --accent: #22c55e;
   --accent-hover: #4ade80;
   --accent-text: #4ade80;
-  --on-accent: #08130c;
+  --on-accent: #052e14;
   --accent-soft: rgb(34 197 94 / 14%);
   --focus: #4ade80;
   --error: #f87171;
   --error-soft: rgb(248 113 113 / 12%);
-  --code-bg: #262b27;
-  --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 14px rgb(0 0 0 / 25%);
+  --code-bg: #232825;
+  --switch-thumb-on: #052e14;
+  --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 16px rgb(0 0 0 / 28%);
   --hl-keyword: #5eead4;
   --hl-string: #fcd34d;
   --hl-number: #fdba74;
@@ -87,14 +141,20 @@ body {
   color: var(--fg);
   -webkit-font-smoothing: antialiased;
 }
-h2 {
-  font-size: 15px;
+h1 {
+  font-size: var(--text-xl);
   font-weight: 600;
-  margin: 24px 0 10px;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--sp-1);
+}
+h2 {
+  font-size: var(--text-md);
+  font-weight: 600;
+  margin: var(--sp-5) 0 var(--sp-2);
 }
 h3 {
-  font-size: 14px;
-  margin: 12px 0 8px;
+  font-size: var(--text-md);
+  margin: var(--sp-3) 0 var(--sp-2);
 }
 p {
   margin: 6px 0;
@@ -103,7 +163,7 @@ a {
   color: var(--accent-text);
 }
 code {
-  font: 12px/1.4 "Cascadia Code", ui-monospace, Consolas, monospace;
+  font: var(--text-xs) / 1.4 var(--mono);
   background: var(--code-bg);
   padding: 1px 5px;
   border-radius: 4px;
@@ -118,7 +178,7 @@ code {
 ::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--muted) 35%, transparent);
   border: 2px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--r-full);
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-track {
@@ -138,10 +198,10 @@ button {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 32px;
+  min-height: var(--control);
   padding: 5px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
   background: var(--surface);
   white-space: nowrap;
   cursor: pointer;
@@ -157,33 +217,33 @@ button:disabled {
   opacity: 0.5;
   cursor: default;
 }
-button.primary,
-button[type="submit"] {
+/* One filled button per view: the action the view is for (DSN-1.4). */
+button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
   font-weight: 600;
 }
-button.primary:hover:not(:disabled),
-button[type="submit"]:hover:not(:disabled) {
+button.primary:hover:not(:disabled) {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
 input:not([type="checkbox"], [type="radio"], [type="range"]),
 select,
 textarea {
-  min-height: 32px;
+  min-height: var(--control);
   padding: 5px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  border-bottom-color: var(--muted); /* Fluent's stronger lower edge: a field is recognisable at 3:1 (WCAG 1.4.11) */
+  border-radius: var(--r-md);
   background: var(--surface);
 }
 input:not([type="checkbox"], [type="radio"]):focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
 }
 button:focus-visible,
 summary:focus-visible,
@@ -201,12 +261,37 @@ input[type="radio"] {
   margin: 0;
   flex-shrink: 0;
 }
+/* An on/off setting that applies at once is a switch (DSN-3.2): Fluent's toggle, drawn with gradients so WebKitGTK shows it too. */
+input[role="switch"] {
+  appearance: none;
+  width: 40px;
+  height: 20px;
+  margin: 0 0 0 auto;
+  order: 2;
+  border: 1px solid var(--muted);
+  border-radius: var(--r-full);
+  background: var(--surface) radial-gradient(circle, var(--muted) 5px, transparent 5.5px) no-repeat left 1px center / 18px 18px;
+  cursor: pointer;
+  transition:
+    background-position 0.12s,
+    background-color 0.12s;
+}
+input[role="switch"]:checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image: radial-gradient(circle, var(--switch-thumb-on) 6px, transparent 6.5px);
+  background-position: right 1px center;
+}
+input[role="switch"]:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 textarea {
   display: block;
   width: 100%;
   max-width: 460px;
   margin: 4px 0 12px;
-  font: 12px/1.45 "Cascadia Code", ui-monospace, Consolas, monospace;
+  font: var(--text-xs) / 1.45 var(--mono);
 }
 /* Wide enough for its placeholder (issue 12), like the text areas. */
 input[type="search"] {
@@ -215,18 +300,18 @@ input[type="search"] {
 }
 button.icon {
   min-height: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 0;
   background: none;
   color: var(--muted);
-  font-size: 15px;
-  line-height: 1;
-  padding: 4px 6px;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
 }
 button.icon[aria-pressed="false"] {
   opacity: 0.45;
 }
-button.icon:hover,
+button.icon:hover:not(:disabled),
 button.icon:focus-visible {
   color: var(--fg);
   background: var(--hover);
@@ -237,14 +322,14 @@ button.link {
   background: none;
   color: var(--accent-text);
   padding: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 button.link:hover:not(:disabled) {
   background: none;
   text-decoration: underline;
 }
-/* Removing something: a plain button in the error colour. */
+/* Removing something: red text, quiet until hovered. */
 button.danger {
   color: var(--error);
 }
@@ -255,7 +340,7 @@ button.danger:hover:not(:disabled) {
 /* A hotkey shows as a keycap. */
 button.hotkey {
   min-width: 120px;
-  font: 600 12px/1.4 "Cascadia Code", ui-monospace, Consolas, monospace;
+  font: 600 var(--text-xs) / 1.4 var(--mono);
   border-bottom-width: 3px;
 }
 
@@ -301,11 +386,11 @@ button.hotkey {
 div.error {
   background: var(--error-soft);
   border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: var(--r-md);
+  padding: var(--sp-2) 10px;
 }
 .note {
-  font-size: 12px;
+  font-size: var(--text-xs);
   margin: 6px 0;
 }
 /* A check that passed (setup's model test). Not a flex row, for Linux screen readers (issue 20). */
@@ -313,27 +398,26 @@ div.error {
   margin: 6px 0;
   color: var(--accent-text);
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 .ok svg {
   vertical-align: -2px;
 }
 .badge {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   white-space: nowrap;
-  padding: 1px 8px;
-  border-radius: 999px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-full);
   background: var(--accent-soft);
   color: var(--accent-text);
 }
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 12px 16px;
+  border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-4);
   margin: 10px 0;
-  box-shadow: var(--shadow);
 }
 .card .row > span:first-child {
   min-width: 110px;
@@ -354,12 +438,73 @@ div.error {
 .card > :last-child {
   margin-bottom: 0;
 }
-details {
-  margin-top: 24px;
+/* A group of settings or items (DSN-3.1): one card, a line between rows, a row's note under its label. */
+.group {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 10px 14px;
+  border-radius: var(--r-lg);
+  padding: 0 var(--sp-4);
+  margin: var(--sp-2) 0 var(--sp-4);
+}
+.group > * {
+  margin: 0;
+  padding: var(--sp-3) 0;
+}
+.group > * + * {
+  border-top: 1px solid var(--line);
+}
+.group > .row {
+  min-height: 52px;
+}
+.group > p.muted {
+  font-size: var(--text-sm);
+}
+/* A row's note belongs to it: no line between them. */
+.group > .row:has(+ p.muted) {
+  padding-bottom: 2px;
+}
+.group > .row + p.muted {
+  border-top: 0;
+  padding-top: 0;
+}
+/* A set of choices in a group (what to hide): no line above it; its legend reads as a label. */
+.group > fieldset {
+  border-top: 0;
+  padding-top: 0;
+}
+.group > fieldset > legend {
+  padding-top: var(--sp-2);
+  font-size: var(--text-sm);
+}
+.group > fieldset > .row {
+  margin: var(--sp-2) 0;
+}
+/* Items in a group (skills, personas): name and badges, buttons at the right, the description below. */
+.group > section > .row {
+  margin: 0;
+  flex-wrap: wrap;
+}
+.group > section > p {
+  margin: 2px 0 0;
+}
+.group > section button:not(.primary) {
+  min-height: 28px;
+  padding: 2px 10px;
+  border-color: transparent;
+  background: none;
+}
+.group > section button.danger {
+  color: var(--error);
+}
+.group > section button:hover:not(:disabled) {
+  background: var(--hover);
+}
+details {
+  margin-top: var(--sp-5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 10px var(--sp-4);
 }
 summary {
   cursor: pointer;
@@ -378,11 +523,11 @@ legend {
 /* A choice between options (setup, the model lifetime) reads as a set of cards. */
 fieldset label.row:has(> input[type="radio"]) {
   align-items: flex-start;
-  margin: 8px 0;
-  padding: 10px 12px;
+  margin: var(--sp-2) 0;
+  padding: var(--sp-3);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--r-lg);
   cursor: pointer;
 }
 fieldset label.row:has(> input[type="radio"]):hover {
@@ -395,21 +540,24 @@ fieldset label.row:has(> input[type="radio"]:checked) {
 fieldset label.row > input[type="radio"] {
   margin-top: 3px;
 }
+fieldset label.row > span {
+  min-width: 0;
+}
 dt {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--muted);
 }
 dd {
-  margin: 2px 0 16px;
+  margin: 2px 0 var(--sp-4);
 }
 /* A folder's path, with its button lined up at the right. */
 dd.folder {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 dd.folder > :first-child {
   display: inline-flex; /* issue 20 */
@@ -430,15 +578,15 @@ mark {
 }
 pre.detail {
   white-space: pre-wrap;
-  font: 11px/1.4 "Cascadia Code", ui-monospace, Consolas, monospace;
+  font: var(--text-xs) / 1.4 var(--mono);
   max-height: 24em;
   overflow: auto;
 }
 
 /* The logo and name (APP-5.4, APP-6.4). Not a flex row: WebKitGTK would hide the text from screen readers (issue 20). */
 .brand {
-  margin: 0 0 12px;
-  font-size: 15px;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -451,15 +599,15 @@ pre.detail {
   margin-bottom: 20px;
 }
 
-/* Settings (spec 01): a grey sidebar of tabs, the open tab on the right. */
+/* Settings (spec 01): a sidebar of tabs, the open tab on the right under its title (DSN-3.1). */
 .settings {
   display: flex;
   height: 100vh;
 }
 .settings nav {
-  width: 196px;
+  width: 200px;
   flex-shrink: 0;
-  padding: 16px 10px;
+  padding: var(--sp-4) 10px;
   background: var(--sidebar);
   border-right: 1px solid var(--line);
   overflow-y: auto;
@@ -479,19 +627,22 @@ pre.detail {
   min-height: 36px;
   padding: 7px 10px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: none;
   color: var(--muted);
-  font-weight: 500;
 }
 .settings nav button:hover:not(:disabled) {
   background: var(--hover);
   color: var(--fg);
 }
 .settings nav button[aria-selected="true"] {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  background: var(--selected);
+  color: var(--fg);
   font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.settings nav button[aria-selected="true"] svg {
+  color: var(--accent-text);
 }
 .settings nav svg {
   flex-shrink: 0;
@@ -499,19 +650,15 @@ pre.detail {
 .settings > section {
   flex: 1;
   overflow: auto;
-  padding: 24px 32px 40px;
+  padding: 28px 40px 48px;
 }
 .settings > section > * {
-  max-width: 760px;
+  max-width: 720px;
 }
-/* Each heading starts a new group. */
-.settings > section > h2 {
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
+.settings > section > .lead {
+  margin: 0 0 var(--sp-5);
 }
 .settings > section > h2:first-of-type {
-  padding-top: 0;
-  border-top: 0;
   margin-top: 0;
 }
 
@@ -522,17 +669,17 @@ pre.detail {
   min-height: 100vh;
   max-width: 640px;
   margin: 0 auto;
-  padding: 24px 32px;
+  padding: var(--sp-5) var(--sp-6);
 }
 .setup .step {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .progress {
-  height: 6px;
-  margin: 6px 0 18px;
+  height: 4px;
+  margin: 6px 0 20px;
   background: var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-full);
   overflow: hidden;
 }
 /* The model download (MDL-1.4): the bar fills the row beside its numbers. */
@@ -555,15 +702,16 @@ pre.detail {
   transition: width 0.25s;
 }
 .setup h2 {
-  font-size: 20px;
-  margin: 8px 0 6px;
+  font-size: var(--text-xl);
+  letter-spacing: -0.01em;
+  margin: var(--sp-2) 0 var(--sp-1);
 }
 .setup footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--sp-2);
   margin-top: auto;
-  padding-top: 24px;
+  padding-top: var(--sp-5);
 }
 
 /* Bubble and expanded window (spec 03). */
@@ -583,21 +731,23 @@ body:has(.chat) {
 .chat > :not(.turns) {
   flex-shrink: 0;
 }
+/* The header is quiet: who answers and with what, never louder than the answer (DSN-2.1). */
 .chat > header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px 8px 12px;
+  gap: 6px;
+  height: 40px;
+  padding: 0 6px 0 12px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
+  font-size: var(--text-xs);
   user-select: none;
 }
 .bubble > header {
   cursor: move;
 }
 .who {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 /* The header fits any window (BUB-7.4): the switcher takes the room left, and below 520 px (the 380 px
@@ -639,55 +789,71 @@ body:has(.chat) {
   overflow: hidden;
   white-space: nowrap;
 }
+/* The model switcher reads as text until pointed at. */
 .chat > header select {
   flex: 0 1 auto;
   min-width: 64px;
-  min-height: 24px;
+  min-height: 26px;
   max-width: 220px;
-  padding: 1px 6px;
-  font-size: 12px;
-  border-radius: 6px;
+  padding: 1px 4px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  border-color: transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  cursor: pointer;
+}
+.chat > header select:hover {
+  background: var(--hover);
+  color: var(--fg);
 }
 .chat > .note {
-  padding: 0 12px;
+  padding: 0 var(--sp-3);
 }
 /* The expanded window keeps a readable column however wide it gets. */
 .chat:not(.bubble) {
-  --side: max(12px, calc((100% - 760px) / 2));
+  --side: max(12px, calc((100% - 720px) / 2));
 }
 .chat:not(.bubble) > .turns,
-.chat:not(.bubble) > .outgoing,
 .chat:not(.bubble) > footer {
   padding-left: var(--side);
   padding-right: var(--side);
 }
 .chat:not(.bubble) > .context,
 .chat:not(.bubble) > .nomodel,
-.chat:not(.bubble) > ul.complete {
+.chat:not(.bubble) > .outgoing,
+.chat:not(.bubble) > ul.complete,
+.chat:not(.bubble) > .quick {
   margin-left: var(--side);
   margin-right: var(--side);
 }
-/* What was captured: a quote with a green edge. */
+/* What was captured: a quote with a green edge, quieter than the answer (DSN-2.5). */
 .context {
-  margin: 10px 12px 0;
-  padding: 8px 10px;
+  margin: 10px var(--sp-3) 0;
+  padding: var(--sp-2) 10px var(--sp-2) var(--sp-3);
   background: var(--surface);
-  border: 1px solid var(--line);
   border-left: 3px solid var(--accent);
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: var(--r-sm);
+  font-size: var(--text-sm);
 }
 .context:empty {
   display: none;
 }
 .context .row {
   margin: 0;
+  gap: 6px;
+  font-size: var(--text-xs);
 }
 .context .row > span {
   min-width: 0;
 }
+.context .row button.icon {
+  width: 22px;
+  height: 22px;
+  margin: -4px -4px -4px 0;
+}
 .preview {
-  margin: 4px 0 2px;
+  margin: 2px 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -710,35 +876,33 @@ body:has(.chat) {
   color: var(--accent-text);
 }
 .chips li {
-  padding: 2px 8px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: 999px;
+  padding: 2px var(--sp-2);
+  background: var(--surface-2);
+  border-radius: var(--r-full);
 }
 .turns {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 12px 8px;
+  padding: var(--sp-1) var(--sp-3) var(--sp-2);
 }
 .turn {
-  padding: 10px 0;
-}
-.turn + .turn {
-  border-top: 1px solid var(--line);
+  padding: var(--sp-3) 0 var(--sp-1);
 }
 /* The question sits on the right, like a sent message. */
 .question {
   width: fit-content;
   max-width: 88%;
-  margin: 0 0 8px auto;
-  padding: 6px 12px;
+  margin: 0 0 10px auto;
+  padding: 6px var(--sp-3);
   background: var(--accent-soft);
   border-radius: 14px 14px 4px 14px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* The answer is the content: plain reading text, sized for a narrow column (DSN-2.4). */
 .answer {
+  line-height: 1.55;
   overflow-wrap: anywhere;
 }
 /* LNG-3.2: each paragraph takes the direction of its first letter, so Urdu runs right to left next to English. Code stays left to right. */
@@ -756,11 +920,60 @@ textarea {
 .answer > :last-child {
   margin-bottom: 0;
 }
+.answer p,
+.answer ul,
+.answer ol,
+.answer blockquote,
+.answer pre,
+.answer table {
+  margin: 0 0 10px;
+}
+.answer ul,
+.answer ol {
+  padding-inline-start: 22px;
+}
+.answer li + li {
+  margin-top: 2px;
+}
+.answer h1,
+.answer h2,
+.answer h3,
+.answer h4 {
+  font-size: var(--text-md);
+  font-weight: 600;
+  margin: var(--sp-4) 0 6px;
+}
+.answer h1 {
+  font-size: var(--text-lg);
+}
+.answer blockquote {
+  padding: 2px 0 2px var(--sp-3);
+  border-inline-start: 3px solid var(--line-strong);
+}
+.answer hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: var(--sp-3) 0;
+}
+.answer table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.answer th,
+.answer td {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  text-align: start;
+}
+.answer th {
+  background: var(--surface-2);
+}
 .answer pre {
   background: var(--code-bg);
-  border: 1px solid var(--line);
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 10px var(--sp-3);
+  border-radius: var(--r-md);
   overflow-x: auto;
 }
 .answer pre code {
@@ -769,7 +982,7 @@ textarea {
 }
 .turn.local .answer {
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 .thinking {
   animation: pulse 1.2s ease-in-out infinite;
@@ -779,25 +992,22 @@ textarea {
     opacity: 0.4;
   }
 }
+/* Under an answer: its main action as a labelled button, the rest as icons with tooltips (DSN-2.2). */
 .actions {
   display: flex;
+  align-items: center;
   gap: 2px;
-  margin: 6px 0 0 -6px;
+  margin: var(--sp-2) 0 0 -4px;
 }
-.actions button.link {
-  padding: 3px 6px;
-  border-radius: 6px;
-  color: var(--muted);
+.actions button.primary {
+  min-height: 28px;
+  padding: 2px var(--sp-3);
+  margin: 0 6px 0 4px;
+  font-size: var(--text-sm);
 }
-.actions button.link:hover {
-  background: var(--hover);
-  color: var(--fg);
-  text-decoration: none;
-}
-/* Replace or Insert (spec 13): the answer's main action. */
-.actions button.link.lead {
-  color: var(--accent-text);
-  font-weight: 600;
+.actions .muted {
+  font-size: var(--text-xs);
+  padding: 0 4px;
 }
 .error pre.detail {
   margin: 4px 0;
@@ -808,34 +1018,31 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 8px 12px;
+  margin: 10px var(--sp-3) 2px;
 }
 .quick button {
-  min-height: 26px;
-  padding: 2px 10px;
-  border-radius: 13px;
-  font-size: 12px;
-}
-.chat:not(.bubble) > .quick {
-  margin-left: var(--side);
-  margin-right: var(--side);
+  min-height: 28px;
+  padding: 2px var(--sp-3);
+  border-color: var(--line);
+  border-radius: var(--r-full);
+  font-size: var(--text-sm);
 }
 /* The / list: a small popover above the input. */
 ul.complete {
   list-style: none;
-  margin: 0 12px 6px;
+  margin: 0 var(--sp-3) 6px;
   padding: 4px;
   max-height: 180px;
   overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--r-lg);
   box-shadow: var(--shadow);
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 ul.complete li {
-  padding: 5px 8px;
-  border-radius: 6px;
+  padding: 5px var(--sp-2);
+  border-radius: var(--r-sm);
   cursor: pointer;
 }
 ul.complete li strong {
@@ -844,54 +1051,96 @@ ul.complete li strong {
 ul.complete li[aria-selected="true"] {
   background: var(--accent-soft);
 }
-/* "What will be sent" (PRI-3.6) */
-/* With the input below it, one panel under the conversation: a single line separates them. */
+/* "What will be sent" (PRI-3.6): opened from the input's toolbar, it sits right above the input. */
 .outgoing {
-  padding: 6px 12px 0;
-  font-size: 12px;
+  margin: var(--sp-2) var(--sp-3) 0;
+  padding: var(--sp-2) 10px;
+  font-size: var(--text-xs);
   background: var(--surface);
-  border-top: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
 }
-.chat .outgoing ~ footer {
-  border-top: 0;
+.outgoing p {
+  margin: 0 0 4px;
 }
 .outgoing pre.sent {
   max-height: 12em;
   overflow: auto;
   white-space: pre-wrap;
-  font-size: 11px;
+  font-size: var(--text-xs);
   background: var(--code-bg);
-  border-radius: 8px;
-  padding: 8px;
+  border-radius: var(--r-md);
+  padding: var(--sp-2);
   margin: 4px 0;
 }
+.outgoing .row {
+  margin: var(--sp-2) 0 0;
+}
+/* The input (DSN-2.3): one field holding the text, "What will be sent" and Send. */
 .chat footer {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-  padding: 10px 12px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+}
+.composer {
   background: var(--surface);
-  border-top: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  cursor: text;
+}
+.composer:focus-within {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
 }
 .chat footer textarea {
-  flex: 1;
   max-width: none;
+  min-height: 0;
   margin: 0;
+  padding: var(--sp-2) var(--sp-3) 0;
+  border: 0;
+  background: none;
   resize: none;
   font: inherit;
-  background: var(--bg);
-  border-radius: 10px;
-  padding: 7px 10px;
+  /* Grows with what's typed, up to six lines, where the webview can (Chromium); elsewhere it keeps two rows. */
+  field-sizing: content;
+  min-height: calc(2lh + var(--sp-2));
+  max-height: calc(6lh + var(--sp-2));
 }
-.chat footer button {
-  min-height: 38px;
+.chat footer textarea:focus-visible {
+  box-shadow: none;
+}
+.composer .bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 6px 6px 10px;
+}
+.composer .bar button.link {
+  color: var(--muted);
+}
+.composer .bar button.link:hover:not(:disabled) {
+  color: var(--fg);
+  text-decoration: none;
+}
+.composer .bar button.link svg {
+  vertical-align: -3px;
+  transition: transform 0.12s;
+}
+.composer .bar button.link[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+/* Send and Stop: round icon buttons, named for screen readers. */
+.composer .bar button.send {
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+  padding: 0;
+  border-radius: var(--r-full);
 }
 .nomodel {
-  margin: 14px 12px;
-  padding: 14px 16px;
+  margin: 14px var(--sp-3);
+  padding: 14px var(--sp-4);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--r-lg);
 }
 .nomodel button {
   margin-top: 6px;
@@ -925,7 +1174,7 @@ ul.complete li[aria-selected="true"] {
   margin: 10px 0;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--r-lg);
   overflow: hidden;
 }
 .history:empty {
@@ -935,7 +1184,7 @@ ul.complete li[aria-selected="true"] {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 6px 6px var(--sp-3);
   border-bottom: 1px solid var(--line);
 }
 .history li:last-child {
@@ -949,7 +1198,7 @@ ul.complete li[aria-selected="true"] {
   box-sizing: border-box;
   height: 100vh;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: var(--sp-3) 14px;
 }
 .history li .link {
   flex: 1;
@@ -958,12 +1207,12 @@ ul.complete li[aria-selected="true"] {
   white-space: nowrap;
   text-overflow: ellipsis;
   display: block;
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--fg);
   text-align: left;
 }
 .history .muted {
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 ul.models {
@@ -1014,14 +1263,14 @@ ul.models li.row > span:first-child {
   max-width: none;
 }
 
-/* The snip overlay (VIS-2.1): the frozen screen at 1:1, dimmed except inside the rectangle. */
+/* The snip overlay (VIS-2.1): the frozen screen at 1:1, dimmed except inside the rectangle. Fixed colours: it sits over any screen. */
 .snip {
   position: fixed;
   inset: 0;
   overflow: hidden;
   cursor: crosshair;
   user-select: none;
-  background: #000;
+  background: var(--snip-bg);
 }
 .snip img {
   position: absolute;
@@ -1033,24 +1282,24 @@ ul.models li.row > span:first-child {
 .snip .shade {
   position: absolute;
   inset: 0;
-  background: rgb(0 0 0 / 45%);
+  background: var(--shade);
 }
 .snip .pick {
   position: absolute;
-  outline: 2px solid #22c55e;
-  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 45%);
+  outline: 2px solid var(--snip-edge);
+  box-shadow: 0 0 0 100vmax var(--shade);
 }
 .snip .pick span {
   position: absolute;
   left: -2px;
   bottom: 100%;
   margin-bottom: 6px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-sm);
+  font-size: var(--text-xs);
   font-weight: 600;
-  color: #08130c;
-  background: #22c55e;
+  color: var(--snip-label);
+  background: var(--snip-edge);
   white-space: nowrap;
 }
 /* A snip in the bubble: its thumbnail (VIS-2.6). */
@@ -1060,5 +1309,22 @@ ul.models li.row > span:first-child {
   max-height: 128px;
   margin-top: 6px;
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
+}
+
+/* Motion is short, and off for people who ask for less (DSN-1.5). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+/* In a group, a row's label takes the room, so every control lines up at the right edge. */
+.group > .row > span:first-child {
+  flex: 1;
+}
+.group > .row > .grow {
+  flex: 0;
 }
