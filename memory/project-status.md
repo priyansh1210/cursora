@@ -1,9 +1,11 @@
 ---
 name: project-status
-description: "Where Cursora stands as of 2026-10-26: specs 13-15 merged; spec 16 on PR #47 with its Medium/Large trial and the X11 checks of specs 13-16 done on the stronger PC (two X11 write-back bugs fixed); open: Gemini trial row, issues 56-58, the user's review"
+description: "2026-10-27: release 0.2.0 (specs 13-18, issue 50 fixed) prepared on branch release-0.2.0. Earlier, as of 2026-10-26: specs 13-15 merged; spec 16 on PR #47 with its Medium/Large trial and the X11 checks of specs 13-16 done on the stronger PC (two X11 write-back bugs fixed); open: Gemini trial row, issues 56-58, the user's review"
 metadata:
   type: project
 ---
+
+**2026-10-27: release 0.2.0 prepared** on branch `release-0.2.0` at the user's request ("we should give update in the cursora releases"): version 0.2.0, `release-notes.md` covering specs 13 to 18 and LLM-5.7, and issue 50 fixed (R77: `fetch-llama` ships the Visual C++ runtime next to llama-server). After the user merges it, the tag `v0.2.0` on main makes a draft in `cursora-releases`, which the user publishes. Not done before it: most of spec 18's manual checklist, and every spec's Linux items.
 
 **2026-10-26 (evening), stronger PC, branch `spec-16-indian-languages` (PR #47):** the spec 16 trial ran on Medium and Large (files in `C:\Users\FITT\Models\cursora`, SHA-256 matching `download.rs`). Neither is reliable in Indian languages: Medium changed the day and time in Hindi and Tamil translations, and Large did worse. So the LNG-4.1 line, README and manual now point to a cloud model. Gemini's row still needs the user's key. The X11 checks of specs 13 to 16 all ran in WSL and are recorded in each tasks.md. They found and fixed R66 (Replace and Insert never worked on X11: the focus request was dropped when the connection closed), R67 (Replace offered in Linux terminals) and a flaky test (R65), and logged issues 56 (a downloaded model doesn't become the default), 57 (Urdu gets Noto Kufi on Linux) and 58 (long History rows overflow). Linux tests: 173 pass. Still open: `/ponytail-review` of specs 13 and 16, and LNG-4.1 on Windows.
 
