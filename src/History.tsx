@@ -36,9 +36,9 @@ export default function History({ settings, save }: { settings: Settings; save: 
 
   return (
     <>
-      <h2>History</h2>
+      <div className="group">
       <label className="row">
-        <input type="checkbox" checked={h.save} onChange={(e) => set({ save: e.target.checked })} />
+        <input type="checkbox" role="switch" checked={h.save} onChange={(e) => set({ save: e.target.checked })} />
         Save conversations on this computer
       </label>
       <label className="row">
@@ -51,6 +51,7 @@ export default function History({ settings, save }: { settings: Settings; save: 
           ))}
         </select>
       </label>
+      </div>
       <input type="search" placeholder="Search questions, answers and context" aria-label="Search history" value={query} onChange={(e) => setQuery(e.target.value)} />
       {error && <p role="alert" className="error">{error}</p>}
       <ul className="history">

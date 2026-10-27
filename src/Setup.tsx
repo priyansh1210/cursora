@@ -76,7 +76,7 @@ function AiSource({ settings, save, setReady }: StepProps) {
   return (
     <>
       <h2>Choose an AI source</h2>
-      <p className="muted">Cursora needs a working model: one on this computer, or a cloud provider with an API key.</p>
+      <p className="muted">Cursora answers with an AI model. Pick where it runs; you can add others later in Settings.</p>
       {current && d && (
         <div className="card current">
           <p>
@@ -117,7 +117,7 @@ function AiSource({ settings, save, setReady }: StepProps) {
               ) : (
                 <span className="muted">Loading models…</span>
               )}
-              <button type="submit" disabled={!model.trim()}>
+              <button type="submit" className="primary" disabled={!model.trim()}>
                 Use this model
               </button>
             </form>
@@ -201,13 +201,14 @@ function Startup({ settings, save }: StepProps) {
     <>
       <h2>Startup and updates</h2>
       <label className="row">
-        <input type="checkbox" checked={settings.startWithSystem} onChange={(e) => save({ startWithSystem: e.target.checked }).catch(() => {})} />
+        <input type="checkbox" role="switch" checked={settings.startWithSystem} onChange={(e) => save({ startWithSystem: e.target.checked }).catch(() => {})} />
         Start Cursora when I log in
       </label>
       {/* Ticked, and shown before the first check can run (UPD-1.5). */}
       <label className="row">
         <input
           type="checkbox"
+          role="switch"
           checked={settings.updates.check}
           aria-describedby="updates-note"
           onChange={(e) => save({ updates: { ...settings.updates, check: e.target.checked } }).catch(() => {})}
