@@ -499,12 +499,15 @@ export function AddProvider({ save, onAdded }: { save: Save; onAdded: (p: Provid
   );
 }
 
-type Choice = { id: string; label: string; note: string; size: number };
+type Choice = { id: string; label: string; note: string; file: string; size: number };
 type Progress = { done: number; total: number };
-const gb = (bytes: number) => (bytes / 1e9).toFixed(1);
+/** "4.7 GB" for chat models, "60 MB" for speech models; `done` in the unit of `of`. */
+const size = (bytes: number, of = bytes) => (of >= 1e9 ? (bytes / 1e9).toFixed(1) : String(Math.round(bytes / 1e6)));
+const unit = (bytes: number) => (bytes >= 1e9 ? "GB" : "MB");
 
-/** One-click model download (MDL-1): three sizes, one recommended, the folder, then progress and Cancel. */
-function DownloadModel({ onReady }: { onReady: (path: string) => void }) {
+/** One-click model download (MDL-1): the sizes, one recommended, the folder, then progress and Cancel. `kind` "speech"
+ *  offers voice input's speech models instead (VIN-2.1), and marks the one `inUse`. */
+export function DownloadModel({ onReady, kind = "chat", inUse }: { onReady: (path: string) => void; kind?: "chat" | "speech"; inUse?: string | null }) {
   const [choices, setChoices] = useState<{ models: Choice[]; recommended: string }>();
   const [id, setId] = useState("");
   const [folder, setFolder] = useState("");
@@ -514,10 +517,13 @@ function DownloadModel({ onReady }: { onReady: (path: string) => void }) {
   const [error, setError] = useState<string>();
   const [indian, setIndian] = useState(false); // LNG-4.2
   useEffect(() => {
-    void invoke<Settings>("get_settings").then((s) => setIndian(isIndian(s.myLanguage)));
-    void invoke<{ models: Choice[]; recommended: string; folder: string }>("model_choices").then((c) => {
-      setChoices(c);
-      setId(c.recommended);
+    void Promise.all([invoke<Settings>("get_settings"), invoke<{ models: Choice[]; speech: Choice[]; recommended: string; folder: string }>("model_choices")]).then(([s, c]) => {
+      const indian = isIndian(s.myLanguage);
+      // VIN-2.1: Accurate while My language is an Indian language.
+      const shown = kind === "speech" ? { models: c.speech, recommended: indian ? "accurate" : "fast" } : c;
+      setIndian(indian);
+      setChoices(shown);
+      setId(shown.recommended);
       setFolder(c.folder);
     });
     const off = listen<Progress>("model-progress", (e) => setProgress(e.payload));
@@ -545,14 +551,14 @@ function DownloadModel({ onReady }: { onReady: (path: string) => void }) {
 
   return (
     <div className="download">
-      <div role="radiogroup" aria-label="Model size">
+      <div role="radiogroup" aria-label={kind === "speech" ? "Speech model" : "Model size"}>
         {choices.models.map((m) => (
           <label className="row" key={m.id}>
-            <input type="radio" name="model-size" checked={id === m.id} disabled={running} onChange={() => setId(m.id)} />
+            <input type="radio" name={`${kind}-model`} checked={id === m.id} disabled={running} onChange={() => setId(m.id)} />
             <span>
-              <strong>{m.label}</strong> · {gb(m.size)} GB <span className="muted">· {m.note}</span>
+              <strong>{m.label}</strong> · {size(m.size)} {unit(m.size)} <span className="muted">· {m.note}</span>
             </span>
-            {m.id === choices.recommended && <span className="badge">Recommended</span>}
+            {inUse?.endsWith(m.file) ? <span className="badge">In use</span> : m.id === choices.recommended && <span className="badge">Recommended</span>}
           </label>
         ))}
       </div>
@@ -569,7 +575,7 @@ function DownloadModel({ onReady }: { onReady: (path: string) => void }) {
           <div className="progress" role="progressbar" aria-label="Download progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
             <span style={{ width: `${percent}%` }} />
           </div>
-          <span>{!progress ? "Starting…" : progress.done < progress.total ? `${gb(progress.done)} of ${gb(progress.total)} GB` : "Checking the file…"}</span>
+          <span>{!progress ? "Starting…" : progress.done < progress.total ? `${size(progress.done, progress.total)} of ${size(progress.total)} ${unit(progress.total)}` : "Checking the file…"}</span>
           <button type="button" onClick={() => void invoke("model_download_cancel")}>
             Cancel
           </button>
@@ -579,8 +585,14 @@ function DownloadModel({ onReady }: { onReady: (path: string) => void }) {
           Download
         </button>
       )}
-      <p className="muted note">Free Qwen models (Apache 2.0 license) from Hugging Face. They run on this computer, so your questions stay on it.</p>
-      {indian && <p className="muted note">{MODELS_FOR_LANGUAGES}</p>}
+      {kind === "speech" ? (
+        <p className="muted note">Whisper speech models (MIT license) from Hugging Face. They run on this computer, so your voice stays on it.</p>
+      ) : (
+        <>
+          <p className="muted note">Free Qwen models (Apache 2.0 license) from Hugging Face. They run on this computer, so your questions stay on it.</p>
+          {indian && <p className="muted note">{MODELS_FOR_LANGUAGES}</p>}
+        </>
+      )}
       {note && (
         <p className="note" role="status">
           {note}

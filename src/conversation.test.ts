@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ERROR_KINDS, errorText, header, keyAction, marks } from "./conversation";
+import { appendDictation, ERROR_KINDS, errorText, header, keyAction, marks } from "./conversation";
 
 describe("chat helpers", () => {
   it("BUB-4.1 Enter sends; Shift+Enter and IME composition insert a newline", () => {
@@ -7,6 +7,13 @@ describe("chat helpers", () => {
     expect(keyAction({ key: "Enter", shiftKey: true, isComposing: false })).toBeNull();
     expect(keyAction({ key: "Enter", shiftKey: false, isComposing: true })).toBeNull();
     expect(keyAction({ key: "a", shiftKey: false, isComposing: false })).toBeNull();
+  });
+
+  it("VIN-1.2 dictated text goes after what was typed, without sending", () => {
+    expect(appendDictation("", "Explain this")).toBe("Explain this");
+    expect(appendDictation("/rewrite", "like a pirate")).toBe("/rewrite like a pirate");
+    expect(appendDictation("Explain this  \n", "in Hindi")).toBe("Explain this in Hindi");
+    expect(appendDictation("   ", "Hello")).toBe("Hello");
   });
 
   it("BUB-4.4 every error kind has a plain-language message; auth, billing and config errors offer Models settings", () => {

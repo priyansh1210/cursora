@@ -53,6 +53,29 @@ pub const MODELS: [Choice; 3] = [
     },
 ];
 
+/// VIN-2.2: whisper.cpp's multilingual speech models (MIT license, OpenAI's Whisper weights), at a fixed revision. Sizes
+/// and hashes from the Hugging Face API, 2026-10-28.
+pub const SPEECH: [Choice; 2] = [
+    Choice {
+        id: "fast",
+        label: "Fast",
+        note: "Quick, best for English",
+        file: "ggml-base-q5_1.bin",
+        size: 59_707_625,
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base-q5_1.bin",
+        sha256: "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898",
+    },
+    Choice {
+        id: "accurate",
+        label: "Accurate",
+        note: "Better for Hindi and other Indian languages, slower",
+        file: "ggml-small-q5_1.bin",
+        size: 190_085_487,
+        url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small-q5_1.bin",
+        sha256: "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
+    },
+];
+
 const UNREACHABLE: &str = "Couldn't reach the download server. Check the internet connection and try again.";
 const STALL: Duration = Duration::from_secs(60);
 
@@ -102,7 +125,9 @@ pub async fn fetch(url: &str, size: u64, sha256: &str, path: &Path, cancel: &Ato
     if path.metadata().is_ok_and(|m| m.len() == size) && sha256_of(path).await? == sha256 {
         return Ok(());
     }
-    let part = path.with_extension("gguf.part");
+    let mut part = path.as_os_str().to_owned();
+    part.push(".part");
+    let part = PathBuf::from(part);
     let mut have = part.metadata().map_or(0, |m| m.len());
     if have > size {
         have = 0;
@@ -166,6 +191,7 @@ pub struct Download {
 #[serde(rename_all = "camelCase")]
 pub struct Choices {
     models: &'static [Choice],
+    speech: &'static [Choice],
     recommended: &'static str,
     folder: String,
 }
@@ -174,7 +200,7 @@ pub struct Choices {
 #[tauri::command]
 pub fn model_choices(app: AppHandle) -> Choices {
     let folder = app.path().app_local_data_dir().map(|d| d.join("models").to_string_lossy().into_owned()).unwrap_or_default();
-    Choices { models: &MODELS, recommended: recommended(total_ram()), folder }
+    Choices { models: &MODELS, speech: &SPEECH, recommended: recommended(total_ram()), folder }
 }
 
 #[derive(Serialize, Clone)]
@@ -186,7 +212,7 @@ struct Progress {
 /// The model's path once it's ready; `None` when cancelled. Progress goes to every window as `model-progress` (MDL-1.4).
 #[tauri::command]
 pub async fn model_download(app: AppHandle, id: String, folder: String) -> Result<Option<String>, String> {
-    let m = MODELS.iter().find(|m| m.id == id).ok_or("There's no such model.")?;
+    let m = MODELS.iter().chain(&SPEECH).find(|m| m.id == id).ok_or("There's no such model.")?;
     let state = app.state::<Download>();
     if state.running.swap(true, Ordering::SeqCst) {
         return Err("A model is already downloading.".into());
@@ -300,6 +326,25 @@ mod tests {
         let got = block(fetch(&url, body.len() as u64, &"0".repeat(64), &path, &AtomicBool::new(false), &mut |_| {}));
         assert_eq!(got, Err("The downloaded file didn't match, so it was deleted. Try again.".into()));
         assert!(!path.exists() && !path.with_extension("gguf.part").exists());
+    }
+
+    #[test]
+    fn vin_2_2_the_speech_models_are_pinned_and_a_wrong_file_is_deleted() {
+        for m in &SPEECH {
+            let rest = m.url.strip_prefix("https://huggingface.co/ggerganov/whisper.cpp/resolve/").unwrap_or_default();
+            let commit = rest.split('/').next().unwrap_or_default();
+            assert!(commit.len() == 40 && commit.bytes().all(|b| b.is_ascii_hexdigit()), "{}: a fixed revision of whisper.cpp's models", m.id);
+            assert!(m.url.ends_with(&format!("/{}", m.file)) && m.file.starts_with("ggml-") && m.file.ends_with(".bin"), "{}", m.id);
+            assert!(m.sha256.len() == 64 && m.sha256.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')), "{}", m.id);
+            assert!(m.size > 30 << 20, "{}", m.id);
+        }
+        let (body, _) = file();
+        let (url, _) = serve(body.clone(), true, 200, 0);
+        let d = temp_dir("wrong-speech");
+        let path = d.join("ggml-model.bin");
+        let got = block(fetch(&url, body.len() as u64, &"0".repeat(64), &path, &AtomicBool::new(false), &mut |_| {}));
+        assert_eq!(got, Err("The downloaded file didn't match, so it was deleted. Try again.".into()));
+        assert!(!path.exists() && !d.join("ggml-model.bin.part").exists());
     }
 
     #[test]

@@ -36,6 +36,8 @@ pub struct Settings {
     pub answer_in_my_language: bool,
     /// Spec 17: where Save writes answers; None is Documents/Cursora (SAV-2.4).
     pub saved_answers_folder: Option<std::path::PathBuf>,
+    /// Spec 19: the downloaded speech model; None until one is (VIN-1.6).
+    pub voice_model: Option<String>,
 }
 
 impl Default for Settings {
@@ -62,6 +64,7 @@ impl Default for Settings {
             my_language: "English".into(),
             answer_in_my_language: false,
             saved_answers_folder: None,
+            voice_model: None,
         }
     }
 }
