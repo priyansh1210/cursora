@@ -47,6 +47,8 @@ export type Settings = {
   answerInMyLanguage: boolean;
   /** Spec 17: where Save writes; null is Documents/Cursora (SAV-2.4). */
   savedAnswersFolder: string | null;
+  /** Spec 19: the downloaded speech model's path; null until one is (VIN-1.6). */
+  voiceModel: string | null;
 };
 
 export type CopyKey = "ctrlC" | "ctrlInsert" | "ctrlShiftC" | "never";

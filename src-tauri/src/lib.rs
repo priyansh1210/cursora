@@ -18,6 +18,7 @@ mod skills;
 mod snip;
 mod tray;
 mod update;
+mod voice;
 #[cfg(not(windows))]
 mod x11;
 
@@ -335,6 +336,8 @@ pub fn run() {
             chat::write_back,
             chat::prompt_preview,
             chat::send_preview,
+            voice::voice_start,
+            voice::voice_stop,
             privacy::privacy_detectors,
             persona::personas,
             persona::persona_preview,
@@ -413,6 +416,7 @@ pub fn run() {
             app.manage(llm::download::Download::default());
             app.manage(keep::Pins::default());
             app.manage(update::UpdateState::default());
+            app.manage(voice::Voice::default());
             update::start(app.handle().clone());
             llm::engine::watch_idle(app.handle().clone());
             llm::engine::preload(app.handle());

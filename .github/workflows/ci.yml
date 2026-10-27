@@ -25,7 +25,10 @@ jobs:
           workspaces: src-tauri
       - name: Linux system deps
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb
+        # libasound2-dev: the microphone (spec 19). whisper-rs-sys's bundled bindings were made on Linux, so they need no libclang here.
+        run: |
+          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev xvfb libasound2-dev
+          echo "WHISPER_DONT_GENERATE_BINDINGS=1" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm run trace
       - run: npm test
@@ -57,7 +60,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Linux system deps
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev
+        run: |
+          sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev
+          echo "WHISPER_DONT_GENERATE_BINDINGS=1" >> "$GITHUB_ENV"
       - run: npm ci
       - run: node scripts/release-version.mjs "${{ github.ref_name }}" # UPD-3.4
       # The built-in engine (LLM-3.1): pinned llama.cpp build, checked against its SHA-256.

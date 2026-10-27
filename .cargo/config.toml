@@ -1,0 +1,13 @@
+# How whisper.cpp is compiled for voice input (spec 19 design, decision 4). whisper-rs-sys passes GGML_* and CMAKE_*
+# variables on to CMake. At the repository root, so it applies from here and from src-tauri.
+[env]
+# Any x86-64 PC from about 2013 on, not only the machine that built it.
+GGML_NATIVE = "OFF"
+GGML_AVX = "ON"
+GGML_AVX2 = "ON"
+GGML_FMA = "ON"
+GGML_F16C = "ON"
+# The cmake crate replaces CMake's release flags with its own, which don't optimize: 5 s of speech took 72 s instead of 9 s.
+# MSVC and gcc both accept these.
+CMAKE_C_FLAGS_RELEASE = "-O2 -DNDEBUG"
+CMAKE_CXX_FLAGS_RELEASE = "-O2 -DNDEBUG"
