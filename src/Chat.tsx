@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import { badge, errorText, formatSize, header, keyAction, marks, type Asked, type Conversation, type Delta, type Done, type Preview, type Turn } from "./conversation";
+import { appendDictation, badge, errorText, formatSize, header, keyAction, marks, type Asked, type Conversation, type Delta, type Done, type Preview, type Turn } from "./conversation";
 import { render } from "./markdown";
 import { ModelSelect, modelValue, useEnabledModels } from "./Models";
 import { listKey, matches, typedCommand, type Entry } from "./skills";
@@ -33,6 +33,9 @@ export default function Chat() {
   // `/snip <question>`: sent as if typed once the snip's conversation is here, so confirming still applies.
   const [snipQuestion, setSnipQuestion] = useState<string | null>(null);
   const sendRef = useRef<(question: string) => void>(undefined);
+  // Voice input (VIN-1.1): Rust records and turns it into text; this shows the state and the seconds.
+  const [voice, setVoice] = useState<"idle" | "recording" | "writing">("idle");
+  const [seconds, setSeconds] = useState(0);
   const typed = typedCommand(draft);
   useEffect(() => {
     if (typed !== null) void invoke<Entry[]>("skills_available").then(setEntries);
@@ -58,7 +61,10 @@ export default function Chat() {
         setError(undefined);
         setOutgoing({ open: false, pending: null });
       }),
-      listen("bubble-hidden", () => setConv(null)), // the next open must not flash this conversation
+      listen("bubble-hidden", () => {
+        setConv(null); // the next open must not flash this conversation
+        setVoice("idle"); // Rust dropped the recording (VIN-1.5)
+      }),
       listen("chat-load", reload),
       listen<string>("snip-ask", (e) => setSnipQuestion(e.payload)),
       // Personality or the persona changed: the header shows who answers the next message (PER-2.2).
@@ -80,6 +86,34 @@ export default function Chat() {
     void Promise.all(subscriptions).then(reload);
     return () => subscriptions.forEach((s) => void s.then((off) => off()));
   }, []);
+
+  const dictate = () => {
+    if (!settings?.voiceModel) return void invoke("open_settings", { tab: "General" }); // VIN-1.6
+    setError(undefined);
+    if (voice === "idle") void invoke("voice_start").then(() => setVoice("recording"), (e) => setError(String(e)));
+    if (voice !== "recording") return;
+    setVoice("writing");
+    const id = convRef.current?.id; // a reopened bubble must not get this text
+    invoke<string>("voice_stop")
+      .then(
+        (said) => {
+          if (convRef.current?.id !== id) return;
+          setDraft((d) => appendDictation(d, said));
+          inputRef.current?.focus();
+        },
+        (e) => setError(String(e)),
+      )
+      .finally(() => setVoice("idle"));
+  };
+  useEffect(() => {
+    if (voice !== "recording") return;
+    setSeconds(0);
+    const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [voice]);
+  useEffect(() => {
+    if (voice === "recording" && seconds >= 60) dictate(); // VIN-1.1: stops by itself
+  }, [seconds]);
 
   // Focus the input on open (BUB-2.2).
   useEffect(() => inputRef.current?.focus(), [conv?.id]);
@@ -316,6 +350,23 @@ export default function Chat() {
                 What will be sent <Icon d={PATHS.chevron} size={14} />
               </button>
               <span className="grow" />
+              <button
+                type="button"
+                className={voice === "recording" ? "send recording" : voice === "writing" ? "send icon writing" : "send icon"}
+                onClick={dictate}
+                disabled={voice === "writing"}
+                aria-label={!settings?.voiceModel ? "Dictate: set up voice input in Settings first" : voice === "recording" ? `Stop dictating, ${seconds} seconds` : voice === "writing" ? "Writing what you said" : "Dictate your question"}
+                title={!settings?.voiceModel ? "Set up voice input in Settings" : voice === "recording" ? "Stop" : voice === "writing" ? "Writing what you said…" : "Dictate"}
+              >
+                {voice === "recording" ? (
+                  <>
+                    <Icon d={PATHS.stop} size={12} stroke={2.4} />
+                    <span>0:{String(seconds).padStart(2, "0")}</span>
+                  </>
+                ) : (
+                  <Icon d={PATHS.voice} size={17} />
+                )}
+              </button>
               {streaming ? (
                 <button type="button" className="send" onClick={() => void invoke("stop")} aria-label="Stop the answer" title="Stop">
                   <Icon d={PATHS.stop} size={14} stroke={2.4} />

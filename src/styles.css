@@ -1135,6 +1135,20 @@ ul.complete li[aria-selected="true"] {
   padding: 0;
   border-radius: var(--r-full);
 }
+/* Voice input (VIN-1.1): while recording the mic becomes Stop and the time, in red; while it writes, it pulses. */
+.composer .bar button.recording {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  width: auto;
+  padding: 0 var(--sp-2);
+  color: var(--error);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.composer .bar button.writing svg {
+  animation: pulse 1.2s ease-in-out infinite;
+}
 .nomodel {
   margin: 14px var(--sp-3);
   padding: 14px var(--sp-4);

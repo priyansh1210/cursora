@@ -3,6 +3,8 @@
 # Copies the repo into the Linux filesystem (building on /mnt/d is very slow) and reuses the Windows-built dist/.
 # src-tauri/llama/ is left alone: on Windows it holds the Windows engine, in WSL the Linux one.
 set -euo pipefail
+# Build tools installed without sudo (CMake, ALSA's headers for voice input), if this machine has them that way.
+[ -f ~/.cursora-env ] && . ~/.cursora-env
 src="$(cd "$(dirname "$0")/.." && pwd)"
 rsync -a --delete --exclude node_modules --exclude src-tauri/target --exclude src-tauri/llama --exclude .git "$src/" ~/cursora/
 cd ~/cursora

@@ -53,6 +53,11 @@ export function keyAction(e: { key: string; shiftKey: boolean; isComposing: bool
   return e.key === "Enter" && !e.shiftKey && !e.isComposing ? "send" : null;
 }
 
+/** VIN-1.2: what was said goes after what was typed, with one space between. */
+export function appendDictation(draft: string, said: string): string {
+  return draft.trim() ? `${draft.trimEnd()} ${said}` : said;
+}
+
 const ERROR_TEXT: Record<ErrorKind, string> = {
   auth: "The provider rejected the API key. Check it in Models settings.",
   rate_limit: "The provider is limiting requests right now. Wait a moment, then retry.",
