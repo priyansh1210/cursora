@@ -20,4 +20,4 @@ Status: **In progress**. Tasks 1 to 4 are built; the manual checklist is open.
 - [ ] DSN-3.2: on/off settings are switches that Space toggles and screen readers call switches; "What to hide", a provider's models, the persona editor's Emoji and the skill form's options are checkboxes. Windows ☐ Linux X11 ☐
 - [ ] DSN-3.3: personas and skills are one list each; their buttons are borderless; Delete is red. Windows ☐ Linux X11 ☐
 - [ ] DSN-4.1: on a fresh setup, the three cards show; Download shows the sizes; Cloud lists only key providers; Already have lists the .gguf file, LM Studio and Custom; a model found on this computer is offered above them. The same in Settings → Models. Windows ☐ Linux X11 ☐
-- [ ] DSN-4.2: Setup opens at 600 × 600 and step 1 fits without scrolling. Windows ☐ Linux X11 ☐
+- [ ] DSN-4.2: Setup opens at 600 × 600 and step 1 fits without scrolling. Windows ✓ (2026-10-27, release build, fresh setup: the three cards and Next fit, no scroll bar) Linux X11 ☐
