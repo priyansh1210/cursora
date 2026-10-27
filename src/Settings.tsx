@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import History from "./History";
 import { HotkeyFields } from "./HotkeyInput";
-import ModelsTab from "./Models";
+import ModelsTab, { DownloadModel } from "./Models";
 import PersonalityTab from "./Personality";
 import SkillsTab from "./SkillsTab";
 import Privacy from "./Privacy";
@@ -138,6 +138,14 @@ function General({ settings, save }: { settings: S; save: Save }) {
         {/* LNG-4.1: from the trial in tasks.md, task 5. */}
         {isIndian(settings.myLanguage) && ` ${MODELS_FOR_LANGUAGES}`}
       </p>
+      </div>
+      <h2>Voice input</h2>
+      <div className="group">
+      {/* VIN-2.1: the speech model for the bubble's mic, on this computer. */}
+      <p className="muted">
+        {settings.voiceModel ? "Say your question with the mic in the bubble." : "Say your question instead of typing it, with the mic in the bubble. Download a speech model first."}
+      </p>
+      <DownloadModel kind="speech" inUse={settings.voiceModel} onReady={(path) => void set({ voiceModel: path })} />
       </div>
       <h2>Saved answers</h2>
       <div className="group">

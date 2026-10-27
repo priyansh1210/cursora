@@ -25,8 +25,11 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 16 | [Indian languages](16-indian-languages/requirements.md) | LNG | Approved | [Approved](16-indian-languages/design.md) | [In progress](16-indian-languages/tasks.md) | In progress |
 | 17 | [Save and pin answers](17-save-and-pin/requirements.md) | SAV | Approved | [Approved](17-save-and-pin/design.md) | [In progress](17-save-and-pin/tasks.md) | In progress |
 | 18 | [Design refresh](18-design-refresh/requirements.md) | DSN | Approved | [Approved](18-design-refresh/design.md) | [In progress](18-design-refresh/tasks.md) | In progress |
+| 19 | [Voice input](19-voice-input/requirements.md) | VIN | Approved² | [Approved²](19-voice-input/design.md) | [In progress](19-voice-input/tasks.md) | In progress |
 
 ¹ Approved under the user's go-ahead of 2026-10-26 to build improvements #1 to #5 while away; the choices made for the user are listed in each spec's requirements.md, for review.
+
+² Approved under the user's go-ahead of 2026-10-28 to design, build and merge updates 1 and 3 to 9; the choices made for the user are listed in each spec's requirements.md, and the user reviews them all afterwards.
 
 Post-v1 ideas: [backlog.md](backlog.md). Known problems, gaps and untested items: [issues.md](issues.md).
 

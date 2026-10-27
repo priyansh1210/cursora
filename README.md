@@ -145,6 +145,7 @@ On Windows you need:
 - Rust (rustup, stable-msvc)
 - Build Tools for Visual Studio 2022, with the "Desktop development with C++" workload (the compiler only, not the IDE)
 - Node.js 22
+- CMake and LLVM's libclang, which build the speech engine for voice input. The Build Tools include CMake: if it isn't on your PATH, set `CMAKE` to its `cmake.exe`. For libclang, install LLVM, or `pip install libclang` and set `LIBCLANG_PATH` to its `clang/native` folder. A [user-level Cargo config](https://doc.rust-lang.org/cargo/reference/config.html) (`%USERPROFILE%\.cargo\config.toml`, under `[env]`) keeps both settings in one place.
 
 ```
 npm install
@@ -173,8 +174,9 @@ To try the built-in engine, run `npm run fetch-llama` first. It downloads llama-
 - **API keys** need a Secret Service (GNOME Keyring or KWallet). Models on your computer work without one.
 - **To build on Ubuntu**, install Rust, Node.js 22 and:
   ```
-  sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev
+  sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev cmake libasound2-dev
   ```
+  and set `WHISPER_DONT_GENERATE_BINDINGS=1`, so the speech engine uses its ready-made Linux bindings instead of needing libclang.
 
 </details>
 

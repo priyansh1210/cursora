@@ -198,6 +198,7 @@ pub fn hide(app: &AppHandle) -> bool {
     let _ = window.hide();
     let _ = window.emit_to(LABEL, "bubble-hidden", ());
     crate::llm::engine::release(app); // "Only while answering" (LLM-3.5)
+    crate::voice::cancel(app); // VIN-1.5
     had_focus
 }
 
