@@ -90,6 +90,10 @@ pub struct Snip {
     /// reopened from history has only the thumbnail, which its follow-ups send.
     #[serde(skip)]
     pub full: Option<Image>,
+    /// The region's text, read on this computer for a model that can't see (spec 20, OCR-1.2). History keeps it, as
+    /// it keeps a selection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -105,7 +109,14 @@ pub enum Notice {
     /// This session can't read any selection: Wayland without wl-paste (LNX-3.4).
     Unreadable,
     /// A snip needs a model that can see (VIS-1.2); `offer` is another configured one that can, for this snip only.
-    NeedsVision { offer: Option<VisionOffer> },
+    /// `install_tesseract`: on Linux, Tesseract would let any model use snips (OCR-1.6).
+    NeedsVision {
+        offer: Option<VisionOffer>,
+        #[serde(rename = "installTesseract")]
+        install_tesseract: bool,
+    },
+    /// A snip for a model that can't see had no text to read (OCR-1.4).
+    NoText { offer: Option<VisionOffer> },
     /// The screen couldn't be grabbed or the region prepared (spec 10).
     SnipFailed { reason: String },
 }
@@ -167,7 +178,7 @@ pub trait Platform {
 pub const FILE_MANAGERS: [&str; 7] = ["nautilus", "dolphin", "thunar", "nemo", "caja", "pcmanfm", "pcmanfm-qt"];
 
 /// `vision`: the active model reads images, so an empty capture can offer a snip (SEL-6.2).
-pub fn capture<P: Platform>(p: &P, cfg: &CaptureSettings, vision: bool) -> Capture {
+pub fn capture<P: Platform>(p: &P, cfg: &CaptureSettings, can_snip: bool) -> Capture {
     let mut app = p.foreground(); // before any Cursora window can take focus (SEL-2.1)
     if blocked(&cfg.blocklist, &app) {
         app.title.clear(); // not shown, not saved
@@ -188,7 +199,7 @@ pub fn capture<P: Platform>(p: &P, cfg: &CaptureSettings, vision: bool) -> Captu
             _ => (Method::None, Content::None),
         },
     };
-    let notice = matches!(content, Content::None).then(|| if p.selection_readable() { Notice::NoSelection { offer_snip: vision } } else { Notice::Unreadable });
+    let notice = matches!(content, Content::None).then(|| if p.selection_readable() { Notice::NoSelection { offer_snip: can_snip } } else { Notice::Unreadable });
     Capture { app, method, content, notice }
 }
 

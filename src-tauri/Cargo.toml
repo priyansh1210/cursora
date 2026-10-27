@@ -60,6 +60,10 @@ clipboard-win = { version = "5", features = ["std"] }
 windows-native-keyring-store = "1"
 # Same version Tauri already compiles, so this only adds features.
 windows = { version = "0.62", features = [
+  "Foundation_Collections",
+  "Graphics_Imaging",
+  "Media_Ocr",
+  "Storage_Streams",
   "Win32_Foundation",
  "Win32_Graphics_Gdi",
   "Win32_Security",

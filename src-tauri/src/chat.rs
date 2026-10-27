@@ -422,8 +422,8 @@ pub fn ask(window: WebviewWindow, app: AppHandle, question: String, confirmed: b
         skills::HELP => local(&app, label, question, skills::help(&skills::available(&app))),
         skills::CLEAR => clear(&app, label),
         skills::NEW_SKILL => new_skill(&app, label),
-        // A new conversation with the snip; `/snip <question>` asks it at once. Without a model that can see,
-        // the bubble opens with the hint instead (VIS-1.2).
+        // A new conversation with the snip; `/snip <question>` asks it at once. Without a model that can see, the
+        // bubble opens with the hint instead (VIS-1.2), unless the snip's text can be read for it (OCR-1.1).
         skills::SNIP => {
             crate::snip::start(&app, crate::snip::Start { model: None, question: Some(rest) });
             Ok(())
@@ -613,7 +613,12 @@ fn build(conv: &Conversation, s: &Settings, skill: Option<&(skills::Skill, Strin
     let instructions = skill.map(|(sk, input)| skills::instructions(sk, &skills::Vars { input, app: &conv.app.name, language: &language, my_language: &my_language, date: &skills::today() }));
     // Unknown sizes: no current cloud chat model has less than 32k.
     let assumed = info.context_tokens.or((info.locality == Locality::Cloud).then_some(CLOUD_CONTEXT_TOKENS));
-    request(conv, s, instructions.as_deref(), info.locality, budget(assumed))
+    let mut req = request(conv, s, instructions.as_deref(), info.locality, budget(assumed))?;
+    // A model that can't see gets a snip's text alone (OCR-1.2): llama-server refuses a request that has an image.
+    if !info.vision {
+        req.messages.iter_mut().for_each(|m| m.images.clear());
+    }
+    Ok(req)
 }
 
 /// Marks the turn as streaming via `change`, then answers `question` on a worker thread.
@@ -927,7 +932,7 @@ mod tests {
 
     fn snip(full: bool) -> Content {
         let image = |b: &str| Image { mime: "image/png".into(), base64: b.into() };
-        Content::Snip(crate::capture::Snip { thumbnail: image("THUMB"), width: 1280, height: 720, full: full.then(|| image("FULL")) })
+        Content::Snip(crate::capture::Snip { thumbnail: image("THUMB"), width: 1280, height: 720, full: full.then(|| image("FULL")), text: None })
     }
 
     #[test]
@@ -948,6 +953,19 @@ mod tests {
         assert_eq!(answering_model(None, Some(&own)).as_deref(), Some("p-lm/llava-1.6"), "a question, or a skill without a model of its own");
         assert_eq!(answering_model(Some("p-cloud/gpt-4o"), Some(&own)).as_deref(), Some("p-cloud/gpt-4o"), "a skill's own model wins");
         assert_eq!(answering_model(None, None), None, "the default");
+    }
+
+    #[test]
+    fn ocr_1_2_a_model_that_cant_see_gets_the_text_without_the_image() {
+        let mut c = Conversation { content: snip(true), ..conv(vec![turn("what does it say?", "", TurnStatus::Streaming)]) };
+        if let Content::Snip(s) = &mut c.content {
+            s.text = Some("Error 404".into());
+        }
+        let info = |vision| ModelInfo { name: "m".into(), provider: "p".into(), locality: Locality::Local, context_tokens: None, vision };
+        let images = |vision| build(&c, &Settings::default(), None, &info(vision)).unwrap().messages.iter().map(|m| m.images.len()).sum::<usize>();
+        assert_eq!((images(false), images(true)), (0, 1));
+        let req = build(&c, &Settings::default(), None, &info(false)).unwrap();
+        assert!(req.messages[1].text.contains("<snip_text>\nError 404\n</snip_text>"));
     }
 
     #[test]
