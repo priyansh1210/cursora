@@ -10,18 +10,20 @@ export type TurnStatus = "streaming" | "done" | "cancelled" | "error";
 export type Turn = { question: string; answer: string; status: TurnStatus; error: ChatError | null; asked: number; answered: number | null; local: boolean; note?: string | null };
 export type FileItem = { path: string; name: string; kind: "file" | "folder" | "link"; size: number; modified: number; children: string[]; content: string | null; skipped: string | null; image?: boolean };
 export type Image = { mime: string; base64: string };
-/** `snip`: a screen region; the page only ever gets its thumbnail (VIS-2.6). */
+/** `snip`: a screen region; the page only ever gets its thumbnail (VIS-2.6), and its text when it was read for a model
+ *  that can't see (OCR-1.2). */
 export type Content =
   | { kind: "text"; text: string; truncated: boolean }
   | { kind: "files"; items: FileItem[]; omitted: number }
-  | { kind: "snip"; thumbnail: Image; width: number; height: number }
+  | { kind: "snip"; thumbnail: Image; width: number; height: number; text?: string }
   | { kind: "none" };
 export type Notice =
   | { kind: "blocked" }
   | { kind: "elevated" }
   | { kind: "noSelection"; offerSnip: boolean }
   | { kind: "unreadable" }
-  | { kind: "needsVision"; offer: { model: ModelRef; label: string } | null } // VIS-1.2
+  | { kind: "needsVision"; offer: { model: ModelRef; label: string } | null; installTesseract: boolean } // VIS-1.2, OCR-1.6
+  | { kind: "noText"; offer: { model: ModelRef; label: string } | null } // OCR-1.4
   | { kind: "snipFailed"; reason: string };
 export type Conversation = {
   id: number;

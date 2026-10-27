@@ -470,7 +470,7 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
   if (notice?.kind === "snipFailed") notes.push(notice.reason);
   if (content.kind === "text" && content.truncated) notes.push(`Only the first ${content.text.length.toLocaleString()} characters were captured.`);
   if (content.kind === "files" && content.omitted > 0) notes.push(`${content.omitted} more items were left out.`);
-  const offer = notice?.kind === "needsVision" ? notice.offer : null;
+  const offer = notice?.kind === "needsVision" || notice?.kind === "noText" ? notice.offer : null;
 
   return (
     <section className="context" aria-label="Captured context">
@@ -507,6 +507,16 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
       {content.kind === "snip" && (
         <img className="snip-preview" src={`data:${content.thumbnail.mime};base64,${content.thumbnail.base64}`} alt={`The snip, ${content.width} by ${content.height} pixels`} />
       )}
+      {content.kind === "snip" && content.text && (
+        <>
+          {/* OCR-1.3: the model can't see, so it gets this text. */}
+          <p className="muted note">Read as text · {content.text.length.toLocaleString()} characters</p>
+          {open && <p className="preview">{content.text}</p>}
+          <button type="button" className="link" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {open ? "Show less" : "Show more"}
+          </button>
+        </>
+      )}
       {notes.map((n) => (
         <p key={n} className="muted note">{n}</p>
       ))}
@@ -515,9 +525,15 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
           Snip an area instead
         </button>
       )}
-      {notice?.kind === "needsVision" && (
+      {(notice?.kind === "needsVision" || notice?.kind === "noText") && (
         <div className="note">
-          <p className="muted">Snipping needs a model that can see images.</p>
+          <p className="muted">
+            {notice.kind === "noText"
+              ? "No text was found in this snip. To ask about pictures, use a model that can see images."
+              : notice.installTesseract
+              ? "Snipping needs a model that can see images. Or install tesseract-ocr, and any model can use the text in a snip."
+              : "Snipping needs a model that can see images."}
+          </p>
           {offer ? (
             <button type="button" onClick={() => void invoke("snip_start", { model: offer.model })}>
               Use {offer.label} for this snip

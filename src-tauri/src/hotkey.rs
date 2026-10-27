@@ -97,7 +97,7 @@ pub fn on_ask(app: &AppHandle) {
         });
         let platform = capture::OsPlatform::new();
         let mut result = match health {
-            Some(_) => capture::capture(&platform, &s.capture, vision),
+            Some(_) => capture::capture(&platform, &s.capture, vision || crate::snip::ocr::available()), // "Snip an area instead" (OCR-1.1)
             None => capture::Capture { app: platform.foreground(), method: capture::Method::None, content: Content::None, notice: None },
         };
         CAPTURING.store(false, Ordering::SeqCst);

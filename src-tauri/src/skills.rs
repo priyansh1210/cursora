@@ -482,8 +482,9 @@ pub struct Listing {
 /// What the answering model can run, then the commands (SKL-2.4): the autocomplete and `/help`.
 pub fn available(app: &AppHandle) -> Vec<Entry> {
     let (skills, _) = load(dir(app).ok().as_deref());
-    let sees = crate::llm::active(app).is_ok_and(|m| m.info().vision);
-    entries(&skills, |s| crate::llm::for_skill(app, s.model.as_deref(), None).is_ok_and(|(m, _)| m.info().vision), sees)
+    // `/snip` when the model can see, or its text can be read for one that can't (OCR-1.1).
+    let snip = crate::llm::active(app).is_ok_and(|m| m.info().vision) || crate::snip::ocr::available();
+    entries(&skills, |s| crate::llm::for_skill(app, s.model.as_deref(), None).is_ok_and(|(m, _)| m.info().vision), snip)
 }
 
 /// The bubble's autocomplete (SKL-2.1).

@@ -3,18 +3,19 @@
 ## Scope
 - **In:** capturing a screen region as an image and asking a vision-capable model about it. This covers images, videos, scanned PDFs and any other text that can't be selected.
 - **Out:**
-  - Local OCR for text-only models (backlog)
+  - Local OCR for text-only models: spec 20 adds it
   - Screen recording or video
 
-Snip exists **only** when the active model can read images. Everything else in Cursora works without it.
+Snip exists **only** when the active model can read images, or (spec 20) when this computer can read the text in a snip for a model that can't. Everything else in Cursora works without it.
 
 ## Requirements
 
 ### VIS-1 Availability
-- VIS-1.1 (auto) WHILE the active model is not vision-capable (LLM-5.2) THE SYSTEM SHALL hide `/snip` from autocomplete. Any other path that would start a snip SHALL show the hint below instead (VIS-1.2).
+- VIS-1.1 (auto) WHILE the active model is not vision-capable (LLM-5.2) THE SYSTEM SHALL hide `/snip` from autocomplete. Any other path that would start a snip SHALL show the hint below instead (VIS-1.2). (Amended 2026-10-28: only while text recognition isn't available either, OCR-1.1.)
 - VIS-1.2 (auto) WHEN a snip is requested and the active model lacks vision:
   - IF another configured model has vision (and is allowed by local-only mode) THE SYSTEM SHALL offer "Use <model> for this snip" as a one-time switch.
   - Otherwise THE SYSTEM SHALL explain that a vision model is needed and link to the Models tab.
+  - (Amended 2026-10-28: this applies only while text recognition isn't available; otherwise the snip goes ahead with its text, OCR-1.1.)
 
 ### VIS-2 Snipping
 User story: As a user, I want to draw a box around anything on screen and ask about it.
