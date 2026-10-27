@@ -42,6 +42,27 @@ export default function PersonalityTab({ settings, save }: { settings: Settings;
       </p>
       </div>
 
+      <h2>About you</h2>
+      <div className="group">
+      {/* PRF-1.1: saved when the box loses focus; Rust also cuts it at 600 characters (PRF-1.3). In a row, so it keeps its own
+          padding and its note stays with it. */}
+      <div className="row">
+      <textarea
+        className="about-you"
+        aria-label="About you"
+        aria-describedby="about-note"
+        rows={3}
+        maxLength={600}
+        defaultValue={settings.aboutYou}
+        placeholder="I'm a computer science student. Explain things simply, with examples in Python."
+        onBlur={(e) => e.target.value !== settings.aboutYou && void save({ aboutYou: e.target.value }).catch(() => {})}
+      />
+      </div>
+      <p className="muted" id="about-note">
+        Sent with every question, so answers fit you, to cloud models too. Personal details such as email addresses and phone numbers are hidden from them.
+      </p>
+      </div>
+
       <h2>Personas</h2>
       <div className="group">
       {personas.map((p) => (
