@@ -1,10 +1,10 @@
-use crate::capture::{self, Content, Platform};
+use crate::capture::{self, Chord, Content, Key, Platform};
 use crate::settings::{Hotkeys, Settings};
 use crate::session::{self, Session};
 use crate::{bubble, chat, llm, AppState};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Modifiers, Shortcut};
 
@@ -62,10 +62,55 @@ pub fn apply(app: &AppHandle, old: Option<&Settings>, new: &Settings) -> Result<
     Ok(())
 }
 
-/// A registered hotkey was pressed: the snip key starts a snip (VIS-2.1); the other is Ask.
+/// OFF-1.3: the hotkey as keys that can be pressed again, for a letter, digit, F1 to F24 or Space with its modifiers.
+pub fn chord(shortcut: &Shortcut) -> Option<Chord> {
+    let name = shortcut.key.to_string(); // "KeyG", "Digit5", "F9", "Space"
+    let key = if name == "Space" {
+        Key::Space
+    } else if let Some(l) = name.strip_prefix("Key").filter(|l| l.len() == 1) {
+        Key::Letter(l.chars().next()?.to_ascii_lowercase())
+    } else if let Some(d) = name.strip_prefix("Digit") {
+        Key::Digit(d.parse().ok().filter(|d| *d <= 9)?)
+    } else {
+        Key::F(name.strip_prefix('F')?.parse().ok().filter(|n| (1..=24).contains(n))?)
+    };
+    let has = |m| shortcut.mods.contains(m);
+    Some(Chord { ctrl: has(Modifiers::CONTROL), alt: has(Modifiers::ALT), shift: has(Modifiers::SHIFT), win: has(Modifiers::SUPER), key })
+}
+
+/// OFF-1.2: steps aside for one press. The hotkey is released, its keys are pressed again for the app, and after the app
+/// has had them (injected keys arrive after the call returns) the hotkey is taken back. Its own thread, so the wait never
+/// holds up the main one.
+fn pass_through(app: &AppHandle, shortcut: Shortcut, exe: &str) {
+    let Some(chord) = chord(&shortcut) else {
+        return log::info!("hotkey: off in {exe}, but {shortcut:?} can't be pressed again (OFF-1.3)");
+    };
+    log::info!("hotkey: off in {exe}, passed on");
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let shortcuts = app.global_shortcut();
+        if let Err(e) = shortcuts.unregister(shortcut) {
+            return log::warn!("hotkey: couldn't step aside: {e}");
+        }
+        capture::OsPlatform::new().send_chord(&chord);
+        std::thread::sleep(Duration::from_millis(100));
+        if let Err(e) = shortcuts.register(shortcut) {
+            log::warn!("hotkey: couldn't take it back: {e}");
+        }
+    });
+}
+
+/// A registered hotkey was pressed: in an app on the off list it passes through (OFF-1.1); otherwise the snip key starts
+/// a snip (VIS-2.1) and the other is Ask.
 pub fn on_press(app: &AppHandle, shortcut: &Shortcut) {
-    let snip = app.state::<AppState>().settings.lock().unwrap().hotkeys.snip.clone();
-    if Shortcut::from_str(&snip).is_ok_and(|s| s == *shortcut) {
+    let hotkeys = app.state::<AppState>().settings.lock().unwrap().hotkeys.clone();
+    if !hotkeys.off_in.is_empty() {
+        let front = capture::OsPlatform::new().foreground();
+        if capture::blocked(&hotkeys.off_in, &front) {
+            return pass_through(app, *shortcut, &front.exe);
+        }
+    }
+    if Shortcut::from_str(&hotkeys.snip).is_ok_and(|s| s == *shortcut) {
         crate::snip::start(app, Default::default());
     } else {
         on_ask(app);
@@ -141,7 +186,7 @@ mod tests {
     use super::*;
 
     fn keys(ask: &str, snip: &str, ptt: Option<&str>) -> Hotkeys {
-        Hotkeys { ask: ask.into(), snip: snip.into(), push_to_talk: ptt.map(Into::into) }
+        Hotkeys { ask: ask.into(), snip: snip.into(), push_to_talk: ptt.map(Into::into), off_in: vec![] }
     }
 
     #[test]
@@ -160,5 +205,31 @@ mod tests {
         let old = keys("Ctrl+G", "Ctrl+Shift+G", Some("U")); // an invalid value saved earlier
         assert_eq!(validate(&keys("Alt+Q", "Ctrl+Shift+G", Some("U")), &old), Ok(()));
         assert!(validate(&keys("Ctrl+G", "Ctrl+Shift+G", Some("V")), &old).is_err());
+    }
+
+    #[test]
+    fn off_1_3_only_letters_digits_f_keys_and_space_are_pressed_again() {
+        let c = |s: &str| chord(&Shortcut::from_str(s).unwrap());
+        let ctrl = |key| Some(Chord { ctrl: true, alt: false, shift: false, win: false, key });
+        assert_eq!(c("Ctrl+G"), ctrl(Key::Letter('g')));
+        assert_eq!(c("Ctrl+Shift+F9"), Some(Chord { shift: true, ..ctrl(Key::F(9)).unwrap() }));
+        assert_eq!(c("Ctrl+Alt+Shift+F24"), Some(Chord { alt: true, shift: true, ..ctrl(Key::F(24)).unwrap() }));
+        assert_eq!(c("Ctrl+3"), ctrl(Key::Digit(3)));
+        assert_eq!(c("Ctrl+Space"), ctrl(Key::Space));
+        assert_eq!(c("Super+Q"), Some(Chord { ctrl: false, win: true, ..ctrl(Key::Letter('q')).unwrap() }));
+        assert_eq!(c("Ctrl+ArrowUp"), None);
+        assert_eq!(c("Ctrl+Enter"), None);
+    }
+
+    #[test]
+    fn off_1_1_an_app_on_the_off_list_is_matched_like_the_blocklist() {
+        use crate::capture::{Rule, SourceApp};
+        let s: crate::settings::Settings = serde_json::from_str(r#"{"hotkeys":{"ask":"Ctrl+G"}}"#).unwrap();
+        assert!(s.hotkeys.off_in.is_empty(), "an older settings file has an empty list");
+        let off = vec![Rule::Process("Code.exe".into()), Rule::Title("Jupyter".into())];
+        let app = |exe: &str, title: &str| SourceApp { exe: exe.into(), title: title.into(), ..Default::default() };
+        assert!(capture::blocked(&off, &app("code.exe", "main.rs - cursora")));
+        assert!(capture::blocked(&off, &app("chrome.exe", "Untitled - Jupyter Notebook")));
+        assert!(!capture::blocked(&off, &app("notepad.exe", "notes.txt - Notepad")));
     }
 }

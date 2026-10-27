@@ -1,4 +1,4 @@
-use super::{Clip, CopyKey, Platform, SourceApp};
+use super::{Chord, Clip, CopyKey, Key, Platform, SourceApp};
 use crate::session::{self, Session};
 use crate::x11::{self, Item, R, X11};
 use std::io::Read;
@@ -20,6 +20,12 @@ const WL_PASTE_MS: u64 = 300;
 const XK_CONTROL_L: u32 = 0xffe3;
 const XK_CONTROL_R: u32 = 0xffe4;
 const XK_SHIFT_L: u32 = 0xffe1;
+const XK_SHIFT_R: u32 = 0xffe2;
+const XK_ALT_L: u32 = 0xffe9;
+const XK_ALT_R: u32 = 0xffea;
+const XK_SUPER_L: u32 = 0xffeb;
+const XK_SUPER_R: u32 = 0xffec;
+const XK_F1: u32 = 0xffbe;
 const XK_INSERT: u32 = 0xff63;
 const XK_C: u32 = 0x63;
 const XK_V: u32 = 0x76;
@@ -167,6 +173,24 @@ impl Platform for LinuxPlatform {
 
     fn send_paste(&self) {
         self.send_keys(&[XK_CONTROL_L, XK_V]);
+    }
+
+    fn send_chord(&self, chord: &Chord) {
+        let Some(x) = &self.x11 else { return };
+        let held = x.conn.query_keymap().ok().and_then(|c| c.reply().ok()).map(|r| r.keys);
+        let down = |sym| x.keycode(sym).ok().flatten().zip(held).is_some_and(|(c, keys)| keys[c as usize / 8] & (1 << (c % 8)) != 0);
+        let mut keys: Vec<u32> = [(chord.ctrl, XK_CONTROL_L, XK_CONTROL_R), (chord.alt, XK_ALT_L, XK_ALT_R), (chord.shift, XK_SHIFT_L, XK_SHIFT_R), (chord.win, XK_SUPER_L, XK_SUPER_R)]
+            .into_iter()
+            .filter(|&(on, left, right)| on && !down(left) && !down(right))
+            .map(|(_, left, _)| left)
+            .collect();
+        keys.push(match chord.key {
+            Key::Letter(c) => c as u32, // the keysyms of 'a' to 'z' are their ASCII codes
+            Key::Digit(d) => 0x30 + u32::from(d),
+            Key::F(n) => XK_F1 + u32::from(n) - 1,
+            Key::Space => 0x20,
+        });
+        self.send_keys(&keys);
     }
 
     fn primary(&self) -> bool {

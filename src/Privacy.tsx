@@ -51,14 +51,7 @@ export default function Privacy({ settings, save }: { settings: S; save: Save })
       {/* PRI-2.5 */}
       {!identifiesApps && <p role="alert" className="error">Cursora can't tell which app is in front in this session, so the blocklist can't be enforced.</p>}
       <div className="group">
-      {rules.map((r, i) => (
-        <RuleRow
-          key={`${i}:${kindOf(r)}:${valueOf(r)}`}
-          rule={r}
-          onChange={(changed) => setRules(changed ? rules.map((x, j) => (j === i ? changed : x)) : rules.filter((_, j) => j !== i))}
-        />
-      ))}
-      <AddRule onAdd={(r) => setRules([...rules, r])} />
+      <RuleList rules={rules} onChange={setRules} adding="App or title to block" />
       </div>
 
       <h2>Hide personal details</h2>
@@ -109,6 +102,23 @@ export default function Privacy({ settings, save }: { settings: S; save: Save })
   );
 }
 
+/** Rules by process name or window title, each editable and removable, and Add: the blocklist (PRI-2.2), and the apps
+ *  where the hotkeys are off (OFF-2.2). */
+export function RuleList({ rules, onChange, adding }: { rules: Rule[]; onChange: (rules: Rule[]) => void; adding: string }) {
+  return (
+    <>
+      {rules.map((r, i) => (
+        <RuleRow
+          key={`${i}:${kindOf(r)}:${valueOf(r)}`}
+          rule={r}
+          onChange={(changed) => onChange(changed ? rules.map((x, j) => (j === i ? changed : x)) : rules.filter((_, j) => j !== i))}
+        />
+      ))}
+      <AddRule label={adding} onAdd={(r) => onChange([...rules, r])} />
+    </>
+  );
+}
+
 /** One rule; an emptied value removes it (PRI-2.4). */
 function RuleRow({ rule: r, onChange }: { rule: Rule; onChange: (r: Rule | null) => void }) {
   const kind = kindOf(r);
@@ -137,7 +147,7 @@ function RuleRow({ rule: r, onChange }: { rule: Rule; onChange: (r: Rule | null)
   );
 }
 
-function AddRule({ onAdd }: { onAdd: (r: Rule) => void }) {
+function AddRule({ label, onAdd }: { label: string; onAdd: (r: Rule) => void }) {
   const [kind, setKind] = useState<RuleKind>("process");
   const [value, setValue] = useState("");
   const submit = (e: FormEvent) => {
@@ -154,7 +164,7 @@ function AddRule({ onAdd }: { onAdd: (r: Rule) => void }) {
           </option>
         ))}
       </select>
-      <input aria-label="App or title to block" placeholder={kind === "process" ? "app.exe" : "a word in the title"} value={value} onChange={(e) => setValue(e.target.value)} />
+      <input aria-label={label} placeholder={kind === "process" ? "app.exe" : "a word in the title"} value={value} onChange={(e) => setValue(e.target.value)} />
       <button type="submit">Add</button>
     </form>
   );

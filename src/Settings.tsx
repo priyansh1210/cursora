@@ -6,7 +6,7 @@ import { HotkeyFields } from "./HotkeyInput";
 import ModelsTab, { DownloadModel } from "./Models";
 import PersonalityTab from "./Personality";
 import SkillsTab from "./SkillsTab";
-import Privacy from "./Privacy";
+import Privacy, { RuleList } from "./Privacy";
 import { useAppInfo, useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
 import logo from "../src-tauri/icons/icon.svg";
 import { Icon, PATHS } from "./icons";
@@ -89,6 +89,16 @@ function General({ settings, save }: { settings: S; save: Save }) {
     <>
       <h2>Hotkeys</h2>
       <div className="group">{info?.session === "wayland" ? <WaylandShortcut launcher={info.launcher} /> : info && <HotkeyFields settings={settings} save={save} />}</div>
+      {info && info.session !== "wayland" && (
+        <>
+          {/* OFF-2.2: the hotkeys reach these apps as if Cursora weren't running. */}
+          <h2>Hotkeys off in these apps</h2>
+          <div className="group">
+          <p className="muted">Here the hotkeys do what they do in the app, such as Go to line in VS Code. The tray menu adds the app you're in.</p>
+          <RuleList rules={settings.hotkeys.offIn} onChange={(offIn) => void set({ hotkeys: { ...settings.hotkeys, offIn } })} adding="App or title where the hotkeys are off" />
+          </div>
+        </>
+      )}
       <h2>Behavior</h2>
       <div className="group">
       <label className="row">
