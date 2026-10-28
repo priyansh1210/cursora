@@ -8,5 +8,5 @@ Status: **In progress**.
 
 ## Manual checklist
 - [ ] OFF-1.2 With the app on the list, its own action for the hotkey happens (Notepad's Go to line for Ctrl+G); elsewhere the bubble opens. Windows ✓ (2026-10-28, test copy with Ask on Ctrl+H: with Notepad.exe on the list, Ctrl+H in Notepad opened Notepad's Replace and no bubble, logged "off in Notepad.exe, passed on"; right after, Windows refused Ctrl+H to another program (1409, already registered), so Cursora had taken it back. With the list empty, Ctrl+H opened the bubble and not Replace) Linux X11 ☐ (issue 67)
-- [ ] OFF-2.1 The tray item names the app the bubble last opened over, adds it with a tick, and removes it. Windows ☐ (the tray menu can't be driven by the test script, issue 6: for the user) Linux X11 ☐
+- [ ] OFF-2.1 The tray item names the app the bubble last opened over, adds it with a tick, and removes it. Windows ✓ by the user (2026-10-29, test copy: "Turn Cursora off in Notepad" after a bubble over Notepad; with it ticked, Ctrl+G in Notepad opened no bubble; clicked again, the bubble opened) Linux X11 ☐
 - [ ] OFF-2.2 General → Hotkeys lists the rules; edit, remove and Add work. Windows ✓ shows "Hotkeys off in these apps" with the Notepad.exe rule, × and Add (2026-10-28) ☐ editing by hand Linux X11 ☐
