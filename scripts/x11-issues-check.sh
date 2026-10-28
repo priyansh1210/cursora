@@ -2,13 +2,14 @@
 # The open issues' X11 checks (65, 67, 68, 70, 72, 73), scripted, in WSL as user `cursora` on the stronger PC
 # (memory/dev-machines.md). From the repo on Windows, after `npm run build`:
 #   wsl -d Ubuntu-24.04 -u cursora -- bash scripts/x11-issues-check.sh <part>
-# Parts: `before` (no tesseract-ocr installed yet), `after` (with it), `route` (the built-in engine, no Echo).
+# Parts: `before` (no tesseract-ocr installed yet), `after` (with it), `route` (the built-in engine, no Echo), and `off`
+# (only the off list's checks, from `before`).
 # Builds this checkout for Linux, runs it on an X server of its own (Xvfb + Openbox), drives it with xdotool and AT-SPI,
 # and prints PASS / FAIL / INFO per check. Only xterm windows showing test text are the "other apps".
 set -u
 src="$(cd "$(dirname "$0")/.." && pwd)"
 part=${1:-}
-case "$part" in before | after | route) ;; *) echo "Say which part: before, after or route"; exit 2 ;; esac
+case "$part" in before | after | route | off) ;; *) echo "Say which part: before, after, route or off"; exit 2 ;; esac
 dir=~/x11-iss
 model=/mnt/c/Users/FITT/Models/cursora/qwen2.5-1.5b-instruct-q4_k_m.gguf
 
@@ -128,17 +129,25 @@ word_xy() {
 
 echo "== $part (tesseract: $(command -v tesseract >/dev/null && echo installed || echo missing))"
 
-if [ "$part" = before ]; then
+if [ "$part" = before ] || [ "$part" = off ]; then
   settings_json '{"setupDone": true, "theme": "dark", "hotkeys": {"ask": "Ctrl+G", "snip": "Ctrl+Shift+G", "define": "Ctrl+Alt+G", "offIn": [{"process": "xterm"}]}}'
   start_app
 
   echo "== Issue 67: OFF-1.2 the off list on X11 (xterm on the list)"
+  # The test window records every byte it gets for 8 s: a plain "x" first, to show it gets keys at all, then the hotkey.
   rm -f "$dir/key.txt"
-  xterm -T keytest -geometry 60x5+900+80 -e bash -c "stty raw -echo; head -c 1 | od -An -tx1 > $dir/key.txt; sleep 30" >/dev/null 2>&1 &
+  # --foreground: otherwise timeout puts cat in a background group, which may not read the terminal.
+  xterm -T keytest -geometry 60x5+900+80 -e bash -c "stty raw -echo; timeout --foreground 8 cat > $dir/key.raw; od -An -tx1 $dir/key.raw > $dir/key.txt; sleep 30" >/dev/null 2>&1 &
   xdotool search --sync --name '^keytest$' windowactivate --sync >/dev/null 2>&1; sleep 1
+  xdotool type x; sleep 0.5
   xdotool key --clearmodifiers ctrl+g; sleep 2
   check '[ -z "$(bubble)" ]' "Ctrl+G in xterm opened no bubble"
-  check 'grep -q 07 "$dir/key.txt" 2>/dev/null' "xterm got Ctrl+G itself (key: '$(cat "$dir/key.txt" 2>/dev/null | tr -d ' ')')"
+  for _ in $(seq 1 20); do [ -f "$dir/key.txt" ] && break; sleep 0.5; done
+  keys=$(tr -d ' \n' < "$dir/key.txt" 2>/dev/null)
+  echo "INFO the test window got the bytes: '$keys' (78 is x, 07 is Ctrl+G)"
+  check '[[ "$keys" == 78* ]]' "the test window gets ordinary keys"
+  check '[[ "$keys" == *07* ]]' "xterm got Ctrl+G itself"
+  grep -h "hotkey" "$dir"/data/com.cursora.app/logs/*.log 2>/dev/null | tail -3 | sed 's/^/INFO log: /'
   # Elsewhere, a window that isn't on the list: mousepad.
   printf 'Elsewhere the hotkey opens the bubble.\n' > "$dir/note.txt"
   mousepad "$dir/note.txt" >/dev/null 2>&1 &
@@ -161,6 +170,9 @@ if [ "$part" = before ]; then
   pkill -f "mousepad $dir/note.txt" 2>/dev/null
   stop_app
 
+fi
+
+if [ "$part" = before ]; then
   # The rest without the off list, which holds xterm.
   settings_json '{"setupDone": true, "theme": "dark"}'
   start_app
@@ -224,9 +236,15 @@ if [ "$part" = after ]; then
 
   echo "== Issue 65: OCR-1.3 snip text with a model that can't see"
   words_window
-  $app --snip; sleep 3
   eval "$(xdotool search --name '^words$' getwindowgeometry --shell 2>/dev/null | head -5)"
-  xdotool mousemove $((X + 5)) $((Y + 5)) mousedown 1 mousemove $((X + 300)) $((Y + 60)) mousemove $((X + 640)) $((Y + 130)) mouseup 1; sleep 3
+  $app --snip
+  for _ in $(seq 1 30); do xdotool search --onlyvisible --name '^Cursora snip$' >/dev/null 2>&1 && break; sleep 0.3; done
+  check 'xdotool search --onlyvisible --name "^Cursora snip$" >/dev/null 2>&1' "the snip window opened"
+  sleep 1.5
+  # A drag at a hand's pace: the page sees the press, the moves and the release one by one.
+  xdotool mousemove $((X + 5)) $((Y + 5)); sleep 0.3; xdotool mousedown 1; sleep 0.3
+  for i in 1 2 3 4 5 6 7 8; do xdotool mousemove $((X + 5 + i * 80)) $((Y + 5 + i * 16)); sleep 0.1; done
+  sleep 0.3; xdotool mouseup 1; sleep 3
   check 'wait_bubble' "the bubble opened with the snip"
   check 'at text "Read as text" 10' "it says the snip was read as text"
   echo "INFO the bubble shows:"; at grep 'Read as text|characters|No text'
