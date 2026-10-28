@@ -87,6 +87,9 @@ export default function ModelsTab({ settings, save }: { settings: Settings; save
       />
       <p className="muted">Define, Fix, Rewrite and Simplify on up to 4,000 characters of English text go to this model on your computer, and it answers when another model can't be reached, such as when you're offline.</p>
 
+      <h2>Web search</h2>
+      <WebSearchKey />
+
       <h2>Providers</h2>
       {providers.map((p) => (
         <ProviderCard
@@ -130,6 +133,54 @@ export default function ModelsTab({ settings, save }: { settings: Settings; save
         ))}
       </details>
     </>
+  );
+}
+
+/** WEB-1.1: the Tavily key, kept in the OS keychain beside the providers' keys; the page only learns its last 4 characters. */
+function WebSearchKey() {
+  const [status, setStatus] = useState<{ hasKey: boolean; keyHint: string | null }>();
+  const [key, setKey] = useState("");
+  const [error, setError] = useState<string>();
+  const refresh = () => invoke<{ hasKey: boolean; keyHint: string | null }>("key_status", { provider: "web-search" }).then(setStatus);
+  useEffect(() => void refresh(), []);
+  const act = (cmd: string, args: Record<string, string>) =>
+    invoke(cmd, args).then(
+      () => (setKey(""), setError(undefined), refresh()),
+      (e) => setError(String(e)),
+    );
+  const saved = status?.hasKey;
+  return (
+    <div className="group">
+      <p className="muted">
+        Type <code>/web</code> and a question in the bubble to answer from the web, with sources, with any model. The question and the start of what you selected go to
+        Tavily. Get a free key, 1,000 searches a month, at tavily.com.
+      </p>
+      <form
+        className="row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (key.trim()) void act("key_set", { provider: "web-search", key });
+        }}
+      >
+        <span>Tavily key</span>
+        <input
+          type="password"
+          aria-label={saved ? `Tavily key, saved, ending in ${status?.keyHint}` : "Tavily key"}
+          placeholder={saved ? `Saved  •••• ${status?.keyHint}` : "Paste the key"}
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+        />
+        <button type="submit" disabled={!key.trim()}>
+          {saved ? "Replace" : "Save key"}
+        </button>
+        {saved && (
+          <button type="button" className="danger" onClick={() => void act("key_delete", { provider: "web-search" })}>
+            Remove key
+          </button>
+        )}
+      </form>
+      {error && <p className="error">{error}</p>}
+    </div>
   );
 }
 

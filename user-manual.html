@@ -327,7 +327,10 @@
       <tr><td><code>/persona &lt;name&gt;</code></td><td>Switches the persona, for example <code>/persona ada</code></td></tr>
       <tr><td><code>/new-skill</code></td><td>Makes a skill from your previous question</td></tr>
       <tr><td><code>/snip</code></td><td>Snips part of the screen</td></tr>
+      <tr><td><code>/web &lt;question&gt;</code></td><td>Searches the web and answers with sources (see below)</td></tr>
     </table>
+    <h3>Answers from the web</h3>
+    <p>Type <code>/web</code> and your question, for example <code>/web when was it released?</code> over a selected product name. Cursora searches the web with Tavily for your question and the start of your selection, gives the five best results to your model (a local one too), and lists the sources as links under the answer. It needs a Tavily key: get a free one, with 1,000 searches a month, at tavily.com, and paste it in <span class="ui">Settings → Models → Web search</span>. Personal details such as email addresses are hidden from the search, <b>What will be sent</b> shows what is searched for, and in local-only mode <code>/web</code> sends nothing.</p>
     <h3>Make your own skills</h3>
     <p>Create one in <span class="ui">Settings → Skills → New</span>, with <code>/new-skill</code>, or with <b>Save as skill</b> under any question you asked. Give it a name like <code>eli5</code>, a short description and its instructions, then use it as <code>/eli5</code> straight away.</p>
     <p>Instructions can use <code>{{input}}</code> (what you type after the command), <code>{{app}}</code> (the app the text came from), <code>{{language}}</code> (your reply language) and <code>{{date}}</code>. Your selection is always attached for you.</p>

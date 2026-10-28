@@ -45,6 +45,12 @@ pub fn key_delete(provider: String) {
     secrets::delete(&provider);
 }
 
+/// Whether a key is saved, and its last 4 characters, for keys that aren't a provider's: the web search key (WEB-1.1).
+#[tauri::command(async)]
+pub fn key_status(provider: String) -> secrets::KeyStatus {
+    secrets::status(&provider)
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelView {

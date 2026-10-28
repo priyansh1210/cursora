@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — 2026-10-29: specs 24, 25 built (PRs #62, #63) after the user's go; next #7 web search (spec 26), then the open issues
+- [Project status](project-status.md) — 2026-10-29: specs 24-26 built (PRs #62-#64), batch 2 done; next: the open issues 64-73
 - [Demo video and talk](demo-video-and-talk.md) — D:\cursora-demo (91 s video + scripts), voice-over and class-talk script docs
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
@@ -11,4 +11,4 @@
 - [Two dev PCs](dev-machines.md) — laptop PRIYANSH does Windows; the stronger PC DESKTOP-RTIKELL (Chrome Remote Desktop) does Linux in WSL as user `cursora`, never `ethify`; check `hostname`
 - [Product direction](product-direction.md) — 2026-10-26 honest assessment (well built, not unique, setup and trust block users) + user's plan: improve a lot before launch; Store paused; 10 improvement ideas
 - [Spec 18 design refresh](spec-18-design-refresh.md) — 2026-10-27: merged as PR #54 (today's green, Geist); real-app look (issue 63) and manual checklist to do
-- [Improvements batch 2](improvements-batch-2.md) — 2026-10-28 go-ahead: build updates 1, 3-9, PR and merge each; 19-25 done, #7 web search next; ponytail
+- [Improvements batch 2](improvements-batch-2.md) — 2026-10-28 go-ahead: build updates 1, 3-9, PR and merge each; all built (specs 19-26); ponytail
