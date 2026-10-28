@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — 2026-10-27: specs 13-18 merged, v0.2.0 published (before spec 18's Linux checks); next: fix open issues (59 first)
+- [Project status](project-status.md) — 2026-10-28 stop point: specs 19-23 merged (PRs #56-#60), paused before update #8; next: wait for the user's go
 - [Demo video and talk](demo-video-and-talk.md) — D:\cursora-demo (91 s video + scripts), voice-over and class-talk script docs
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
