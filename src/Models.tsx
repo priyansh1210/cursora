@@ -25,8 +25,9 @@ export function useEnabledModels(settings: Settings | undefined) {
   return models;
 }
 
-/** The chosen models, grouped by provider; cloud models are disabled in local-only mode (LLM-5.4, 5.5). */
-export function ModelSelect({ models, value, onChange, label }: { models: Enabled[]; value: string; onChange: (provider: string, model: string) => void; label: string }) {
+/** The chosen models, grouped by provider; cloud models are disabled in local-only mode (LLM-5.4, 5.5).
+ * `off`: the label of an empty choice that is always there; picking it passes an empty provider. */
+export function ModelSelect({ models, value, onChange, label, off }: { models: Enabled[]; value: string; onChange: (provider: string, model: string) => void; label: string; off?: string }) {
   const groups = [...new Set(models.map((m) => m.provider))];
   return (
     <select
@@ -37,7 +38,7 @@ export function ModelSelect({ models, value, onChange, label }: { models: Enable
         onChange(provider, model);
       }}
     >
-      {!value && <option value="">Choose a model</option>}
+      {(off || !value) && <option value="">{off ?? "Choose a model"}</option>}
       {groups.map((g) => (
         <optgroup key={g} label={models.find((m) => m.provider === g)?.providerName}>
           {models
@@ -76,13 +77,23 @@ export default function ModelsTab({ settings, save }: { settings: Settings; save
       )}
       {settings.localOnly && <p className="muted">Local-only mode is on, so cloud models can't be used.</p>}
 
+      <h2>Smart routing</h2>
+      <ModelSelect
+        label="Quick model"
+        off="Off"
+        models={enabled.filter((x) => x.locality !== "cloud")}
+        value={modelValue(m.quick)}
+        onChange={(provider, model) => edit((m) => ({ ...m, quick: provider ? { provider, model } : null }))}
+      />
+      <p className="muted">Define, Fix, Rewrite and Simplify on up to 4,000 characters of English text go to this model on your computer, and it answers when another model can't be reached, such as when you're offline.</p>
+
       <h2>Providers</h2>
       {providers.map((p) => (
         <ProviderCard
           key={p.id}
           view={p}
           onChange={(next) => edit((m) => ({ ...m, providers: m.providers.map((x) => (x.id === next.id ? next : x)) }))}
-          onRemove={() => edit((m) => ({ ...m, providers: m.providers.filter((x) => x.id !== p.id), default: m.default?.provider === p.id ? null : m.default }))}
+          onRemove={() => edit((m) => ({ ...m, providers: m.providers.filter((x) => x.id !== p.id), default: m.default?.provider === p.id ? null : m.default, quick: m.quick?.provider === p.id ? null : m.quick }))}
           onKeyChange={refresh}
         />
       ))}
