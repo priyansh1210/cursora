@@ -266,6 +266,9 @@ fn close_own_console() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if std::env::args().nth(1).as_deref() == Some(llm::gpu::PROBE) {
+        return llm::gpu::probe(); // Cursora asking itself about the graphics card (GPU-1.3)
+    }
     #[cfg(all(windows, debug_assertions))]
     close_own_console();
     #[cfg(target_os = "linux")]
@@ -338,6 +341,7 @@ pub fn run() {
             chat::send_preview,
             voice::voice_start,
             voice::voice_stop,
+            llm::gpu::engine_gpu,
             privacy::privacy_detectors,
             persona::personas,
             persona::persona_preview,

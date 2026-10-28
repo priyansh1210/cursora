@@ -305,8 +305,10 @@ const ENGINE_STATES: Record<EngineStatus["state"], string> = { stopped: "not run
 /** The built-in engine's files, lifetime and state (LLM-3). */
 function Engine({ p, set }: { p: Provider; set: (patch: Partial<Provider>) => void }) {
   const [status, setStatus] = useState<EngineStatus>({ state: "stopped" });
+  const [card, setCard] = useState<string | null>(null); // GPU-1.4: the dedicated card, if any
   useEffect(() => {
     invoke<EngineStatus>("engine_status").then(setStatus);
+    invoke<string | null>("engine_gpu").then(setCard);
     const off = listen<EngineStatus>("engine-status", (e) => setStatus(e.payload));
     return () => void off.then((f) => f());
   }, []);
@@ -357,6 +359,13 @@ function Engine({ p, set }: { p: Provider; set: (patch: Partial<Provider>) => vo
           <input type="number" min={1} defaultValue={e.idleMinutes} onBlur={(ev) => Number(ev.target.value) > 0 && setEngine({ idleMinutes: Number(ev.target.value) })} />
         </label>
       )}
+      <label className="row">
+        <span>Use the graphics card</span>
+        <input type="checkbox" role="switch" checked={!!card && e.gpu} disabled={!card} onChange={(ev) => setEngine({ gpu: ev.target.checked })} />
+      </label>
+      <p className="muted note">
+        {card ? `${card}: answers come several times faster. A change takes effect from the next question.` : "No dedicated graphics card was found, so the processor answers."}
+      </p>
     </>
   );
 }

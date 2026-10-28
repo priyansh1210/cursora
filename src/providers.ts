@@ -3,7 +3,8 @@ import type { ChatError, Locality } from "./conversation";
 
 export type Kind = "openai-compatible" | "anthropic" | "gemini" | "builtin";
 export type Lifetime = "always" | "idle" | "answering";
-export type Engine = { gguf: string; mmproj: string | null; lifetime: Lifetime; idleMinutes: number };
+/** `gpu`: use a dedicated graphics card when there is one (GPU-1.1). */
+export type Engine = { gguf: string; mmproj: string | null; lifetime: Lifetime; idleMinutes: number; gpu: boolean };
 
 /** LLM-3.5: how long the built-in model stays loaded. "always" is the default. */
 export const LIFETIMES: { value: Lifetime; label: string; hint: string }[] = [
@@ -59,7 +60,7 @@ export function engineProvider(gguf: string, mmproj: string | null, now = Date.n
     models: [fileStem(gguf)],
     contextSize: null,
     visionOverride: {},
-    engine: { gguf, mmproj, lifetime: "always", idleMinutes: 10 },
+    engine: { gguf, mmproj, lifetime: "always", idleMinutes: 10, gpu: true },
   };
 }
 

@@ -11,4 +11,4 @@
 - [Two dev PCs](dev-machines.md) — laptop PRIYANSH does Windows; the stronger PC DESKTOP-RTIKELL (Chrome Remote Desktop) does Linux in WSL as user `cursora`, never `ethify`; check `hostname`
 - [Product direction](product-direction.md) — 2026-10-26 honest assessment (well built, not unique, setup and trust block users) + user's plan: improve a lot before launch; Store paused; 10 improvement ideas
 - [Spec 18 design refresh](spec-18-design-refresh.md) — 2026-10-27: merged as PR #54 (today's green, Geist); real-app look (issue 63) and manual checklist to do
-- [Improvements batch 2](improvements-batch-2.md) — 2026-10-28 go-ahead: build updates 1, 3-9 (voice input … hover to define), PR and merge each; user reviews at the end; ponytail
+- [Improvements batch 2](improvements-batch-2.md) — 2026-10-28 go-ahead: build updates 1, 3-9 (voice input … hover to define), PR and merge each; 19-23 merged, paused before #8 until the user says go; ponytail
