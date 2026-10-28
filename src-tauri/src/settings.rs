@@ -188,13 +188,15 @@ pub struct Hotkeys {
     pub ask: String,
     pub snip: String,
     pub push_to_talk: Option<String>,
-    /// Spec 21: apps where both hotkeys pass through to the app (OFF-1.1), as blocklist rules.
+    /// Spec 21: apps where the hotkeys pass through to the app (OFF-1.1), as blocklist rules.
     pub off_in: Vec<crate::capture::Rule>,
+    /// Spec 25: defines the word under the pointer (HOV-1.1).
+    pub define: String,
 }
 
 impl Default for Hotkeys {
     fn default() -> Self {
-        Self { ask: "Ctrl+G".into(), snip: "Ctrl+Shift+G".into(), push_to_talk: None, off_in: vec![] }
+        Self { ask: "Ctrl+G".into(), snip: "Ctrl+Shift+G".into(), push_to_talk: None, off_in: vec![], define: "Ctrl+Alt+G".into() }
     }
 }
 
