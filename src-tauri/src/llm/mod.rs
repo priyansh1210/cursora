@@ -60,6 +60,11 @@ pub fn pick<'a>(m: &'a ModelSettings, local_only: bool, reference: &'a str) -> R
     Ok((p, model))
 }
 
+/// The quick model, while it's still one of the chosen models and local or on a trusted LAN host (ROU-1.4).
+pub fn quick(m: &ModelSettings) -> Option<&ModelRef> {
+    m.quick.as_ref().filter(|q| pick(m, true, &crate::chat::reference(q)).is_ok())
+}
+
 /// A configured provider and model, behind spec 03's `Model` seam.
 pub struct ProviderModel {
     app: AppHandle,
@@ -200,6 +205,10 @@ pub fn health(app: &AppHandle) -> Result<(), String> {
         _ => tauri::async_runtime::block_on(list_models(p, &Policy::of(&s), Duration::from_secs(3))).map(|_| ()).map_err(|e| format!("{} isn't answering: {}", p.name, e.message)),
     };
     *PASSED.lock().unwrap() = result.is_ok().then(|| (key, Instant::now()));
+    // The quick model answers instead, so the bubble keeps its input (ROU-2.3).
+    if result.is_err() && quick(&s.models).is_some_and(|q| q.provider != p.id || q.model != model) {
+        return Ok(());
+    }
     result
 }
 
@@ -321,6 +330,8 @@ pub struct ModelSettings {
     /// LAN hosts the user trusts to count as local (LLM-8.2).
     pub trusted_hosts: Vec<String>,
     pub timeouts: Timeouts,
+    /// Spec 24: answers quick jobs, and when another model can't be reached (ROU-1.2, 2.1).
+    pub quick: Option<ModelRef>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -539,6 +550,26 @@ pub mod tests {
             let plain = chat_request(kind, "https://host/", "m", &conversation(), Some("k"), None).unwrap().body.unwrap();
             assert!(plain.get("temperature").is_none() && plain.get("generationConfig").is_none(), "{kind:?}");
         }
+    }
+
+    #[test]
+    fn rou_1_4_a_quick_model_thats_gone_or_in_the_cloud_counts_as_off() {
+        let to = |p: &str, m: &str| Some(ModelRef { provider: p.into(), model: m.into() });
+        let mut lan = provider("l", Kind::OpenAiCompatible, "http://192.168.1.20:1234/v1");
+        lan.models = vec!["qwen".into()];
+        let mut m = ModelSettings { providers: vec![provider("e", Kind::Builtin, ""), provider("c", Kind::OpenAiCompatible, "https://api.openai.com/v1"), lan], trusted_hosts: vec!["192.168.1.20".into()], ..ModelSettings::default() };
+        let quick = |m: &ModelSettings| quick(m).cloned();
+        assert_eq!(quick(&m), None, "off by default");
+        for on in [to("e", "m"), to("l", "qwen")] {
+            m.quick = on.clone();
+            assert_eq!(quick(&m), on, "the built-in engine, and a trusted LAN host");
+        }
+        m.quick = to("e", "gone");
+        assert_eq!(quick(&m), None, "no longer chosen");
+        m.quick = to("c", "m");
+        assert_eq!(quick(&m), None, "a cloud model");
+        (m.quick, m.trusted_hosts) = (to("l", "qwen"), vec![]);
+        assert_eq!(quick(&m), None, "a LAN host no longer trusted is cloud");
     }
 
     #[test]

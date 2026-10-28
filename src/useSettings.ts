@@ -6,7 +6,7 @@ import type { Persona } from "./personas";
 import type { Provider } from "./providers";
 
 // Mirrors src-tauri/src/settings.rs.
-/** A provider id and one of its models: the default model, and a snip's one-time switch (VIS-1.2). */
+/** A provider id and one of its models: the default model, the quick model (ROU-1.1), and a snip's one-time switch (VIS-1.2). */
 export type ModelRef = { provider: string; model: string };
 
 export type Settings = {
@@ -39,6 +39,8 @@ export type Settings = {
     default: ModelRef | null;
     trustedHosts: string[];
     timeouts: { connectSecs: number; firstReplyLocalSecs: number; firstReplyCloudSecs: number; pauseSecs: number };
+    /** Spec 24: answers quick jobs, and when another model can't be reached (ROU-1.2, 2.1). */
+    quick: ModelRef | null;
   };
   updates: { check: boolean; skipped: string | null };
   /** The bubble's quick actions (spec 14). */

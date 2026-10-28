@@ -153,6 +153,8 @@ struct Resolved {
     note: Option<String>,
     /// The skill and the text typed after its name.
     skill: Option<(skills::Skill, String)>,
+    /// A quick job sent to the quick model (ROU-1.2).
+    routed: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -320,14 +322,34 @@ pub fn own_model(app: &AppHandle, label: &str, m: ModelRef) -> Option<Conversati
 }
 
 /// "<provider>/<model>", as a skill names its model (SKL-2.5).
-fn reference(m: &ModelRef) -> String {
+pub fn reference(m: &ModelRef) -> String {
     format!("{}/{}", m.provider, m.model)
 }
 
 /// The model that answers, as a reference: a skill's own (SKL-2.5), else the conversation's own (a snip's one-time
-/// switch, VIS-1.2), so a skill without a model still answers a snip with the model that can see. None: the default.
-fn answering_model(skill_model: Option<&str>, own: Option<&ModelRef>) -> Option<String> {
-    skill_model.map(str::to_string).or_else(|| own.map(reference))
+/// switch, VIS-1.2), so a skill without a model still answers a snip with the model that can see; else the quick model
+/// for a quick job (ROU-1.2). None: the default.
+fn answering_model(skill_model: Option<&str>, own: Option<&ModelRef>, quick: Option<String>) -> Option<String> {
+    skill_model.map(str::to_string).or_else(|| own.map(reference)).or(quick)
+}
+
+/// Spec 24: the skills a quick model answers (ROU-1.2).
+// shortcut: a fixed list of built-in names; add a `route: quick` field to skill files if users want their own skills routed.
+const QUICK_JOBS: [&str; 4] = ["define", "fix", "rewrite", "simplify"];
+/// Longer selections stay with the default model (ROU-1.3): about 1,000 tokens, well inside the built-in engine's context.
+const QUICK_MAX_CHARS: usize = 4000;
+
+/// Whether the quick model answers this skill on this content: a short text selection, or none, and what was typed after
+/// the skill's name, in English letters only (ROU-1.2, 1.3). Small local models can't do Indian languages (issue 52).
+fn quick_job(skill: &str, input: &str, content: &Content) -> bool {
+    let english = |t: &str| t.chars().all(|c| c.is_ascii() || !c.is_alphabetic());
+    QUICK_JOBS.contains(&skill)
+        && english(input)
+        && match content {
+            Content::Text { text, .. } => text.chars().count() <= QUICK_MAX_CHARS && english(text),
+            Content::None => true,
+            Content::Files(_) | Content::Snip(_) => false,
+        }
 }
 
 /// The health check failed: the bubble's conversation shows why instead of its input (LLM-9.1).
@@ -597,14 +619,24 @@ fn show_chat_window(app: &AppHandle) -> Result<(), String> {
 /// The question's skill, if it names one, and the model that answers it (SKL-2.2, 2.5).
 fn resolve(app: &AppHandle, label: &str, question: &str) -> Result<Resolved, String> {
     let skill = command(question).and_then(|(name, input)| skills::find(app, &name).map(|s| (s, input.to_string())));
-    let own = slots(app).get(label).and_then(|s| s.conv.own_model.clone());
-    let wanted = answering_model(skill.as_ref().and_then(|(s, _)| s.model.as_deref()), own.as_ref());
+    let (own, quick) = slots(app).get(label).map_or((None, false), |s| (s.conv.own_model.clone(), skill.as_ref().is_some_and(|(sk, input)| quick_job(&sk.name, input, &s.conv.content))));
+    let quick = quick
+        .then(|| {
+            let s = app.state::<AppState>().settings.lock().unwrap().clone();
+            // Answers in My language or a persona's language stay with the default too (ROU-1.3).
+            llm::quick(&s.models).filter(|_| prompt::reply_language(&s).is_none()).map(reference)
+        })
+        .flatten();
+    let wanted = answering_model(skill.as_ref().and_then(|(s, _)| s.model.as_deref()), own.as_ref(), quick.clone());
+    let routed = wanted.is_some() && wanted == quick;
     // A model that's gone falls back to the default, which says so (SKL-2.5).
     let (model, note) = llm::for_skill(app, wanted.as_deref(), skill.as_ref().and_then(|(s, _)| s.temperature))?;
     if let Some(reason) = skill.as_ref().and_then(|(s, _)| skills::refusal(s, &model.info())) {
         return Err(reason);
     }
-    Ok(Resolved { model, note, skill })
+    // The header names where other questions go, so the answer says who answered it (ROU-1.5).
+    let note = if routed { Some(format!("Quick job: answered by {}.", model.info().name)) } else { note };
+    Ok(Resolved { model, note, skill, routed })
 }
 
 /// The request for `conv`'s latest question, running the skill if there is one.
@@ -625,13 +657,20 @@ fn build(conv: &Conversation, s: &Settings, skill: Option<&(skills::Skill, Strin
 /// A question that names a skill runs it, with the skill's model if it has one (SKL-2.2, 2.5).
 /// A cloud request waits for an explicit Send while confirming is on (PRI-3.7); nothing changes until then.
 fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: impl FnOnce(&mut Conversation)) -> Result<Asked, String> {
-    let Resolved { model, note, skill } = resolve(app, label, question)?;
+    let Resolved { model, note, skill, routed } = resolve(app, label, question)?;
     let info = model.info();
+    // The header and its Local/Cloud badge show where the next question goes (BUB-7.1), not a quick job's model (ROU-1.5).
+    let shown = if routed { llm::active(app).ok().map(|m| m.info()) } else { Some(info.clone()) };
     let s = app.state::<AppState>().settings.lock().unwrap().clone();
     if privacy::must_confirm(&s.privacy, info.locality, confirmed) {
         return Ok(Asked::Confirm);
     }
-    let (id, req, cancel, too_long) = {
+    // ROU-2.1: the quick model, if another model answers and the skill can run on it.
+    let quick = llm::quick(&s.models)
+        .and_then(|q| llm::for_skill(app, Some(&reference(q)), skill.as_ref().and_then(|(sk, _)| sk.temperature)).ok())
+        .map(|(m, _)| m)
+        .filter(|m| m.info() != info && !skill.as_ref().is_some_and(|(sk, _)| skills::refusal(sk, &m.info()).is_some()));
+    let (id, req, cancel, too_long, fallback) = {
         let mut slots = slots(app);
         let slot = slots.get_mut(label).ok_or(CLOSED)?;
         idle(&slot.conv)?;
@@ -641,15 +680,16 @@ fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: 
         last.note = note;
         let req = build(&conv, &s, skill.as_ref(), &info)?;
         let too_long = info.context_tokens.and_then(|ctx| too_long(&req.messages, ctx));
-        (conv.model, conv.dropped) = (Some(info), req.dropped); // a reopened conversation answers with today's model
+        // Built now, while the conversation is at hand; sent only if the first model can't answer (ROU-2.1).
+        let fallback = quick.and_then(|m| build(&conv, &s, skill.as_ref(), &m.info()).ok().map(|r| (m, r)));
+        (conv.model, conv.dropped) = (shown.or(conv.model), req.dropped); // a reopened conversation answers with today's model
         slot.conv = conv;
         slot.cancel = Arc::default();
-        (slot.conv.id, req, slot.cancel.clone(), too_long)
+        (slot.conv.id, req, slot.cancel.clone(), too_long, fallback)
     };
     let dropped = req.dropped;
     let app = app.clone();
     std::thread::spawn(move || {
-        let mut restorer = Restorer::new(req.hidden); // the user sees their own values again (PRI-3.3)
         let mut offset = 0;
         let mut show = |text: &str| {
             if text.is_empty() {
@@ -661,11 +701,27 @@ fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: 
             }
             offset += text.encode_utf16().count();
         };
-        let (status, error) = match too_long {
-            Some(e) => (TurnStatus::Error, Some(e)),
-            None => run_turn(&*model, &req.messages, &cancel, &mut |piece| show(&restorer.push(piece))),
+        let mut attempt = |model: &dyn Model, req: Request| {
+            let mut restorer = Restorer::new(req.hidden); // the user sees their own values again (PRI-3.3)
+            let result = run_turn(model, &req.messages, &cancel, &mut |piece| show(&restorer.push(piece)));
+            show(&restorer.finish());
+            result
         };
-        show(&restorer.finish());
+        let (mut status, mut error) = match too_long {
+            Some(e) => (TurnStatus::Error, Some(e)),
+            None => attempt(&*model, req),
+        };
+        let written = with_conv(&app, id, |c| !c.turns.last().unwrap().answer.is_empty()).unwrap_or(true);
+        if let Some((quick, req)) = fallback.filter(|_| falls_back(error.as_ref(), written)) {
+            let said = fallback_note(&info.name, error.unwrap().kind, &quick.info().name);
+            with_conv(&app, id, |c| {
+                let t = c.turns.last_mut().unwrap();
+                t.note = Some(t.note.take().map_or(said.clone(), |n| format!("{n} {said}")));
+            });
+            let _ = app.emit_to(bubble::LABEL, "chat-load", ()); // the note, before the answer comes in
+            let _ = app.emit_to(CHAT_LABEL, "chat-load", ());
+            (status, error) = attempt(&*quick, req);
+        }
         let conv = with_conv(&app, id, |c| {
             let t = c.turns.last_mut().unwrap();
             (t.status, t.error, t.answered) = (status, error.clone(), Some(now_ms()));
@@ -732,6 +788,21 @@ pub fn send_preview(window: WebviewWindow, app: AppHandle, question: String, ret
     conv.turns.push(Turn::asking(question));
     let req = build(&conv, &s, r.skill.as_ref(), &info)?;
     Ok(Preview { image_warning: privacy::image_warning(&req.messages, info.locality), text: prompt::render(&req.messages), placeholders: req.hidden.placeholders(), to: Some(info) })
+}
+
+/// Whether a failed answer goes to the quick model: nothing was written, and the model couldn't be reached or was overloaded (ROU-2.1, 2.2).
+fn falls_back(error: Option<&ChatError>, written: bool) -> bool {
+    !written && error.is_some_and(|e| matches!(e.kind, ErrorKind::Network | ErrorKind::Server | ErrorKind::RateLimit))
+}
+
+/// Said under an answer the quick model gave instead (ROU-2.1). The provider's own message stays out: it can be a long URL.
+fn fallback_note(failed: &str, kind: ErrorKind, quick: &str) -> String {
+    let why = match kind {
+        ErrorKind::RateLimit => "is over its rate limit",
+        ErrorKind::Server => "had a server error",
+        _ => "couldn't be reached",
+    };
+    format!("{failed} {why}, so {quick} was asked instead.")
 }
 
 /// Finds the conversation wherever it is now; Expand may have moved it while it streamed.
@@ -950,9 +1021,62 @@ mod tests {
     #[test]
     fn vis_1_2_a_snips_one_time_model_answers_unless_a_skill_names_its_own() {
         let own = ModelRef { provider: "p-lm".into(), model: "llava-1.6".into() };
-        assert_eq!(answering_model(None, Some(&own)).as_deref(), Some("p-lm/llava-1.6"), "a question, or a skill without a model of its own");
-        assert_eq!(answering_model(Some("p-cloud/gpt-4o"), Some(&own)).as_deref(), Some("p-cloud/gpt-4o"), "a skill's own model wins");
-        assert_eq!(answering_model(None, None), None, "the default");
+        assert_eq!(answering_model(None, Some(&own), None).as_deref(), Some("p-lm/llava-1.6"), "a question, or a skill without a model of its own");
+        assert_eq!(answering_model(Some("p-cloud/gpt-4o"), Some(&own), None).as_deref(), Some("p-cloud/gpt-4o"), "a skill's own model wins");
+        assert_eq!(answering_model(None, None, None), None, "the default");
+    }
+
+    fn text(chars: usize) -> Content {
+        Content::Text { text: "a".repeat(chars), truncated: false }
+    }
+
+    #[test]
+    fn rou_1_2_quick_skills_go_to_the_quick_model_after_a_skills_and_a_conversations_own() {
+        for skill in QUICK_JOBS {
+            assert!(quick_job(skill, "", &text(200)), "{skill}");
+        }
+        assert!(quick_job("define", "serendipity", &Content::None), "nothing selected");
+        assert!(quick_job("rewrite", "shorter", &Content::Text { text: "It’s 5 — “quoted” text.".into(), truncated: false }), "curly quotes and dashes are fine");
+        for skill in ["explain", "translate", "summary", "code", "reply"] {
+            assert!(!quick_job(skill, "", &text(200)), "{skill} stays with the default");
+        }
+        let (own, quick) = (ModelRef { provider: "p-lm".into(), model: "llava-1.6".into() }, Some("p-e/small".to_string()));
+        assert_eq!(answering_model(None, None, quick.clone()).as_deref(), Some("p-e/small"));
+        assert_eq!(answering_model(Some("p-cloud/gpt-4o"), None, quick.clone()).as_deref(), Some("p-cloud/gpt-4o"), "a skill's own model wins");
+        assert_eq!(answering_model(None, Some(&own), quick).as_deref(), Some("p-lm/llava-1.6"), "a snip's model wins");
+    }
+
+    #[test]
+    fn rou_1_3_long_selections_files_and_snips_stay_with_the_default() {
+        assert!(quick_job("fix", "", &text(QUICK_MAX_CHARS)));
+        assert!(!quick_job("fix", "", &text(QUICK_MAX_CHARS + 1)));
+        assert!(!quick_job("fix", "", &snip(false)));
+        assert!(!quick_job("fix", "", &Content::Files(crate::capture::files::FileContext { items: vec![], omitted: 0, images: vec![] })));
+        assert!(!quick_job("fix", "", &Content::Text { text: "मैं कल बाजार जाऊंगा".into(), truncated: false }), "Hindi");
+        assert!(!quick_job("define", "சொல்", &Content::None), "Tamil typed after the name");
+        assert!(!quick_job("fix", "", &Content::Text { text: "Je suis allé".into(), truncated: false }), "accented letters too");
+    }
+
+    fn error(kind: ErrorKind) -> ChatError {
+        ChatError { kind, message: "Couldn't reach the model: dns error.".into() }
+    }
+
+    #[test]
+    fn rou_2_1_a_model_that_cant_answer_hands_the_question_to_the_quick_model_and_says_so() {
+        for kind in [ErrorKind::Network, ErrorKind::Server, ErrorKind::RateLimit] {
+            assert!(falls_back(Some(&error(kind)), false), "{kind:?}");
+        }
+        assert_eq!(fallback_note("gemini-flash-lite", ErrorKind::Network, "qwen-small"), "gemini-flash-lite couldn't be reached, so qwen-small was asked instead.");
+        assert_eq!(fallback_note("gemini-flash-lite", ErrorKind::Server, "qwen-small"), "gemini-flash-lite had a server error, so qwen-small was asked instead.");
+    }
+
+    #[test]
+    fn rou_2_2_other_errors_and_partial_answers_are_shown_as_before() {
+        assert!(!falls_back(Some(&error(ErrorKind::Network)), true), "part of the answer was written");
+        for kind in [ErrorKind::Auth, ErrorKind::Billing, ErrorKind::ModelNotFound, ErrorKind::ContextTooLong, ErrorKind::BlockedLocalOnly, ErrorKind::Unknown] {
+            assert!(!falls_back(Some(&error(kind)), false), "{kind:?}");
+        }
+        assert!(!falls_back(None, false), "finished or stopped");
     }
 
     #[test]
