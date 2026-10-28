@@ -66,6 +66,7 @@ export default function Chat() {
         setVoice("idle"); // Rust dropped the recording (VIN-1.5)
       }),
       listen("chat-load", reload),
+      // `/snip <question>`, and `/define` for the word under the pointer (HOV-1.3): asked as if typed.
       listen<string>("snip-ask", (e) => setSnipQuestion(e.payload)),
       // Personality or the persona changed: the header shows who answers the next message (PER-2.2).
       listen<string | null>("chat-persona", (e) => convRef.current && setConv({ ...convRef.current, persona: e.payload })),
@@ -119,7 +120,7 @@ export default function Chat() {
   useEffect(() => inputRef.current?.focus(), [conv?.id]);
 
   useEffect(() => {
-    if (snipQuestion === null || conv?.content.kind !== "snip") return;
+    if (snipQuestion === null || (conv?.content.kind !== "snip" && conv?.content.kind !== "text")) return;
     sendRef.current?.(snipQuestion);
     setSnipQuestion(null);
   }, [snipQuestion, conv?.id]);

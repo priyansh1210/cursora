@@ -17,6 +17,7 @@ pub fn validate(new: &Hotkeys, old: &Hotkeys) -> Result<(), String> {
     let fields = [
         ("Ask", Some(&new.ask), Some(&old.ask)),
         ("Snip", Some(&new.snip), Some(&old.snip)),
+        ("Define", Some(&new.define), Some(&old.define)),
         ("Push-to-talk", new.push_to_talk.as_ref(), old.push_to_talk.as_ref()),
     ];
     let parsed: Vec<(&str, Shortcut)> = fields.iter().filter_map(|(label, v, _)| Some((*label, Shortcut::from_str(v.as_ref()?).ok()?))).collect();
@@ -36,8 +37,10 @@ pub fn validate(new: &Hotkeys, old: &Hotkeys) -> Result<(), String> {
     Ok(())
 }
 
-/// Registers the ask and snip hotkeys unless paused (APP-1.3). If a new one can't be registered, its old one is put back (SEL-1.3);
-/// a snip key that fails never costs the ask key. Push-to-talk is registered by spec 09, so we don't hold a key we don't use.
+/// Registers the ask, snip and define hotkeys unless paused (APP-1.3). If a new one can't be registered, its old one is put back
+/// (SEL-1.3). Snip and Define come after Ask, so a clash never costs Ask, and a clash on a key this change didn't touch (another
+/// app took it) is only logged, so it never blocks changing the others (HOV-1.1). Push-to-talk is registered by spec 09, so we
+/// don't hold a key we don't use.
 pub fn apply(app: &AppHandle, old: Option<&Settings>, new: &Settings) -> Result<(), String> {
     let shortcuts = app.global_shortcut();
     let _ = shortcuts.unregister_all();
@@ -52,14 +55,21 @@ pub fn apply(app: &AppHandle, old: Option<&Settings>, new: &Settings) -> Result<
         log::warn!("hotkey: {e}");
         return Err(format!("Couldn't use {} as the Ask hotkey. Another app may already use it.", new.hotkeys.ask));
     }
-    if let Err(e) = shortcuts.register(new.hotkeys.snip.as_str()) {
-        if let Some(old) = old.filter(|o| !o.paused && o.hotkeys.snip != new.hotkeys.snip) {
-            let _ = shortcuts.register(old.hotkeys.snip.as_str());
+    let before = old.filter(|o| !o.paused).map(|o| &o.hotkeys);
+    let mut error = None;
+    for (label, key, was) in [("Snip", &new.hotkeys.snip, before.map(|h| &h.snip)), ("Define", &new.hotkeys.define, before.map(|h| &h.define))] {
+        if let Err(e) = shortcuts.register(key.as_str()) {
+            log::warn!("hotkey: {label}: {e}");
+            if was == Some(key) {
+                continue; // unchanged: said at startup already
+            }
+            if let Some(was) = was {
+                let _ = shortcuts.register(was.as_str());
+            }
+            error.get_or_insert(format!("Couldn't use {key} as the {label} hotkey. Another app may already use it."));
         }
-        log::warn!("hotkey: {e}");
-        return Err(format!("Couldn't use {} as the Snip hotkey. Another app may already use it.", new.hotkeys.snip));
     }
-    Ok(())
+    error.map_or(Ok(()), Err)
 }
 
 /// OFF-1.3: the hotkey as keys that can be pressed again, for a letter, digit, F1 to F24 or Space with its modifiers.
@@ -101,7 +111,7 @@ fn pass_through(app: &AppHandle, shortcut: Shortcut, exe: &str) {
 }
 
 /// A registered hotkey was pressed: in an app on the off list it passes through (OFF-1.1); otherwise the snip key starts
-/// a snip (VIS-2.1) and the other is Ask.
+/// a snip (VIS-2.1), the define key defines the word under the pointer (HOV-1.2), and the other is Ask.
 pub fn on_press(app: &AppHandle, shortcut: &Shortcut) {
     let hotkeys = app.state::<AppState>().settings.lock().unwrap().hotkeys.clone();
     if !hotkeys.off_in.is_empty() {
@@ -110,8 +120,11 @@ pub fn on_press(app: &AppHandle, shortcut: &Shortcut) {
             return pass_through(app, *shortcut, &front.exe);
         }
     }
-    if Shortcut::from_str(&hotkeys.snip).is_ok_and(|s| s == *shortcut) {
+    let is = |key: &str| Shortcut::from_str(key).is_ok_and(|s| s == *shortcut);
+    if is(&hotkeys.snip) {
         crate::snip::start(app, Default::default());
+    } else if is(&hotkeys.define) {
+        crate::snip::define(app);
     } else {
         on_ask(app);
     }
@@ -186,7 +199,17 @@ mod tests {
     use super::*;
 
     fn keys(ask: &str, snip: &str, ptt: Option<&str>) -> Hotkeys {
-        Hotkeys { ask: ask.into(), snip: snip.into(), push_to_talk: ptt.map(Into::into), off_in: vec![] }
+        Hotkeys { ask: ask.into(), snip: snip.into(), push_to_talk: ptt.map(Into::into), ..Hotkeys::default() }
+    }
+
+    #[test]
+    fn hov_1_1_the_define_hotkey_is_checked_like_the_others() {
+        let old = Hotkeys::default();
+        assert_eq!(old.define, "Ctrl+Alt+G");
+        assert_eq!(validate(&Hotkeys { define: "Ctrl+Alt+D".into(), ..old.clone() }, &old), Ok(()));
+        assert!(validate(&Hotkeys { define: "Shift+D".into(), ..old.clone() }, &old).unwrap_err().starts_with("Define: include Ctrl, Alt or Win"));
+        assert!(validate(&Hotkeys { define: "Ctrl+G".into(), ..old.clone() }, &old).unwrap_err().contains("already used for Ask"));
+        assert!(validate(&Hotkeys { ask: "Ctrl+Alt+G".into(), ..old.clone() }, &old).unwrap_err().contains("already used for Define"));
     }
 
     #[test]
