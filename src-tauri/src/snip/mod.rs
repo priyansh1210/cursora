@@ -81,6 +81,14 @@ pub fn snip_model(active_sees: bool, m: &ModelSettings, local_only: bool) -> Sni
 
 /// `r` cut from the grab (clipped to it), downscaled to `max_side` on the long side, as PNG, with its thumbnail.
 pub fn prepare(grab: &Grab, r: Rect, max_side: u32) -> Result<Prepared, String> {
+    let (rgb, _) = crop(grab, r)?;
+    let image = fit(rgb.clone(), max_side);
+    let thumbnail = fit(image.clone(), THUMBNAIL);
+    Ok(Prepared { width: image.width(), height: image.height(), image: png(&image)?, thumbnail: png(&thumbnail)?, pixels: rgb })
+}
+
+/// `r` cut from the grab, clipped to it, and where its top-left corner is on the screen.
+fn crop(grab: &Grab, r: Rect) -> Result<(RgbImage, (i32, i32)), String> {
     // The overlap of the rectangle and the grab.
     let (left, top) = (r.x.max(grab.x), r.y.max(grab.y));
     let (right, bottom) = ((r.x + r.w).min(grab.x + grab.width as i32), (r.y + r.h).min(grab.y + grab.height as i32));
@@ -95,9 +103,7 @@ pub fn prepare(grab: &Grab, r: Rect, max_side: u32) -> Result<Prepared, String> 
             px.0 = [bgra[2], bgra[1], bgra[0]];
         }
     }
-    let image = fit(rgb.clone(), max_side);
-    let thumbnail = fit(image.clone(), THUMBNAIL);
-    Ok(Prepared { width: image.width(), height: image.height(), image: png(&image)?, thumbnail: png(&thumbnail)?, pixels: rgb })
+    Ok((rgb, (left, top)))
 }
 
 /// Downscaled so the long side is at most `max`, keeping the shape; never enlarged.
@@ -301,6 +307,76 @@ fn finish(app: &AppHandle, p: Pending, r: Rect, corner: Option<(i32, i32)>) {
     }
 }
 
+/// The band read around the pointer for Define (HOV-1.2): a long word at 200% scaling, a few lines high.
+const DEFINE_BAND: (i32, i32) = (800, 120);
+const NO_WORD: &str = "No word was found under the pointer. Point at a word and press the Define hotkey again, or ask anything.";
+const NO_OCR: &str = if cfg!(windows) {
+    "Windows can't read text in your languages. Add one with text recognition in Settings, Time & language, Language & region."
+} else {
+    "Install tesseract-ocr so Cursora can read the word under the pointer."
+};
+
+/// Spec 25: the word under the pointer opens the bubble there and asks `/define` (HOV-1.2, 1.3). It shares the snip's
+/// one-at-a-time guard, so a define and a snip never grab at once.
+pub fn define(app: &AppHandle) {
+    let s = app.state::<AppState>().settings.lock().unwrap().clone();
+    if s.paused {
+        return log::info!("paused: define ignored"); // APP-1.3
+    }
+    let Ok(p) = app.cursor_position() else { return };
+    let at = (p.x.round() as i32, p.y.round() as i32);
+    if SNIPPING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        // An open bubble goes first (HOV-1.3): it may cover the word, and then the app is in front again.
+        if bubble::is_open(&app) {
+            bubble::hide(&app);
+            std::thread::sleep(Duration::from_millis(150));
+        }
+        let mut source = capture::OsPlatform::new().foreground();
+        let started = Instant::now();
+        let (content, notice) = match find_word(&source, &s.capture.blocklist, at, ocr::available(), os::grab, ocr::words) {
+            Ok(word) => (Content::Text { text: word, truncated: false }, None),
+            Err(n) => (Content::None, Some(n)),
+        };
+        log::info!("define: {} in {} ms", if notice.is_none() { "a word" } else { "no word" }, started.elapsed().as_millis()); // never the word (APP-7.2)
+        if notice == Some(Notice::Blocked) {
+            source.title.clear(); // not shown, not saved, as for Ask
+        }
+        let found = notice.is_none();
+        open(&app, Capture { app: source, method: Method::Screen, content, notice }, Some(at), None);
+        if found {
+            let _ = app.emit_to(bubble::LABEL, "snip-ask", "/define"); // sent as if typed, so confirming still applies (PRI-3.7)
+        }
+        done();
+    });
+}
+
+/// The word under `at` (HOV-1.2): the blocklist first (HOV-1.5), then the band around the point, read by `words`.
+// shortcut: the blocklist is checked against the app in front, as for Snip; check the window under the pointer if users
+// define words in windows behind it.
+fn find_word(
+    source: &SourceApp,
+    blocklist: &[capture::Rule],
+    at: (i32, i32),
+    can_read: bool,
+    grab: impl FnOnce() -> Result<Grab, String>,
+    words: impl FnOnce(&RgbImage) -> Result<Vec<ocr::Word>, String>,
+) -> Result<String, Notice> {
+    let failed = |reason: String| Notice::SnipFailed { reason };
+    if capture::blocked(blocklist, source) {
+        return Err(Notice::Blocked);
+    }
+    if !can_read {
+        return Err(failed(NO_OCR.into()));
+    }
+    let (w, h) = DEFINE_BAND;
+    let (img, (left, top)) = crop(&grab().map_err(failed)?, Rect { x: at.0 - w / 2, y: at.1 - h / 2, w, h }).map_err(failed)?;
+    ocr::word_at(&words(&img).map_err(failed)?, at.0 - left, at.1 - top).ok_or_else(|| failed(NO_WORD.into()))
+}
+
 /// From the bubble: "Snip an area instead", `/snip`, and the one-time switch (VIS-1.2).
 #[tauri::command]
 pub fn snip_start(app: AppHandle, model: Option<ModelRef>, question: Option<String>) {
@@ -338,6 +414,50 @@ fn bmp(g: &Grab) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A screen of 1000 × 400 at (0, 0); `words` sees the band and says where the word is in it.
+    fn screen() -> Result<Grab, String> {
+        Ok(Grab { x: 0, y: 0, width: 1000, height: 400, bgra: vec![255; 1000 * 400 * 4] })
+    }
+
+    #[test]
+    fn hov_1_2_the_band_around_the_pointer_is_read_and_the_word_under_it_taken() {
+        let notepad = SourceApp { exe: "notepad.exe".into(), ..Default::default() };
+        let words = |img: &RgbImage| {
+            assert_eq!(img.dimensions(), (800, 120), "the band");
+            // The pointer at (500, 200) is at (400, 60) in the band.
+            Ok(vec![ocr::Word { text: "serendipity,".into(), rect: Rect { x: 380, y: 50, w: 90, h: 18 } }])
+        };
+        assert_eq!(find_word(&notepad, &[], (500, 200), true, screen, words), Ok("serendipity".into()));
+        // Near the screen's corner the band is clipped, and the point moves with it.
+        let corner = |img: &RgbImage| {
+            assert_eq!(img.dimensions(), (410, 70));
+            Ok(vec![ocr::Word { text: "edge".into(), rect: Rect { x: 0, y: 0, w: 20, h: 20 } }])
+        };
+        assert_eq!(find_word(&notepad, &[], (10, 10), true, screen, corner), Ok("edge".into()));
+    }
+
+    #[test]
+    fn hov_1_4_no_word_or_no_text_recognition_is_said_in_the_bubble() {
+        let notepad = SourceApp { exe: "notepad.exe".into(), ..Default::default() };
+        let none = |_: &RgbImage| Ok(vec![]);
+        assert_eq!(find_word(&notepad, &[], (500, 200), true, screen, none), Err(Notice::SnipFailed { reason: NO_WORD.into() }));
+        let grabbed = std::cell::Cell::new(false);
+        let grab = || {
+            grabbed.set(true);
+            screen()
+        };
+        assert_eq!(find_word(&notepad, &[], (500, 200), false, grab, none), Err(Notice::SnipFailed { reason: NO_OCR.into() }));
+        assert!(!grabbed.get(), "nothing is grabbed when it can't be read");
+    }
+
+    #[test]
+    fn hov_1_5_nothing_is_read_in_a_blocked_app() {
+        let keepass = SourceApp { exe: "KeePass.exe".into(), ..Default::default() };
+        let blocklist = [capture::Rule::Process("keepass.exe".into())];
+        let grab = || -> Result<Grab, String> { panic!("the screen must not be grabbed") };
+        assert_eq!(find_word(&keepass, &blocklist, (500, 200), true, grab, |_: &RgbImage| Ok(vec![])), Err(Notice::Blocked));
+    }
     use image::GenericImageView;
     use serde_json::json;
 
