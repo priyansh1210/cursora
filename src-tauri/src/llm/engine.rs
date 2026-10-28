@@ -305,7 +305,7 @@ fn spawn(app: &AppHandle, program: PathBuf, args: Vec<String>, output: Arc<Mutex
 
 /// Never leave a model in memory: the engine dies with Cursora, crash included.
 #[cfg(windows)]
-mod os {
+pub(super) mod os {
     use std::os::windows::io::AsRawHandle;
     use std::os::windows::process::CommandExt;
     use std::process::{Child, Command};
@@ -339,7 +339,7 @@ mod os {
 }
 
 #[cfg(not(windows))]
-mod os {
+pub(super) mod os {
     use std::os::unix::process::CommandExt;
     use std::process::{Child, Command};
 
