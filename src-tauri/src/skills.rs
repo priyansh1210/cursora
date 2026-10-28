@@ -11,15 +11,18 @@ pub const PERSONA: &str = "persona";
 pub const NEW_SKILL: &str = "new-skill";
 pub const CLEAR: &str = "clear";
 pub const HELP: &str = "help";
+/// Spec 26: searches the web, then the model answers from the results (WEB-1.2).
+pub const WEB: &str = "web";
 /// Listed in /help and the autocomplete only while the active model can see (VIS-1.1).
 pub const SNIP: &str = "snip";
 const SNIP_COMMAND: (&str, &str, &str) = (SNIP, "[question]", "Pick a part of the screen and ask about it");
 /// The commands that work today: name, args hint, description.
-const COMMANDS: [(&str, &str, &str); 4] = [
+const COMMANDS: [(&str, &str, &str); 5] = [
     (PERSONA, "<name>", "Switch to another persona"),
     (NEW_SKILL, "", "Make a skill from your last question"),
     (CLEAR, "", "Start over with the same selection"),
     (HELP, "", "List the skills and commands"),
+    (WEB, "[question]", "Search the web and answer with sources"),
 ];
 
 const VARIABLES: [&str; 5] = ["input", "app", "language", "my_language", "date"];
@@ -595,6 +598,13 @@ pub async fn skill_export(app: AppHandle, name: String) -> Result<bool, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn web_1_6_web_is_a_system_command_in_help_and_no_skill_can_take_it() {
+        assert!(help(&entries(&[], |_| false, false)).contains("- `/web [question]` Search the web and answer with sources"));
+        let e = parse("---\nname: web\ndescription: Mine\n---\nDo it.").unwrap_err();
+        assert!(e.1.contains("/web is a system command"), "{e:?}");
+    }
 
     fn file(fields: &str, body: &str) -> String {
         format!("---\n{fields}\n---\n{body}\n")

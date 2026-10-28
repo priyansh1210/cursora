@@ -421,6 +421,7 @@ function Outgoing(props: { settings?: Settings; question: string; retry: boolean
           <p className="muted note">
             To {badge(to.locality, to.provider, props.localOnly)} · {to.name}
           </p>
+          {preview.web && <p className="muted note">First, Tavily is searched for: {preview.web}</p>}
           {preview.imageWarning && <p role="alert" className="error note">Images are sent as they are: redaction covers text only.</p>}
           <pre ref={sentRef} className="sent">
             {marks(preview.text, preview.placeholders).map((m, i) => (m.mark ? <mark key={i}>{m.text}</mark> : <span key={i}>{m.text}</span>))}

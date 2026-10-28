@@ -48,7 +48,8 @@ export type Done = { id: number; status: TurnStatus; error: ChatError | null; dr
 /** What ask and regenerate did; "confirm": a cloud request waits for Send (PRI-3.7). */
 export type Asked = "sent" | "confirm";
 /** "What will be sent" (PRI-3.6). No receiver: Cursora answers it itself. */
-export type Preview = { to: ModelInfo | null; text: string; placeholders: string[]; imageWarning: boolean };
+/** `web`: what a `/web` question searches Tavily for (WEB-1.3). */
+export type Preview = { to: ModelInfo | null; text: string; placeholders: string[]; imageWarning: boolean; web: string | null };
 
 /** Enter sends; Shift+Enter, or Enter while an IME is composing, makes a newline (BUB-4.1). */
 export function keyAction(e: { key: string; shiftKey: boolean; isComposing: boolean }): "send" | null {
