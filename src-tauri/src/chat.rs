@@ -224,7 +224,7 @@ pub fn start(app: &AppHandle, capture: Capture) -> Conversation {
         let s = state.settings.lock().unwrap();
         let quick = (s.quick.on && matches!(capture.content, Content::Text { .. }))
             .then(|| (crate::quick::kind(&capture.app, &s.capture.unsafe_apps), s.quick.pinned.clone()));
-        (persona::in_use(&s).map(|p| p.name), crate::capture::write_back(&capture.content, &capture.app, &s.capture, crate::session::current()), quick)
+        (persona::in_use(&s).map(|p| p.name), crate::capture::write_back(&capture.content, capture.method, &capture.app, &s.capture, crate::session::current()), quick)
     };
     // Outside the lock: `for_skill` takes it too.
     let quick = quick.map_or_else(Vec::new, |(kind, pinned)| {

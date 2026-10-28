@@ -55,6 +55,8 @@ pub enum Method {
     Direct,
     Copy,
     None,
+    /// Read from the screen's pixels: the word under the pointer (spec 25). Nothing is selected in the app.
+    Screen,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -117,7 +119,7 @@ pub enum Notice {
     },
     /// A snip for a model that can't see had no text to read (OCR-1.4).
     NoText { offer: Option<VisionOffer> },
-    /// The screen couldn't be grabbed or the region prepared (spec 10).
+    /// The screen couldn't be grabbed or read: a snip's region (spec 10), or the word under the pointer (spec 25).
     SnipFailed { reason: String },
 }
 
@@ -287,11 +289,12 @@ pub enum WriteBack {
 }
 
 /// WRT-3.1: never where a paste could do harm or can't be checked; text replaces, nothing selected inserts.
-pub fn write_back(content: &Content, app: &SourceApp, cfg: &CaptureSettings, session: Session) -> Option<WriteBack> {
+pub fn write_back(content: &Content, method: Method, app: &SourceApp, cfg: &CaptureSettings, session: Session) -> Option<WriteBack> {
     // A pasted line break could run a command. The list has only Windows names, so Linux terminals come from quick actions' table.
     let is = |a: &str| a.eq_ignore_ascii_case(&app.exe);
     let unsafe_app = cfg.unsafe_apps.iter().any(|a| is(a)) || crate::quick::TERMINALS.iter().any(|a| is(a));
-    if session == Session::Wayland || app.window == 0 || app.elevated || unsafe_app || blocked(&cfg.blocklist, app) {
+    // A word read from the screen has no selection in the app to replace (HOV-1.6).
+    if session == Session::Wayland || method == Method::Screen || app.window == 0 || app.elevated || unsafe_app || blocked(&cfg.blocklist, app) {
         return None;
     }
     match content {
@@ -702,17 +705,25 @@ mod tests {
         let text = Content::Text { text: "teh draft".into(), truncated: false };
         let app = |exe: &str| SourceApp { window: 42, ..Fake::new(exe).app };
         let c = cfg();
-        assert_eq!(write_back(&text, &app("notepad.exe"), &c, Session::Windows), Some(WriteBack::Replace));
-        assert_eq!(write_back(&Content::None, &app("notepad.exe"), &c, Session::X11), Some(WriteBack::Insert));
-        assert_eq!(write_back(&Content::Files(FileContext::default()), &app("explorer.exe"), &c, Session::Windows), None, "files");
-        assert_eq!(write_back(&text, &app("WINDOWSTERMINAL.EXE"), &c, Session::Windows), None, "a terminal, in any letter case");
+        assert_eq!(write_back(&text, Method::Direct, &app("notepad.exe"), &c, Session::Windows), Some(WriteBack::Replace));
+        assert_eq!(write_back(&Content::None, Method::None, &app("notepad.exe"), &c, Session::X11), Some(WriteBack::Insert));
+        assert_eq!(write_back(&Content::Files(FileContext::default()), Method::Copy, &app("explorer.exe"), &c, Session::Windows), None, "files");
+        assert_eq!(write_back(&text, Method::Direct, &app("WINDOWSTERMINAL.EXE"), &c, Session::Windows), None, "a terminal, in any letter case");
         for exe in ["xterm", "gnome-terminal-server", "konsole", "ptyxis"] {
-            assert_eq!(write_back(&text, &app(exe), &c, Session::X11), None, "{exe}: a Linux terminal, not on the Windows-only list");
+            assert_eq!(write_back(&text, Method::Direct, &app(exe), &c, Session::X11), None, "{exe}: a Linux terminal, not on the Windows-only list");
         }
-        assert_eq!(write_back(&text, &app("KeePass.exe"), &c, Session::Windows), None, "blocked");
-        assert_eq!(write_back(&text, &SourceApp { elevated: true, ..app("notepad.exe") }, &c, Session::Windows), None, "elevated");
-        assert_eq!(write_back(&text, &Fake::new("notepad.exe").app, &c, Session::Windows), None, "no window to go back to");
-        assert_eq!(write_back(&text, &app("gedit"), &c, Session::Wayland), None, "no keys on Wayland");
+        assert_eq!(write_back(&text, Method::Direct, &app("KeePass.exe"), &c, Session::Windows), None, "blocked");
+        assert_eq!(write_back(&text, Method::Direct, &SourceApp { elevated: true, ..app("notepad.exe") }, &c, Session::Windows), None, "elevated");
+        assert_eq!(write_back(&text, Method::Direct, &Fake::new("notepad.exe").app, &c, Session::Windows), None, "no window to go back to");
+        assert_eq!(write_back(&text, Method::Direct, &app("gedit"), &c, Session::Wayland), None, "no keys on Wayland");
+    }
+
+    #[test]
+    fn hov_1_6_no_replace_or_insert_for_a_word_read_from_the_screen() {
+        let app = SourceApp { window: 42, ..Fake::new("notepad.exe").app };
+        let word = Content::Text { text: "serendipity".into(), truncated: false };
+        assert_eq!(write_back(&word, Method::Screen, &app, &cfg(), Session::Windows), None);
+        assert_eq!(write_back(&Content::None, Method::Screen, &app, &cfg(), Session::Windows), None, "nothing found there either");
     }
 
     #[test]

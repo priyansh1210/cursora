@@ -38,6 +38,8 @@ export function HotkeyFields({ settings, save }: { settings: Settings; save: Sav
         <p className="muted">Ctrl+G replaces "Go to line" in VS Code and Notepad, and "Find next" in browsers.</p>
       )}
       <HotkeyInput label="Snip" value={settings.hotkeys.snip} onChange={(snip) => snip && set({ snip })} />
+      <HotkeyInput label="Define" value={settings.hotkeys.define} onChange={(define) => define && set({ define })} />
+      <p className="muted">Point at a word anywhere on the screen and press Define to see what it means.</p>
       {/* Push-to-talk appears when spec 09 is built: until then it would do nothing (issue 37). */}
     </>
   );

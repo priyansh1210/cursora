@@ -232,7 +232,7 @@
     <ol>
       <li><b>Choose an AI source.</b> The easiest is <span class="ui">Download a free model</span>: one click, and it runs on this computer. You can also pick a model already running on this computer (LM Studio is found automatically), the built-in engine with a <code>.gguf</code> model file, or a cloud provider with your API key. Cursora tests the model before you can go on, so your first question just works. For the built-in engine, you also choose how long the model stays loaded.</li>
       <li><b>Choose a personality and your language.</b> Pick one of the ready-made personas, or turn personality off for the plain model. Then set <b>My language</b>, for example Hindi: Translate puts text into it.</li>
-      <li><b>Choose your hotkeys.</b> <kbd>Ctrl</kbd> + <kbd>G</kbd> to ask and <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> to snip are set for you; click one and press new keys to change it.</li>
+      <li><b>Choose your hotkeys.</b> <kbd>Ctrl</kbd> + <kbd>G</kbd> to ask, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> to snip and <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>G</kbd> to define are set for you; click one and press new keys to change it.</li>
       <li><b>Start with your computer?</b> Leave it ticked to have Cursora ready every time you log in.</li>
     </ol>
     <p>Everything you choose here can be changed later in Settings, and you can run setup again from <span class="ui">Settings → General → Re-run setup</span>.</p>
@@ -282,6 +282,7 @@
       <div class="card"><h4>Say it instead</h4><p>Click the mic next to Send and say your question, in English, Hindi or another language; click it again to stop (it stops by itself after a minute). Your words appear in the input, ready to edit or send. It runs on your computer, so your voice never leaves it. The first time, the mic takes you to Settings → General → <b>Voice input</b> to download a speech model: <b>Fast</b> (60 MB), or <b>Accurate</b> (190 MB, better for Indian languages).</p></div>
     </div>
     <p>The bubble stays open when you click elsewhere or press <kbd>Esc</kbd>, so you can read the answer while you work. Only the ask hotkey closes it.</p>
+    <p><b>Define a word without selecting it:</b> point at a word anywhere on the screen (a web page, a PDF, a picture, a video) and press <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>G</kbd>. Cursora reads the text around the pointer on your computer, and the bubble opens there with the word's meaning and an example. Point at another word and press again to define that one. It uses the same text recognition as snipping (on Linux, install <code>tesseract-ocr</code>), so it can misread very small or stylised text; the word is shown in the bubble. On keyboards where <kbd>AltGr</kbd> + <kbd>G</kbd> types a character, change the hotkey in <span class="ui">Settings → General</span>.</p>
     <p><b>What will be sent</b>, under the conversation, shows the exact text that will go to the AI, with any hidden personal details marked. See <a href="#privacy">Privacy</a>.</p>
   </section>
 
