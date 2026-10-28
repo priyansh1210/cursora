@@ -30,6 +30,7 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 21 | [Turn Cursora off per app](21-off-per-app/requirements.md) | OFF | Approved² | [Approved²](21-off-per-app/design.md) | [In progress](21-off-per-app/tasks.md) | In progress |
 | 22 | [Personal profile](22-profile/requirements.md) | PRF | Approved² | [Approved²](22-profile/design.md) | [In progress](22-profile/tasks.md) | In progress |
 | 23 | [Graphics card for local answers](23-gpu-engine/requirements.md) | GPU | Approved² | [Approved²](23-gpu-engine/design.md) | [In progress](23-gpu-engine/tasks.md) | In progress |
+| 24 | [Smart routing](24-smart-routing/requirements.md) | ROU | Approved² | [Approved²](24-smart-routing/design.md) | [In progress](24-smart-routing/tasks.md) | In progress |
 
 ¹ Approved under the user's go-ahead of 2026-10-26 to build improvements #1 to #5 while away; the choices made for the user are listed in each spec's requirements.md, for review.
 
