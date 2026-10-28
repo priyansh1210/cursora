@@ -19,6 +19,7 @@ mod snip;
 mod tray;
 mod update;
 mod voice;
+mod web;
 #[cfg(not(windows))]
 mod x11;
 
@@ -366,6 +367,7 @@ pub fn run() {
             llm::commands::providers_list,
             llm::commands::key_set,
             llm::commands::key_delete,
+            llm::commands::key_status,
             llm::commands::models_list,
             llm::commands::provider_test,
             llm::commands::runtimes_probe,

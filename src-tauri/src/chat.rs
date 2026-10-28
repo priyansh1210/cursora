@@ -5,7 +5,7 @@ use crate::persona::{self, Persona};
 use crate::privacy::{Hidden, Restorer};
 use crate::settings::Settings;
 use crate::llm::ModelRef;
-use crate::{bubble, llm, privacy, prompt, skills, AppState};
+use crate::{bubble, llm, privacy, prompt, skills, web, AppState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -450,6 +450,15 @@ pub fn ask(window: WebviewWindow, app: AppHandle, question: String, confirmed: b
             crate::snip::start(&app, crate::snip::Start { model: None, question: Some(rest) });
             Ok(())
         }
+        // WEB-1.4: local-only, no key, or nothing to search for: Cursora says so, and nothing is sent.
+        skills::WEB => {
+            let content = slots(&app).get(label).map_or(Content::None, |s| s.conv.content.clone());
+            let local_only = app.state::<AppState>().settings.lock().unwrap().local_only;
+            match web::refusal(local_only, crate::secrets::status(web::KEY).has_key, web::query(&rest, &content).as_deref()) {
+                Some(reason) => local(&app, label, question, reason.into()),
+                None => return answer(&app, label, question, confirmed),
+            }
+        }
         _ => match skills::find(&app, &name) {
             None => local(&app, label, question, skills::unknown(&skills::load(skills::dir(&app).ok().as_deref()).0, &name)),
             Some(s) => {
@@ -639,13 +648,21 @@ fn resolve(app: &AppHandle, label: &str, question: &str) -> Result<Resolved, Str
     Ok(Resolved { model, note, skill, routed })
 }
 
-/// The request for `conv`'s latest question, running the skill if there is one.
-fn build(conv: &Conversation, s: &Settings, skill: Option<&(skills::Skill, String)>, info: &ModelInfo) -> Result<Request, String> {
+/// The query of a `/web` question, with personal details hidden (WEB-1.2, 1.3); None for any other question.
+fn web_query(question: &str, conv: &Conversation, s: &Settings) -> Result<Option<String>, String> {
+    command(question).filter(|(name, _)| name == skills::WEB).and_then(|(_, rest)| web::query(rest, &conv.content)).map(|q| web::private(q, &s.privacy)).transpose()
+}
+
+/// The request for `conv`'s latest question, running the skill if there is one, or a web search's instructions.
+fn build(conv: &Conversation, s: &Settings, skill: Option<&(skills::Skill, String)>, web: bool, info: &ModelInfo) -> Result<Request, String> {
     let (language, my_language) = skills::languages(s);
-    let instructions = skill.map(|(sk, input)| skills::instructions(sk, &skills::Vars { input, app: &conv.app.name, language: &language, my_language: &my_language, date: &skills::today() }));
+    let instructions = skill
+        .map(|(sk, input)| skills::instructions(sk, &skills::Vars { input, app: &conv.app.name, language: &language, my_language: &my_language, date: &skills::today() }))
+        .or_else(|| web.then(|| web::INSTRUCTIONS.to_string()));
     // Unknown sizes: no current cloud chat model has less than 32k.
     let assumed = info.context_tokens.or((info.locality == Locality::Cloud).then_some(CLOUD_CONTEXT_TOKENS));
-    let mut req = request(conv, s, instructions.as_deref(), info.locality, budget(assumed))?;
+    // A web search's results are added in the worker, so older turns make room for them now (WEB-1.2).
+    let mut req = request(conv, s, instructions.as_deref(), info.locality, budget(assumed).saturating_sub(if web { web::RESERVE_TOKENS } else { 0 }))?;
     // A model that can't see gets a snip's text alone (OCR-1.2): llama-server refuses a request that has an image.
     if !info.vision {
         req.messages.iter_mut().for_each(|m| m.images.clear());
@@ -662,9 +679,12 @@ fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: 
     // The header and its Local/Cloud badge show where the next question goes (BUB-7.1), not a quick job's model (ROU-1.5).
     let shown = if routed { llm::active(app).ok().map(|m| m.info()) } else { Some(info.clone()) };
     let s = app.state::<AppState>().settings.lock().unwrap().clone();
-    if privacy::must_confirm(&s.privacy, info.locality, confirmed) {
+    let web = web_query(question, &slots(app).get(label).ok_or(CLOSED)?.conv, &s)?;
+    // A web search sends its query to Tavily, so it waits for Send like a cloud request, whatever the model (WEB-1.3).
+    if privacy::must_confirm(&s.privacy, if web.is_some() { Locality::Cloud } else { info.locality }, confirmed) {
         return Ok(Asked::Confirm);
     }
+    let policy = llm::net::Policy::of(&s);
     // ROU-2.1: the quick model, if another model answers and the skill can run on it.
     let quick = llm::quick(&s.models)
         .and_then(|q| llm::for_skill(app, Some(&reference(q)), skill.as_ref().and_then(|(sk, _)| sk.temperature)).ok())
@@ -678,10 +698,10 @@ fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: 
         change(&mut conv);
         let Some(last) = conv.turns.last_mut().filter(|t| t.status == TurnStatus::Streaming) else { return Ok(Asked::Sent) }; // nothing to answer
         last.note = note;
-        let req = build(&conv, &s, skill.as_ref(), &info)?;
+        let req = build(&conv, &s, skill.as_ref(), web.is_some(), &info)?;
         let too_long = info.context_tokens.and_then(|ctx| too_long(&req.messages, ctx));
         // Built now, while the conversation is at hand; sent only if the first model can't answer (ROU-2.1).
-        let fallback = quick.and_then(|m| build(&conv, &s, skill.as_ref(), &m.info()).ok().map(|r| (m, r)));
+        let fallback = quick.and_then(|m| build(&conv, &s, skill.as_ref(), web.is_some(), &m.info()).ok().map(|r| (m, r)));
         (conv.model, conv.dropped) = (shown.or(conv.model), req.dropped); // a reopened conversation answers with today's model
         slot.conv = conv;
         slot.cancel = Arc::default();
@@ -690,6 +710,22 @@ fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: 
     let dropped = req.dropped;
     let app = app.clone();
     std::thread::spawn(move || {
+        let (mut req, mut fallback, mut failed, mut sources) = (req, fallback, too_long, None);
+        // WEB-1.2: the search first; its results go to the model as untrusted data. A failed search sends nothing (WEB-1.5).
+        if let (Some(q), None) = (&web, &failed) {
+            match web::search(q, &policy) {
+                Ok(found) => {
+                    let results = format!("\n\n{}", web::block(&found));
+                    for r in std::iter::once(&mut req).chain(fallback.as_mut().map(|(_, r)| r)) {
+                        if let Some(m) = r.messages.last_mut() {
+                            m.text.push_str(&results);
+                        }
+                    }
+                    sources = (!found.is_empty()).then(|| web::sources(&found));
+                }
+                Err(e) => (failed, fallback) = (Some(e), None),
+            }
+        }
         let mut offset = 0;
         let mut show = |text: &str| {
             if text.is_empty() {
@@ -707,7 +743,7 @@ fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: 
             show(&restorer.finish());
             result
         };
-        let (mut status, mut error) = match too_long {
+        let (mut status, mut error) = match failed {
             Some(e) => (TurnStatus::Error, Some(e)),
             None => attempt(&*model, req),
         };
@@ -721,6 +757,9 @@ fn begin(app: &AppHandle, label: &str, question: &str, confirmed: bool, change: 
             let _ = app.emit_to(bubble::LABEL, "chat-load", ()); // the note, before the answer comes in
             let _ = app.emit_to(CHAT_LABEL, "chat-load", ());
             (status, error) = attempt(&*quick, req);
+        }
+        if let (TurnStatus::Done, Some(sources)) = (status, &sources) {
+            show(sources); // written by Cursora, so the links are the real ones (WEB-1.2)
         }
         let conv = with_conv(&app, id, |c| {
             let t = c.turns.last_mut().unwrap();
@@ -770,13 +809,16 @@ pub struct Preview {
     text: String,
     placeholders: Vec<String>,
     image_warning: bool,
+    /// What a `/web` question searches Tavily for (WEB-1.3).
+    web: Option<String>,
 }
 
 #[tauri::command]
 pub fn send_preview(window: WebviewWindow, app: AppHandle, question: String, retry: bool) -> Result<Preview, String> {
     let question = question.trim().to_string();
-    if command(&question).is_some_and(|(name, _)| skills::find(&app, &name).is_none()) {
-        return Ok(Preview { to: None, text: String::new(), placeholders: vec![], image_warning: false });
+    // A command Cursora answers itself; `/web` is sent (WEB-1.3).
+    if command(&question).is_some_and(|(name, _)| name != skills::WEB && skills::find(&app, &name).is_none()) {
+        return Ok(Preview { to: None, text: String::new(), placeholders: vec![], image_warning: false, web: None });
     }
     let r = resolve(&app, window.label(), &question)?;
     let info = r.model.info();
@@ -785,9 +827,10 @@ pub fn send_preview(window: WebviewWindow, app: AppHandle, question: String, ret
     if retry {
         conv.turns.pop();
     }
+    let web = web_query(&question, &conv, &s)?;
     conv.turns.push(Turn::asking(question));
-    let req = build(&conv, &s, r.skill.as_ref(), &info)?;
-    Ok(Preview { image_warning: privacy::image_warning(&req.messages, info.locality), text: prompt::render(&req.messages), placeholders: req.hidden.placeholders(), to: Some(info) })
+    let req = build(&conv, &s, r.skill.as_ref(), web.is_some(), &info)?;
+    Ok(Preview { image_warning: privacy::image_warning(&req.messages, info.locality), text: prompt::render(&req.messages), placeholders: req.hidden.placeholders(), to: Some(info), web })
 }
 
 /// Whether a failed answer goes to the quick model: nothing was written, and the model couldn't be reached or was overloaded (ROU-2.1, 2.2).
@@ -1096,10 +1139,28 @@ mod tests {
             s.text = Some("Error 404".into());
         }
         let info = |vision| ModelInfo { name: "m".into(), provider: "p".into(), locality: Locality::Local, context_tokens: None, vision };
-        let images = |vision| build(&c, &Settings::default(), None, &info(vision)).unwrap().messages.iter().map(|m| m.images.len()).sum::<usize>();
+        let images = |vision| build(&c, &Settings::default(), None, false, &info(vision)).unwrap().messages.iter().map(|m| m.images.len()).sum::<usize>();
         assert_eq!((images(false), images(true)), (0, 1));
-        let req = build(&c, &Settings::default(), None, &info(false)).unwrap();
+        let req = build(&c, &Settings::default(), None, false, &info(false)).unwrap();
         assert!(req.messages[1].text.contains("<snip_text>\nError 404\n</snip_text>"));
+    }
+
+    #[test]
+    fn web_1_2_a_web_question_searches_the_selection_and_gets_the_search_instructions() {
+        let c = conv(vec![turn("/web", "", TurnStatus::Streaming)]);
+        let s = Settings::default();
+        assert_eq!(web_query("/web", &c, &s).unwrap().as_deref(), Some("SELECTED"), "nothing typed: the selection");
+        assert_eq!(web_query("/web release date", &c, &s).unwrap().as_deref(), Some("release date SELECTED"));
+        assert_eq!(web_query("/fix", &c, &s).unwrap(), None, "not a web question");
+        let info = ModelInfo { name: "m".into(), provider: "p".into(), locality: Locality::Local, context_tokens: None, vision: false };
+        assert!(build(&c, &s, None, true, &info).unwrap().messages[0].text.contains(web::INSTRUCTIONS));
+        assert!(!build(&c, &s, None, false, &info).unwrap().messages[0].text.contains(web::INSTRUCTIONS));
+        // Room for the results: a conversation that just fits drops an older pair for a web question.
+        let long = "x".repeat(4000); // 1,000 tokens
+        let c = conv(vec![turn("q1", &long, TurnStatus::Done), turn("q2", &long, TurnStatus::Done), turn("/web q3", "", TurnStatus::Streaming)]);
+        let small = ModelInfo { context_tokens: Some(4096), ..info }; // 3,072 tokens for the request
+        assert_eq!(build(&c, &s, None, false, &small).unwrap().dropped, 0);
+        assert_eq!(build(&c, &s, None, true, &small).unwrap().dropped, 1);
     }
 
     #[test]
