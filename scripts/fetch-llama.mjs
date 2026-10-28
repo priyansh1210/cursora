@@ -1,4 +1,4 @@
-// Downloads llama.cpp's CPU build for this OS into src-tauri/llama/ (gitignored), checks its pinned SHA-256,
+// Downloads llama.cpp's Vulkan build for this OS into src-tauri/llama/ (gitignored), checks its pinned SHA-256,
 // and keeps llama-server with its libraries (spec 04, LLM-3.1). The release job runs it before bundling;
 // in dev, run it once to try the built-in engine: `npm run fetch-llama`.
 import { execFileSync } from "node:child_process";
@@ -8,9 +8,10 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const BUILD = "b11570";
+// The Vulkan builds (spec 23): the CPU backends too, and a Vulkan one llama.cpp loads only where Vulkan is installed.
 const ASSETS = {
-  win32: { file: `llama-${BUILD}-bin-win-cpu-x64.zip`, sha256: "2ac50506661724876ec12b50fa2f4e2d3ddac4830da8cb799d3703bba4c72da4", strip: 0 },
-  linux: { file: `llama-${BUILD}-bin-ubuntu-x64.tar.gz`, sha256: "6fa129f3e6f5a9dab675d0d41436bc797c826a62438ac295d129bbba7b3c637b", strip: 1 },
+  win32: { file: `llama-${BUILD}-bin-win-vulkan-x64.zip`, sha256: "21b7c457e87873e9fc29434957db83afe8cf06f5bd74fba89b9d64307e6fdabf", strip: 0 },
+  linux: { file: `llama-${BUILD}-bin-ubuntu-vulkan-x64.tar.gz`, sha256: "2c4587bb3617c03fc5dd5ca263ea3b4a3abcbe548c12b827d824d295508989ae", strip: 1 },
 };
 
 // What the llama.cpp files import from the Visual C++ runtime (dumpbin /dependents); the api-ms-win-crt-* part is in Windows.
