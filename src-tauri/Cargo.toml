@@ -43,6 +43,8 @@ base64 = "0.22"
 tauri-plugin-updater = "2"
 # Already in the build (Tauri); checks a downloaded model (MDL-1.3).
 sha2 = "0.10"
+# Spec 23: asks the Vulkan driver whether there's a dedicated graphics card; loads Vulkan at run time.
+ash = "0.38"
 # Voice input (spec 19): whisper.cpp compiled in, and the microphone.
 whisper-rs = "0.16"
 cpal = "0.18"
