@@ -35,7 +35,8 @@ struct State {
     busy: usize,
 }
 
-type Files = (String, Option<String>, u32);
+/// The model, the vision projector, the context size, and whether it runs on the graphics card.
+type Files = (String, Option<String>, u32, bool);
 
 struct Running {
     child: Child,
@@ -60,9 +61,13 @@ fn set_status(app: &AppHandle, s: &mut State, status: Status) {
     let _ = app.emit("engine-status", status);
 }
 
-/// llama-server's arguments. Bound to 127.0.0.1 only (LLM-3.3).
-pub fn args(e: &EngineSettings, context: u32, port: u16) -> Vec<String> {
+/// llama-server's arguments. Bound to 127.0.0.1 only (LLM-3.3). With `gpu`, llama.cpp picks the dedicated cards and fits
+/// what it can on them; without, `--device none` keeps it off integrated graphics too (GPU-1.1, 1.3).
+pub fn args(e: &EngineSettings, context: u32, port: u16, gpu: bool) -> Vec<String> {
     let mut a = vec!["-m".into(), e.gguf.clone()];
+    if !gpu {
+        a.extend(["--device".into(), "none".into()]);
+    }
     if let Some(mmproj) = &e.mmproj {
         a.extend(["--mmproj".into(), mmproj.clone()]);
     }
@@ -94,7 +99,8 @@ pub fn check(app: &AppHandle, p: &Provider) -> Result<(), String> {
 pub fn ensure_running(app: &AppHandle, p: &Provider, policy: &Policy, cancel: &AtomicBool) -> Result<String, ChatError> {
     let fail = |m: String| net::error(ErrorKind::Server, m);
     let e = p.engine.clone().ok_or_else(|| fail("The built-in engine has no model file.".into()))?;
-    let wanted: Files = (e.gguf.clone(), e.mmproj.clone(), p.context_size.unwrap_or(DEFAULT_CONTEXT));
+    let gpu = e.gpu && super::gpu::dedicated().is_some();
+    let wanted: Files = (e.gguf.clone(), e.mmproj.clone(), p.context_size.unwrap_or(DEFAULT_CONTEXT), gpu);
     let port = {
         let mut s = state(app);
         let alive = s.running.as_mut().is_some_and(|r| r.started == wanted && matches!(r.child.try_wait(), Ok(None)));
@@ -107,8 +113,8 @@ pub fn ensure_running(app: &AppHandle, p: &Provider, policy: &Policy, cancel: &A
             // shortcut: free-port race; retry once with a new port if "address already in use" shows up.
             let port = std::net::TcpListener::bind("127.0.0.1:0").and_then(|l| l.local_addr()).map(|a| a.port()).map_err(|e| fail(e.to_string()))?;
             let output = Arc::new(Mutex::new(VecDeque::new()));
-            let child = spawn(app, program, args(&e, wanted.2, port), output.clone()).map_err(|err| fail(format!("Couldn't start the built-in engine: {err}")))?;
-            log::info!("engine: started on port {port}");
+            let child = spawn(app, program, args(&e, wanted.2, port, gpu), output.clone()).map_err(|err| fail(format!("Couldn't start the built-in engine: {err}")))?;
+            log::info!("engine: started on port {port}, {}", if gpu { "on the graphics card" } else { "on the processor" });
             s.running = Some(Running { child, started: wanted, port, last_used: Instant::now(), output });
             set_status(app, &mut s, Status::Starting);
         }
@@ -357,11 +363,24 @@ mod tests {
     #[test]
     fn llm_3_3_the_engine_listens_on_127_0_0_1_only() {
         let e = EngineSettings { gguf: "C:/models/qwen.gguf".into(), mmproj: Some("C:/models/mmproj.gguf".into()), ..Default::default() };
-        let a = args(&e, 8192, 4321);
+        let a = args(&e, 8192, 4321, true);
         let host = a.iter().position(|x| x == "--host").unwrap();
         assert_eq!(a[host + 1], "127.0.0.1");
         assert!(!a.iter().any(|x| x.contains("0.0.0.0")));
         assert_eq!(a, ["-m", "C:/models/qwen.gguf", "--mmproj", "C:/models/mmproj.gguf", "--host", "127.0.0.1", "--port", "4321", "-c", "8192", "--no-webui"]);
+    }
+
+    #[test]
+    fn gpu_1_1_the_card_is_used_unless_there_is_none_or_it_is_switched_off() {
+        let e = EngineSettings { gguf: "m.gguf".into(), ..Default::default() };
+        assert!(e.gpu, "on by default");
+        let old: EngineSettings = serde_json::from_str(r#"{"gguf":"m.gguf","lifetime":"always"}"#).unwrap();
+        assert!(old.gpu, "an older settings file gets it on");
+        // With a card: llama.cpp's own choice of dedicated cards and layers. Without, or switched off (GPU-1.3): none.
+        assert!(!args(&e, 4096, 1, true).iter().any(|x| x == "--device" || x == "-ngl"));
+        let cpu = args(&e, 4096, 1, false);
+        let at = cpu.iter().position(|x| x == "--device").unwrap();
+        assert_eq!(cpu[at + 1], "none");
     }
 
     #[test]

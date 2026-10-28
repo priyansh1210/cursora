@@ -338,6 +338,7 @@ pub fn run() {
             chat::send_preview,
             voice::voice_start,
             voice::voice_stop,
+            llm::gpu::engine_gpu,
             privacy::privacy_detectors,
             persona::personas,
             persona::persona_preview,

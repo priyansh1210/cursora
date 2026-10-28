@@ -3,6 +3,7 @@ mod anthropic;
 pub mod commands;
 pub mod download;
 pub mod engine;
+pub mod gpu;
 mod gemini;
 mod local;
 pub mod net;
@@ -374,11 +375,13 @@ pub struct EngineSettings {
     pub lifetime: Lifetime,
     /// For `Lifetime::Idle`.
     pub idle_minutes: u32,
+    /// Spec 23: use a dedicated graphics card when there is one (GPU-1.1, 1.4).
+    pub gpu: bool,
 }
 
 impl Default for EngineSettings {
     fn default() -> Self {
-        Self { gguf: String::new(), mmproj: None, lifetime: Lifetime::Always, idle_minutes: 10 }
+        Self { gguf: String::new(), mmproj: None, lifetime: Lifetime::Always, idle_minutes: 10, gpu: true }
     }
 }
 
@@ -839,7 +842,7 @@ pub mod tests {
         assert!(!capabilities(&p, "qwen").vision);
         p.engine.as_mut().unwrap().mmproj = Some("D:/models/mmproj-qwen.gguf".into());
         assert!(capabilities(&p, "qwen").vision);
-        assert!(engine::args(p.engine.as_ref().unwrap(), 8192, 1).windows(2).any(|w| w == ["--mmproj", "D:/models/mmproj-qwen.gguf"]));
+        assert!(engine::args(p.engine.as_ref().unwrap(), 8192, 1, true).windows(2).any(|w| w == ["--mmproj", "D:/models/mmproj-qwen.gguf"]));
     }
 
     #[test]
