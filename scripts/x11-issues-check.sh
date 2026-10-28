@@ -15,6 +15,9 @@ model=/mnt/c/Users/FITT/Models/cursora/qwen2.5-1.5b-instruct-q4_k_m.gguf
 if [ "${2:-}" != inner ]; then
   rsync -a --delete --exclude node_modules --exclude src-tauri/target --exclude src-tauri/llama --exclude .git "$src/" ~/cursora/
   echo "INFO building (a few minutes the first time)…"
+  # As CI does: whisper-rs-sys's bundled bindings need no libclang. Machine-specific tools, if any, come from ~/.cursora-env.
+  [ -f ~/.cursora-env ] && . ~/.cursora-env
+  export WHISPER_DONT_GENERATE_BINDINGS=1
   (cd ~/cursora && ~/.cargo/bin/cargo build --quiet --features tauri/custom-protocol --manifest-path src-tauri/Cargo.toml) || { echo "FAIL the build"; exit 1; }
   rm -rf "$dir" && mkdir -p "$dir/config/com.cursora.app" "$dir/data" "$dir/cache"
   Xvfb :99 -screen 0 1600x1000x24 >/dev/null 2>&1 &
