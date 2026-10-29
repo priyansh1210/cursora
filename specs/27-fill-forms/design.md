@@ -1,0 +1,87 @@
+# 27: Fill forms (design)
+
+Status: **Approved**¹ (2026-10-30). Implements [requirements.md](requirements.md). It reads the form through UI Automation, as the capture reads a selection (SEL-2.2), and types like Replace and Insert, but one letter at a time.
+
+## Overview
+```
+Ctrl+G, nothing selected → bubble with Insert (WRT-3.1) → "Fill this form" = ask("/fill")
+ask("/fill") → refusal? (not Insert, Linux) → Cursora's own reply (FIL-2.6)
+             → no detail with a value → own reply + empty plan (the view offers My details)
+             → cloud model and confirming on → Asked::Confirm (PRI-3.7)
+             → a local turn, streaming; on a worker thread:
+                 fill::read(window): the text boxes (FIL-2.2)
+                 fill::sort: filled / left for the user / matched by name / to ask (FIL-2.2, 2.3)
+                 fill::requests (one per box) + redaction → the model, temperature 0, replies collected (FIL-2.3, 2.4)
+                 fill::answer per reply → fill::plan → turn.fill, turn done (FIL-2.5)
+Fill (ticked rows) → fill command → targets with today's values (FIL-3.4)
+             → bubble::bring_back(window) (WRT-4.2)
+             → fill::type_into: read again, check index and label, hide the bubble,
+               per box: focus, frame, type letter by letter, stop on Esc or another window (FIL-3.1 to 3.3)
+```
+
+## Components
+| File | Change |
+|---|---|
+| `src-tauri/src/fill/mod.rs` | New. The pure parts: `Detail`, `Field`, `usable`, `sort`, `sensitive`, `someone_else`, `messages`, `requests`, `answer`, `match_boxes`, `Plan`, `targets`, `typed`, `summary`, `report`; `refusal`. `read` and `type_into` call the Windows module, and on Linux say it works on Windows for now. |
+| `src-tauri/src/fill/windows.rs` | New. UI Automation: the window's text boxes, in its documents if it has any, with one cached `FindAll`; focus, the frame (a layered, click-through, topmost Win32 window shaped by a region), and typing through `SendInput` with `KEYEVENTF_UNICODE`. |
+| `src-tauri/src/settings.rs` | `my_details: Vec<fill::Detail>`, seeded with the 17 names (FIL-1.1). |
+| `src-tauri/src/chat.rs` | `Turn.fill: Option<fill::Plan>`; `Conversation.fill: bool` (Insert on Windows), never read back from History; `/fill` in `ask` (`fill_command`) and in `send_preview`, which becomes `async` so it can read the form off the main thread; the `fill` command. |
+| `src-tauri/src/skills.rs` | `FILL`, a system command in `/help` and the command list (FIL-2.6). |
+| `src-tauri/src/prompt.rs` | `defuse` also breaks `</form_field`. |
+| `src/Personality.tsx`, `src/useSettings.ts` | The My details group. |
+| `src/Chat.tsx`, `src/conversation.ts` | **Fill this form** under "Nothing was selected"; a fill turn's plan with tick boxes and **Fill**, or **Open My details**. |
+
+## Key mechanics
+
+### Reading the form (FIL-2.2)
+- `ElementFromHandle(window)`, then the `Document` elements under it. Where there are any (browsers, Electron apps), only their text boxes count, so the address bar and the browser's own boxes are left out. Without one, or with no boxes in it, the whole window counts (a dialog).
+- One `FindAllBuildCache(Descendants, ControlType == Edit)` per root caches Name, HelpText, IsPassword, IsEnabled, IsKeyboardFocusable and the Value pattern's Value and IsReadOnly. A disabled, unfocusable or read-only box is not a box to fill, so it is dropped before numbering. So is a box the user can't see: under 4 pixels wide or high, or wholly left of the window (a page hiding a box to collect details, as with browser autofill). A box below the fold still counts, as focusing it scrolls to it.
+- A box's label is its Name, or its HelpText (the placeholder) when it has none, without the colon dialog boxes end labels with.
+- Chrome builds its accessibility tree once a UI Automation client asks, so a read that finds no box at all is tried once more after 500 ms.
+- `shortcut:` Edit controls only: a box exposed as a combo box (a web `role=combobox`) isn't read. Read editable combo boxes too if forms with those come up.
+- `shortcut:` at most 80 boxes go to the model; a longer form gets its first 80. Send them in parts if someone fills forms that long.
+
+### Matching (FIL-2.3)
+- `sort` goes through the boxes in order: one with text is counted as filled; a password or sensitive box is left for the user; one whose normalized label equals a detail's normalized name matches it; one named like a starting detail with no value, or about someone else, is left for the user (asked, the built-in 1.5B model put the full name in "First name"); the rest are asked.
+- Normalizing: lower case, letters and digits only, words joined by one space, and a trailing "required" dropped. "Full Name *" and "full name (required)" both become "full name".
+- `sensitive` looks at the label and the placeholder: password, passcode, OTP, one-time, CVV, CVC, captcha, security code, credit card, debit card, card number (but not with Aadhaar, PAN, voter or ration), and PIN unless it's "PIN code" or "pincode" (the Indian postal code).
+- `someone_else` looks for whole words: father, mother, parent(s), guardian, spouse, husband, wife, emergency, reference, referee, nominee, sibling, and पिता, माता, अभिभावक. The check comes after the match by name, so a detail the user saved as "Father's name" still fills that box.
+- **One request per box**: a system message with the rules, and a user message with the detail names as a list, then `<form_field>` with the box's label and its placeholder as a hint (cut at 200 characters, defused). No persona, About you or language: the reply is data for Cursora, not an answer. Redaction runs over all the requests with one numbering.
+- `answer` takes the reply's first line without `*`, backticks, quotes, a leading "- " and a trailing full stop; it counts only when it is the name of a usable detail (ignoring case).
+- The model is the conversation's (a snip's one-time switch, else the default), at temperature 0. The replies are collected, not streamed into the bubble. Stop cancels the one running and asks no more; a failed request asks no more, and the boxes matched so far stay.
+- "What will be sent" shows the system message once, then each box's user message.
+
+### The plan (FIL-2.5)
+`Plan { rows: [{ index, field, detail }], left: [label], filled: count }`. Values aren't in it: the view shows them from the settings, so History never has them. The turn is Cursora's own (`local`), so it is never sent to a model later, and Regenerate doesn't apply. Its answer is one line saying what was found; a model failure goes in the turn's note.
+
+### Typing (FIL-3)
+- `targets(plan, ticked, details)`: each ticked row with its detail's value from the settings now, through `typed`. A detail that's gone or empty drops the row (FIL-3.4).
+- `typed`: CRLF, CR and LF become ", ", other control characters go, so the Enter and Tab keys are never sent (FIL-3.2).
+- `type_into` reads the boxes again and keeps a target only where the box at its index has the same label and no text, since the page may have changed. With none left, it fails before hiding the bubble, so the bubble shows why.
+- Per box: `SetFocus`; wait up to 500 ms for UI Automation to report it focused, else skip it; the frame around its rectangle (3 px wider each side, 3 px thick, Cursora's green); then each UTF-16 unit as a `KEYEVENTF_UNICODE` key press, 12 ms apart, pumping the frame's messages while waiting; 150 ms between boxes.
+- While typing, a low-level keyboard hook takes Esc, so the app never gets it (in a dialog or a web pop-up, Esc would close the form); before every letter, Esc pressed or another window in front stops it (FIL-3.3). Ctrl, Shift, Alt and Win are waited for first, up to 300 ms, as a held Ctrl would turn letters into shortcuts.
+- The result, "Filled 5 boxes. Check them before you send the form.", goes back to the view; the bubble is hidden by then, so the expanded window shows it and the log has the counts.
+
+## Decisions
+1. **Our own matching, not the browser's autofill**: it works in any app, and with any labels the model understands (Hindi ones, "Your mobile no.").
+2. **Labels to the model, values never**: so the details stay on the computer, whatever model answers. The privacy rules still apply to the labels, which come from the screen.
+3. **Exact names first, without a model**: the obvious boxes are always right, and a form whose labels are all detail names needs no request.
+4. **Typing, not pasting**: the clipboard is never touched, and the letters show one by one, as the user asked. Pasting into each box would also need a wait per box for the app to read it.
+5. **A native frame, not a webview**: a webview window takes about a second and 50 MB to appear and may take the focus; a region-shaped Win32 window does neither.
+6. **The bubble hides while typing**, so it covers no box. A failure found before typing shows in it.
+7. **"What will be sent" reads the form too** (now `async`): it shows the exact request, as for any question. It asks Send before the form is read, since `ask` can't wait for UI Automation on the main thread; if every box then matches by name, nothing is sent.
+8. **One request per box, not one for the form** (found in the first check, 2026-10-30): asked about a whole form, the built-in engine's Qwen2.5 1.5B copied the labels back ("1: Email address") and matched nothing, with or without an example. Asked about one box at a time, it got 12 of 14 labels right, Hindi ones too, in 2.6 s for all 14. Its two misses were boxes about someone else ("Father's name" → Full name), which `someone_else` now leaves for the user without asking.
+
+## Test strategy
+| Criterion | How |
+|---|---|
+| FIL-1.2 | `usable`: empty names or values dropped, 50 at most, names and values cut; `messages` has the names and none of the values. |
+| FIL-2.2 | `visible`: a box of a pixel or far to the left is left out, one below the fold isn't. `sort`: filled boxes counted, a password box and "OTP", "CVV", "Card number" left, "PIN code" and "Aadhaar card number" not; `sensitive` on its own; boxes about someone else left, unless a detail has their name. |
+| FIL-2.3 | `sort` on exact names with marks; `answer` on reply shapes and on replies that aren't a detail's name; `messages` wraps the label in `<form_field>` and defuses it; `match_boxes` with a fake model, and with one that fails. |
+| FIL-2.4 | The request for a cloud model hides an email in a label (through `fill::requests`). |
+| FIL-2.6 | `refusal` for text, Linux, and no Insert; `/fill` in `/help` and invalid as a skill name. |
+| FIL-3.2 | `typed` on line breaks, a tab and Unicode. |
+| FIL-3.4 | `targets`: unticked rows, a renamed detail and an emptied one are skipped; today's value is used. |
+| Manual | FIL-1.1, 2.1, 2.5, 3.1 and 3.3 on Windows: a test form in Edge and Chrome (text boxes, a password, an OTP, a filled box, a textarea), a Microsoft Form, a Google Form, and a dialog box of a Windows app. |
+
+¹ Approved under the user's go-ahead of 2026-10-30 (requirements.md).

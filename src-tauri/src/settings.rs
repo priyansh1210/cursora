@@ -40,6 +40,8 @@ pub struct Settings {
     pub voice_model: Option<String>,
     /// Spec 22: a few lines about the user, sent with every question (PRF-1.2).
     pub about_you: String,
+    /// Spec 27: what Cursora types into forms; a model sees only the names (FIL-1.2).
+    pub my_details: Vec<crate::fill::Detail>,
 }
 
 impl Default for Settings {
@@ -68,6 +70,7 @@ impl Default for Settings {
             saved_answers_folder: None,
             voice_model: None,
             about_you: String::new(),
+            my_details: crate::fill::starting_details(),
         }
     }
 }

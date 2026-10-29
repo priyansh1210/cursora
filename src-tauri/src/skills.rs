@@ -13,16 +13,19 @@ pub const CLEAR: &str = "clear";
 pub const HELP: &str = "help";
 /// Spec 26: searches the web, then the model answers from the results (WEB-1.2).
 pub const WEB: &str = "web";
+/// Spec 27: fills the form in the app with My details (FIL-2.1).
+pub const FILL: &str = "fill";
 /// Listed in /help and the autocomplete only while the active model can see (VIS-1.1).
 pub const SNIP: &str = "snip";
 const SNIP_COMMAND: (&str, &str, &str) = (SNIP, "[question]", "Pick a part of the screen and ask about it");
 /// The commands that work today: name, args hint, description.
-const COMMANDS: [(&str, &str, &str); 5] = [
+const COMMANDS: [(&str, &str, &str); 6] = [
     (PERSONA, "<name>", "Switch to another persona"),
     (NEW_SKILL, "", "Make a skill from your last question"),
     (CLEAR, "", "Start over with the same selection"),
     (HELP, "", "List the skills and commands"),
     (WEB, "[question]", "Search the web and answer with sources"),
+    (FILL, "", "Fill the form in the app with My details"),
 ];
 
 const VARIABLES: [&str; 5] = ["input", "app", "language", "my_language", "date"];
@@ -802,6 +805,13 @@ mod tests {
         assert!(help.contains("- `/translate <language>` Translate the selection"));
         assert!(help.contains("**Commands**\n- `/persona <name>`") && help.contains("`/clear`") && help.contains("`/new-skill`") && help.contains("`/help`"));
         assert!(!help.contains("snip"));
+    }
+
+    #[test]
+    fn fil_2_6_fill_is_a_listed_system_command() {
+        assert!(help(&entries(&[], |_| false, false)).contains("- `/fill` Fill the form in the app with My details"));
+        let e = parse(&file("name: fill\ndescription: d", "x")).unwrap_err().1;
+        assert!(e.contains("is a system command"), "{e}");
     }
 
     #[test]
