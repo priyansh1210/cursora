@@ -198,12 +198,13 @@ mod tests {
             notice: None,
             model: None,
             persona: Some("Cursora".into()),
-            turns: vec![Turn { question: question.into(), answer: answer.into(), status, error: None, asked: id, answered: Some(id + 5), local: false, note: None }],
+            turns: vec![Turn { question: question.into(), answer: answer.into(), status, error: None, asked: id, answered: Some(id + 5), local: false, note: None, fill: None }],
             dropped: 0,
             unavailable: None,
             own_model: None,
             write_back: None,
             quick: vec![],
+            fill: false,
         }
     }
 

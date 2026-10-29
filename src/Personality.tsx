@@ -1,8 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Icon, PATHS } from "./icons";
 import { LanguageSuggestions } from "./MyLanguage";
 import { BLANK, clean, describePersona, GENDERS, isBuiltIn, TONES, type Persona } from "./personas";
-import { editSettings, type Save, type Settings } from "./useSettings";
+import { editSettings, type Detail, type Save, type Settings } from "./useSettings";
 
 /** Settings → Personality (PER-1.2, PER-2.2, PER-4.4). */
 export default function PersonalityTab({ settings, save }: { settings: Settings; save: Save }) {
@@ -62,6 +63,9 @@ export default function PersonalityTab({ settings, save }: { settings: Settings;
         Sent with every question, so answers fit you, to cloud models too. Personal details such as email addresses and phone numbers are hidden from them.
       </p>
       </div>
+
+      <h2>My details</h2>
+      <MyDetails settings={settings} save={save} />
 
       <h2>Personas</h2>
       <div className="group">
@@ -127,6 +131,70 @@ export default function PersonalityTab({ settings, save }: { settings: Settings;
         </pre>
       </details>
     </>
+  );
+}
+
+/** My details (FIL-1.1): saved when a box loses focus, like About you. The boxes are keyed by the list's length, so they
+ *  take the saved list after an add or a remove, and keep what is being typed otherwise. */
+function MyDetails({ settings, save }: { settings: Settings; save: Save }) {
+  const listRef = useRef<HTMLDivElement>(null);
+  // The row whose name box gets the focus once the changed list is back: the added one, or the one after a removed one.
+  const focusRow = useRef<number | undefined>(undefined);
+  const rows = () => [...(listRef.current?.querySelectorAll<HTMLElement>("[data-detail]") ?? [])];
+  const current = (): Detail[] =>
+    rows().map((row) => {
+      const [label, value] = row.querySelectorAll("input");
+      return { label: label.value, value: value.value };
+    });
+  const store = (list: Detail[]) => save({ myDetails: list }).catch(() => {});
+  const changed = () => {
+    const list = current();
+    if (JSON.stringify(list) !== JSON.stringify(settings.myDetails)) void store(list);
+  };
+  useEffect(() => {
+    if (focusRow.current === undefined) return;
+    (rows()[focusRow.current]?.querySelector("input") ?? listRef.current?.querySelector<HTMLElement>("[data-add]"))?.focus();
+    focusRow.current = undefined;
+  }, [settings.myDetails.length]);
+  const n = settings.myDetails.length;
+
+  return (
+    <div className="group details" ref={listRef}>
+      <p className="muted">
+        Cursora types these into forms: in a form, press {settings.hotkeys.ask} with nothing selected, then Fill this form. They stay on this computer. An AI model sees only
+        their names, never what you write here.
+      </p>
+      {settings.myDetails.map((d, i) => (
+        <div className="row" data-detail key={`${n}-${i}`}>
+          <input aria-label={`Name of detail ${i + 1}`} defaultValue={d.label} placeholder="Name" maxLength={60} onBlur={changed} />
+          <input aria-label={d.label || `Detail ${i + 1}`} defaultValue={d.value} placeholder="Not set" maxLength={500} onBlur={changed} />
+          <button
+            type="button"
+            className="icon"
+            aria-label={`Remove ${d.label || `detail ${i + 1}`}`}
+            title="Remove"
+            onClick={() => {
+              focusRow.current = i;
+              void store(current().filter((_, j) => j !== i));
+            }}
+          >
+            <Icon d={PATHS.close} size={14} />
+          </button>
+        </div>
+      ))}
+      <div className="row">
+        <button
+          type="button"
+          data-add
+          onClick={() => {
+            focusRow.current = n;
+            void store([...current(), { label: "", value: "" }]);
+          }}
+        >
+          Add a detail
+        </button>
+      </div>
+    </div>
   );
 }
 
