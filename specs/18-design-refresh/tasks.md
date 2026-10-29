@@ -10,7 +10,7 @@ Status: **In progress**. Tasks 1 to 4 are built; the manual checklist is open.
 
 ## Manual checklist
 - [ ] DSN-1.4: each window has at most one filled button (the bubble, the expanded window, every Settings tab, every Setup step, a pinned note). Windows ☐ Linux X11 ☐
-- [ ] DSN-1.5: with "Show animations" off in Windows (or `gtk-enable-animations` off on GNOME), switches jump and "Thinking…" doesn't pulse. Windows ☐ Linux X11 ☐
+- [ ] DSN-1.5: with "Show animations" off in Windows (or `gtk-enable-animations` off on GNOME), switches jump and "Thinking…" doesn't pulse. Windows ✓ by the user (2026-10-29, the installed 0.2.0: with Animation effects off, a switch in Settings jumped instead of sliding; "Thinking…" was too quick to see with Gemini, and the same reduced-motion rule stops its pulse) Linux X11 ☐
 - [ ] DSN-2.1: the header is one row; the model switcher looks like text until pointed at; a long model name still leaves Expand in view (BUB-7.4). Windows ☐ Linux X11 ☐
 - [ ] DSN-2.2: Replace is filled; Copy (and its check), Pin, Save, Show in folder, Regenerate and Save as skill are icons with tooltips; Narrator/Orca read their names; Tab reaches each one. Windows ☐ Linux X11 ☐
 - [ ] DSN-2.3: Send and Stop sit inside the field; "What will be sent" opens above it; on Windows the box grows to six lines, on Linux it keeps two rows. Windows ☐ Linux X11 ☐

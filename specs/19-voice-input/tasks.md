@@ -10,7 +10,7 @@ Status: **In progress**.
 
 ## Manual checklist
 - [ ] VIN-1.1 The mic starts and stops recording, shows the seconds, and stops by itself at 60 s. Windows ✓ (2026-10-28, test copy: the laptop's speakers said the question and the real microphone heard it; the button showed ■ 0:06; 3 s after Stop the box held "Explain this paragraph in simple words and give me two examples.", not sent. A 61 s recording stopped by itself. Closing the bubble while recording dropped it, VIN-1.5) Linux X11 ☐ (WSL has no microphone, issue 64)
-- [ ] VIN-1.4 With the microphone blocked in Windows' privacy settings (or none connected), the bubble says why. Windows ☐ (a system setting, for the user: issue 64) Linux X11 ☐
+- [ ] VIN-1.4 With the microphone blocked in Windows' privacy settings (or none connected), the bubble says why. Windows ✓ by the user (2026-10-29, after R79: see below) Linux X11 ☐
 - [ ] VIN-1.6 Without a speech model, the mic's tooltip says so and it opens Settings → General. Windows ✓ (2026-10-28: "Set up voice input in Settings", named "Dictate: set up voice input in Settings first"; it opened Settings) Linux X11 ☐
 - [ ] VIN-2.1 Voice input in General: both models with sizes, Recommended following My language, Change…, Download, progress, Cancel, and the model in use. Windows ✓ Fast (60 MB) with Recommended for English, Accurate (190 MB), the folder and Change…; Download took 9 s and Fast showed In use ☐ Recommended for an Indian language ☐ Cancel Linux X11 ☐
 - [ ] VIN-2.3 (retired 2026-10-29, now VIN-2.4) A question said in Hindi comes out in Hindi (Accurate). Windows ✓ by the user (2026-10-29: Hindi came out in Hindi letters, but a sentence with an Urdu word came out in Urdu script, so the user narrowed voice input to Hindi and English) Linux X11 ☐

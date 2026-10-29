@@ -11,7 +11,7 @@
 ## Manual checklist
 - [ ] UPD-1.1 Checks 30 s after start, then daily; the start, hotkey and bubble aren't slowed. Windows ☐ Linux ☐
 - [ ] UPD-1.3 About shows the version, Check for updates and the result. Windows ✓ (2026-10-26: "Couldn't reach the update server…" before anything was published; "Version 0.1.1 is available." with its notes once it was) Linux ☐
-- [ ] UPD-1.4 Offline, the check fails quietly; About says why. Windows ☐ Linux ☐
+- [ ] UPD-1.4 Offline, the check fails quietly; About says why. Windows ✓ by the user (2026-10-29, the installed 0.2.0: Wi-Fi off, About → Check for updates failed quietly with the reason) Linux ☐
 - [ ] UPD-1.5 The setting in General and ticked on setup's last step; off means no request. Windows ✓ the box in General (screenshot) ☐ setup's last page ☐ off means no request Linux ☐
 - [ ] UPD-2.1 The tray item and About's notice, nothing else. Windows ✓ About's notice ☐ the tray item (not confirmed) Linux ☐
 - [ ] UPD-2.2 Notes, progress, the admin prompt, the install. Windows ✓ (2026-10-26, the laptop: the installed 0.1.0 showed 0.1.1's notes, Update now asked for admin permission, installed, and restarted as 0.1.1) Linux (AppImage) ☐
