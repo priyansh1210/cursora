@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — 2026-10-29: batch 2 done; issue test round fixed R78-R85, closed 65/67/70/72/74; next: fix 66, 71, 69
+- [Project status](project-status.md) — 2026-10-29 stop point: all merged to PR #66, #67 (notes) open; left: next-release and real-Linux checks; next: the user's pick
 - [Demo video and talk](demo-video-and-talk.md) — D:\cursora-demo (91 s video + scripts), voice-over and class-talk script docs
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
