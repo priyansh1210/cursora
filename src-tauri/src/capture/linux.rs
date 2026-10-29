@@ -5,7 +5,8 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
-use x11rb::connection::{Connection, RequestConnection};
+use x11rb::connection::RequestConnection;
+use x11rb::wrapper::ConnectionExt as _;
 use x11rb::protocol::res::{ClientIdMask, ClientIdSpec, ConnectionExt as _};
 use x11rb::protocol::xproto::{AtomEnum, ConnectionExt as _, KEY_PRESS_EVENT, KEY_RELEASE_EVENT};
 use x11rb::protocol::xtest::ConnectionExt as _;
@@ -46,7 +47,9 @@ impl LinuxPlatform {
         let presses = codes.iter().map(|&c| (KEY_PRESS_EVENT, c));
         let releases = codes.iter().rev().map(|&c| (KEY_RELEASE_EVENT, c));
         let sent = presses.chain(releases).try_for_each(|(kind, code)| x.conn.xtest_fake_input(kind, code, x11rb::CURRENT_TIME, x.root, 0, 0, 0).map(drop));
-        if let Err(e) = sent.and_then(|_| x.conn.flush()) {
+        // A round trip, not just a flush: this connection closes right after, and keys the server hadn't read yet were
+        // dropped (issue 67: a hotkey passed on was lost while a tray host was running).
+        if let Err(e) = sent.map_err(|e| e.to_string()).and_then(|_| x.conn.sync().map_err(|e| e.to_string())) {
             log::warn!("X11 keys: {e}");
         }
     }
@@ -295,7 +298,7 @@ pub fn wl_paste(args: &[&str], limit: u64, wait: Duration) -> Option<Vec<u8>> {
 mod tests {
     use super::*;
     use x11rb::protocol::xproto::{CreateWindowAux, PropMode, WindowClass};
-    use x11rb::wrapper::ConnectionExt as _;
+    use x11rb::connection::Connection;
 
     /// These tests take over selections and press keys, so they run only on an X server of their own.
     fn test_display() -> LinuxPlatform {

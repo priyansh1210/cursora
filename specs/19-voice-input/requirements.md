@@ -28,7 +28,8 @@ User story: As a user, I want to say my question instead of typing it, in my own
 User story: As a user, I want to set up dictation once, with one click, and choose speed or accuracy.
 - VIN-2.1 (manual) Settings → General SHALL have a **Voice input** group with two speech models and their sizes, **Fast** and **Accurate** (better for Hindi and the other Indian languages), the folder with **Change…**, and **Download** with progress and **Cancel**, as for the chat models (MDL-1.1, MDL-1.4). Accurate SHALL be marked Recommended while My language is an Indian language (LNG-1.1), Fast otherwise. Once a model is downloaded, the group SHALL say which one is in use.
 - VIN-2.2 (auto) Each speech model's address (whisper.cpp's models on huggingface.co, at a fixed revision), size and SHA-256 SHALL be fixed in the code. A downloaded file that doesn't match SHALL be deleted and not used (MDL-1.3).
-- VIN-2.3 (manual) THE speech model SHALL find the spoken language by itself, so a question said in Hindi comes out in Hindi.
+- VIN-2.3 (retired) Finding any spoken language by itself. Replaced by VIN-2.4 on 2026-10-29: Hindi with an Urdu word came out in Urdu script.
+- VIN-2.4 (auto) THE speech model SHALL find the spoken language by itself, but never Urdu, Persian or another language of India besides Hindi, so Hindi with Urdu or Persian words comes out in Hindi letters (Devanagari), while English and foreign languages such as French come out as said.
 
 ## Defaults taken under the go-ahead of 2026-10-28
 1. **Voice input only, no spoken answers** (the user's choice).
@@ -38,6 +39,9 @@ User story: As a user, I want to set up dictation once, with one click, and choo
 5. **No push-to-talk hotkey** for now.
 6. **The speech model is saved with the chat models**, in the same folder, with the same download (spec 15).
 7. **Constitution §3:** the user-started download of a pinned model file (amendment of 2026-10-26) covers speech models too. Amended 2026-10-28.
+
+## Changed by the user on 2026-10-29
+- **Hindi, English and foreign languages, not the other languages of India** (VIN-2.4, replacing VIN-2.3). In the user's check, Hindi came out in Hindi letters, but a sentence with an Urdu word came out in Urdu script, since whisper picks among all its languages, and everyday Hindi has many Urdu and Persian words. The user: "we can just do hindi and english languages only and the foreign languages no other indic languages", then "I still want foreign languages". Whisper's language detection now runs first, and the most likely language is set, leaving out Urdu, Persian, Bengali, Tamil, Telugu, Marathi, Gujarati, Kannada, Malayalam, Punjabi, Nepali, Sinhala, Sanskrit, Assamese and Sindhi. Persian is left out although it isn't a language of India, since it caused the same problem; for review.
 
 ## Open questions
 None.

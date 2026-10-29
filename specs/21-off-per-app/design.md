@@ -29,8 +29,8 @@ Settings → General → Hotkeys: the rules, as in Privacy                      
 
 ## Passing the keys on
 Windows' `RegisterHotKey` and X11's key grab take the key press away from the app, and a key pressed again while the hotkey is held would only fire the hotkey again. So `pass_through`:
-1. unregisters that one hotkey through the plugin
-2. presses it again: the modifiers that aren't still held, then the key down and up, then releases only the modifiers it pressed, so a Ctrl the user still holds stays held
+1. unregisters that one hotkey through the plugin. On X11, global-hotkey 0.8 only queues the ungrab, so a dummy registration (Ctrl+Alt+Shift+Win+F24, undone at once; it fails harmlessly where the keyboard has no F24) makes it send the queue first. Without it, the keys pressed again met the old grab and were lost.
+2. presses it again (on X11 through XTest, waiting for the server's answer before the connection closes, since keys it hadn't read yet were dropped): the modifiers that aren't still held, then the key down and up, then releases only the modifiers it pressed, so a Ctrl the user still holds stays held
 3. waits 100 ms, since injected keys reach the app's queue after the call returns and a hotkey registered too soon would take them again
 4. registers the hotkey again
 
