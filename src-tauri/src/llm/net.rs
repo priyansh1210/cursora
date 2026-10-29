@@ -434,9 +434,10 @@ pub mod tests {
         let e = r.unwrap_err();
         assert_eq!(e.kind, ErrorKind::Network);
         assert!(e.message.contains("didn't reply within 1 s"), "{}", e.message);
-        // A pause mid-stream, after one event.
+        // A pause mid-stream, after one event. The first reply gets 5 s, so a busy machine still sees "one" (issue 69).
         let (port, _) = serve(vec![Step::Write(SSE_HEAD), Step::Write("data: one\n\n"), Step::Sleep(3000)]);
-        let (got, r) = collect(post(port), &fast());
+        let pause = Policy { timeouts: Timeouts { first_reply_local_secs: 5, first_reply_cloud_secs: 5, ..fast().timeouts }, ..fast() };
+        let (got, r) = collect(post(port), &pause);
         assert_eq!(got, ["one"]);
         assert_eq!(r.unwrap_err().kind, ErrorKind::Network);
     }

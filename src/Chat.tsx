@@ -463,6 +463,14 @@ function NoModel({ reason }: { reason?: string }) {
 /** What was captured (BUB-3.1), how to drop it (BUB-3.2) and what was cut (BUB-3.3). */
 function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void }) {
   const [open, setOpen] = useState(false);
+  // BUB-3.1: "Show more" only when the preview is cut off; a word or a short line shows whole (issue 71).
+  const previewRef = useRef<HTMLParagraphElement>(null);
+  const [cut, setCut] = useState(false);
+  const previewText = conv.content.kind === "text" ? conv.content.text : "";
+  useEffect(() => {
+    const p = previewRef.current;
+    if (p && !open) setCut(p.scrollHeight > p.clientHeight + 1);
+  }, [previewText, open]);
   const { content, notice } = conv;
   const notes: string[] = [];
   if (notice?.kind === "blocked") notes.push(`Cursora is blocked in ${conv.app.name || conv.app.exe}, so nothing was read.`);
@@ -490,10 +498,14 @@ function Context({ conv, onRemove }: { conv: Conversation; onRemove: () => void 
       )}
       {content.kind === "text" && (
         <>
-          <p className={open ? "preview" : "preview clamped"}>{content.text}</p>
-          <button type="button" className="link" aria-expanded={open} onClick={() => setOpen(!open)}>
-            {open ? "Show less" : "Show more"}
-          </button>
+          <p ref={previewRef} className={open ? "preview" : "preview clamped"}>
+            {content.text}
+          </p>
+          {(open || cut) && (
+            <button type="button" className="link" aria-expanded={open} onClick={() => setOpen(!open)}>
+              {open ? "Show less" : "Show more"}
+            </button>
+          )}
         </>
       )}
       {content.kind === "files" && (

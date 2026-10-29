@@ -864,7 +864,8 @@ pub mod tests {
         let (port, _) = serve(vec![Step::Sleep(5000)]);
         let start = Instant::now();
         assert!(block(list_models(&server("dead", port), &Policy::default(), Duration::from_millis(200))).is_err());
-        assert!(start.elapsed() < Duration::from_millis(800));
+        // Well before the server's 5 s, with room for a busy machine (issue 69: 800 ms failed once in WSL under load).
+        assert!(start.elapsed() < Duration::from_millis(2500), "took {:?}", start.elapsed());
     }
 
     #[test]

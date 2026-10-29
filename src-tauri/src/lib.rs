@@ -414,6 +414,9 @@ pub fn run() {
             if let Err(e) = history.prune(&settings.history, chat::now_ms()) {
                 log::warn!("history: {e}");
             }
+            if let Some(note) = history.take_moved() {
+                app.dialog().message(note).title("Cursora").show(|_| {}); // BUB-9.5
+            }
             app.manage(history);
             app.manage(AppState { settings: Mutex::new(settings), path });
             app.manage(ChatState::default());
