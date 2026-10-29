@@ -90,6 +90,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
   - delete one conversation, or clear all
 - BUB-9.3 (auto) WHILE "Save history" is off THE SYSTEM SHALL write no conversation data to disk. (Amended 2026-10-26: except an answer the user saves with **Save**, SAV-2.6.)
 - BUB-9.4 (auto) THE SYSTEM SHALL delete conversations older than the retention period (default 90 days; configurable, including "forever").
+- BUB-9.5 (auto) IF the history file can't be read THE SYSTEM SHALL move it aside as `history.bak-<time>.sqlite`, start a new history at the next save, and say so once at startup, as it does for settings (APP-4.2). (Added 2026-10-29: a damaged file had silently stopped all saving, issue 66.)
 
 ## Open questions
 - _(none.)_
