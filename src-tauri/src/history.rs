@@ -13,6 +13,8 @@ const PAGE: usize = 50;
 pub struct History {
     path: PathBuf,
     conn: Mutex<Option<Connection>>,
+    /// Said once, at startup: an unreadable file was set aside (BUB-9.5).
+    moved: Mutex<Option<String>>,
 }
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -27,7 +29,12 @@ pub struct Summary {
 
 impl History {
     pub fn new(path: PathBuf) -> Self {
-        Self { path, conn: Mutex::new(None) }
+        Self { path, conn: Mutex::new(None), moved: Mutex::new(None) }
+    }
+
+    /// What startup tells the user once, if an unreadable history file was set aside (BUB-9.5).
+    pub fn take_moved(&self) -> Option<String> {
+        self.moved.lock().unwrap().take()
     }
 
     /// Saves (or rewrites) the conversation and prunes old ones, only while saving is on (BUB-9.1, 9.3, 9.4).
@@ -84,6 +91,7 @@ impl History {
     }
 
     /// Runs `f` on the open database. Without `create`, a missing file means "nothing stored" and `f` doesn't run.
+    /// A file SQLite can't read is set aside first, so saving starts again instead of failing silently (BUB-9.5).
     fn with<T>(&self, create: bool, f: impl FnOnce(&Connection) -> rusqlite::Result<T>) -> Result<Option<T>, String> {
         let mut conn = self.conn.lock().unwrap();
         if conn.is_none() {
@@ -93,18 +101,38 @@ impl History {
             if let Some(dir) = self.path.parent() {
                 std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
             }
-            let c = Connection::open(&self.path).map_err(|e| e.to_string())?;
-            c.execute_batch(
-                "CREATE TABLE IF NOT EXISTS conversations (
-                    id INTEGER PRIMARY KEY, updated INTEGER NOT NULL, title TEXT NOT NULL, app TEXT NOT NULL,
-                    model TEXT, data TEXT NOT NULL, search TEXT NOT NULL);
-                 CREATE INDEX IF NOT EXISTS conversations_updated ON conversations(updated);",
-            )
-            .map_err(|e| e.to_string())?;
+            let c = match open(&self.path) {
+                Err(e) if self.path.exists() => {
+                    let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+                    let backup = self.path.with_file_name(format!("history.bak-{ts}.sqlite"));
+                    std::fs::rename(&self.path, &backup).map_err(|_| e.clone())?;
+                    let note = format!("Cursora couldn't read its history ({e}). The old file was saved as {} and a new history is started.", backup.display());
+                    log::warn!("{note}");
+                    *self.moved.lock().unwrap() = Some(note);
+                    if !create {
+                        return Ok(None); // nothing stored now; the next save starts the new file (BUB-9.3)
+                    }
+                    open(&self.path)?
+                }
+                r => r?,
+            };
             *conn = Some(c);
         }
         f(conn.as_ref().unwrap()).map(Some).map_err(|e| e.to_string())
     }
+}
+
+/// The database with its table; fails on a file SQLite can't read ("file is not a database").
+fn open(path: &std::path::Path) -> Result<Connection, String> {
+    let c = Connection::open(path).map_err(|e| e.to_string())?;
+    c.execute_batch(
+        "CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY, updated INTEGER NOT NULL, title TEXT NOT NULL, app TEXT NOT NULL,
+            model TEXT, data TEXT NOT NULL, search TEXT NOT NULL);
+         CREATE INDEX IF NOT EXISTS conversations_updated ON conversations(updated);",
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(c)
 }
 
 #[tauri::command]
@@ -200,6 +228,27 @@ mod tests {
         assert_eq!(h.list("", 0).unwrap().len(), 1);
         h.clear().unwrap();
         assert!(h.list("", 0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn bub_9_5_an_unreadable_file_is_set_aside_and_saving_starts_again() {
+        let dir = std::env::temp_dir().join(format!("cursora-hist-95-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("history.sqlite");
+        std::fs::write(&path, b"this is not a database, as after a crash mid-write").unwrap();
+        let h = History::new(path.clone());
+        let cfg = HistorySettings::default();
+        h.prune(&cfg, 0).unwrap();
+        let note = h.take_moved().expect("said once");
+        assert!(note.starts_with("Cursora couldn't read its history") && note.contains("history.bak-"), "{note}");
+        assert!(h.take_moved().is_none(), "only once");
+        assert!(!path.exists(), "nothing new is written until a save (BUB-9.3)");
+        let backup = std::fs::read_dir(&dir).unwrap().flatten().find(|e| e.file_name().to_string_lossy().starts_with("history.bak-")).expect("the old file kept");
+        assert_eq!(std::fs::read(backup.path()).unwrap(), b"this is not a database, as after a crash mid-write");
+        h.record(&cfg, &conv(1, "Saved again?", "Yes.", TurnStatus::Done), 0).unwrap();
+        assert_eq!(h.list("", 0).unwrap().len(), 1, "saving works again");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
