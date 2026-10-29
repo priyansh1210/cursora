@@ -47,9 +47,11 @@ fn wait(end: Receiver<End>, samples: Arc<Mutex<Vec<f32>>>, limit: Duration) -> O
     matches!(end.recv_timeout(limit), Ok(End::Stop)).then(|| std::mem::take(&mut *samples.lock().unwrap()))
 }
 
+/// VIN-1.4: plain words for the bubble. The system's own error (such as "OS Error -2004287487") goes to the log only.
 fn mic(e: impl std::fmt::Display) -> String {
-    let hint = if cfg!(windows) { " On Windows, check Settings → Privacy & security → Microphone → Let desktop apps access your microphone." } else { "" };
-    format!("Cursora couldn't use the microphone: {e}.{hint}")
+    log::warn!("microphone: {e}");
+    let check = if cfg!(windows) { "that Settings → Privacy & security → Microphone → Let desktop apps access your microphone is on" } else { "that no other app is using it" };
+    format!("Cursora couldn't use the microphone. Check that one is connected, and {check}.")
 }
 
 /// An input stream that appends samples as f32, up to `cap` of them.
@@ -132,6 +134,17 @@ pub fn clean(text: &str) -> String {
     MARKS.replace_all(text, " ").split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// VIN-2.4: never guessed. Urdu and Persian share much of spoken Hindi, so a Hindi sentence with an Urdu word came out in
+/// Urdu script; the other languages of India are left out at the user's word (2026-10-29).
+const NOT_GUESSED: [&str; 15] = ["ur", "fa", "bn", "ta", "te", "mr", "gu", "kn", "ml", "pa", "ne", "si", "sa", "as", "sd"];
+
+/// VIN-2.4: the most likely language in whisper's probabilities, leaving out `NOT_GUESSED`.
+fn language(probs: &[f32]) -> &'static str {
+    let allowed = |&(i, _): &(usize, &f32)| whisper_rs::get_lang_str(i as i32).is_some_and(|code| !NOT_GUESSED.contains(&code));
+    let best = probs.iter().enumerate().filter(allowed).max_by(|a, b| a.1.total_cmp(b.1)).map(|(i, _)| i as i32);
+    best.and_then(whisper_rs::get_lang_str).unwrap_or("en")
+}
+
 /// Loads the model for this recording only, so its memory is held only while it works.
 fn transcribe(model: &str, mut pcm: Vec<f32>) -> Result<String, String> {
     if !std::path::Path::new(model).is_file() {
@@ -143,9 +156,13 @@ fn transcribe(model: &str, mut pcm: Vec<f32>) -> Result<String, String> {
     if pcm.len() < RATE {
         pcm.resize(RATE + RATE / 10, 0.0); // whisper wants at least a second
     }
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    // VIN-2.4: whisper's own guess ranges over all its languages and wrote Hindi with an Urdu word in Urdu script.
+    state.pcm_to_mel(&pcm, threads).map_err(|e| e.to_string())?;
+    let (_, probs) = state.lang_detect(0, threads).map_err(|e| e.to_string())?;
     let mut p = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-    p.set_language(Some("auto")); // VIN-2.3
-    p.set_n_threads(std::thread::available_parallelism().map_or(4, |n| n.get()) as i32);
+    p.set_language(Some(language(&probs)));
+    p.set_n_threads(threads as i32);
     p.set_audio_ctx(ac);
     p.set_suppress_nst(true);
     p.set_no_timestamps(true);
@@ -191,6 +208,28 @@ pub fn cancel(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn vin_1_4_a_microphone_error_is_said_in_plain_words() {
+        let said = mic("Failed to initialize audio client: OS Error -2004287487 (FormatMessageW() returned error 317)");
+        assert!(said.starts_with("Cursora couldn't use the microphone. Check that one is connected"), "{said}");
+        assert!(!said.contains("2004287487") && !said.contains("FormatMessageW"), "the system's error stays in the log: {said}");
+    }
+
+    #[test]
+    fn vin_2_4_urdu_persian_and_other_indian_languages_are_never_guessed() {
+        let id = |code| whisper_rs::get_lang_id(code).unwrap() as usize;
+        let mut probs = vec![0.0; whisper_rs::get_lang_max_id() as usize + 1];
+        (probs[id("ur")], probs[id("fa")], probs[id("hi")], probs[id("en")]) = (0.5, 0.2, 0.2, 0.1);
+        assert_eq!(language(&probs), "hi", "Hindi with Urdu and Persian words stays Hindi");
+        (probs[id("ta")], probs[id("bn")]) = (0.9, 0.8);
+        assert_eq!(language(&probs), "hi", "nor another language of India");
+        probs[id("fr")] = 0.3;
+        assert_eq!(language(&probs), "fr", "foreign languages still are");
+        probs[id("en")] = 0.4;
+        assert_eq!(language(&probs), "en");
+        assert_eq!(language(&[]), "en", "nothing detected");
+    }
 
     #[test]
     fn vin_1_2_audio_becomes_16khz_mono() {

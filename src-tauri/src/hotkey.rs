@@ -102,6 +102,17 @@ fn pass_through(app: &AppHandle, shortcut: Shortcut, exe: &str) {
         if let Err(e) = shortcuts.unregister(shortcut) {
             return log::warn!("hotkey: couldn't step aside: {e}");
         }
+        // X11: global-hotkey queues the ungrab without sending it, so the keys pressed again met the old grab and were
+        // lost (issue 67). Its next request with a reply sends the queue first: any registration makes one, even one that
+        // fails because the keyboard has no F24, and one that succeeds is undone at once.
+        // shortcut: works around global-hotkey 0.8; drop it once the crate flushes after ungrabbing.
+        #[cfg(target_os = "linux")]
+        {
+            let flush = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT | Modifiers::SUPER), tauri_plugin_global_shortcut::Code::F24);
+            if shortcuts.register(flush).is_ok() {
+                let _ = shortcuts.unregister(flush);
+            }
+        }
         capture::OsPlatform::new().send_chord(&chord);
         std::thread::sleep(Duration::from_millis(100));
         if let Err(e) = shortcuts.register(shortcut) {

@@ -38,7 +38,7 @@ Settings → General → Voice input: DownloadModel kind="speech" → model_down
 
 ## Turning speech into text
 `transcribe` loads the model for each recording and drops it after, so the 60 to 190 MB are held only while it works (constitution §8). The parameters:
-- greedy decoding, language `auto` (VIN-2.3)
+- greedy decoding; whisper's language detection runs first, and the most likely language is set, leaving out Urdu, Persian and the other languages of India besides Hindi (VIN-2.4)
 - every processor thread (8 was faster than 4 on the laptop)
 - `audio_ctx = min(1500, seconds × 50 + 128)`: whisper otherwise reads a 30-second window, so a 5-second question took 8.6 s instead of 5.3 s with Accurate
 - `suppress_nst`, no timestamps, no printing
