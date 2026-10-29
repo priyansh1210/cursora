@@ -14,7 +14,8 @@ AI cursor companion: select text anywhere → hotkey → chat bubble at the curs
 - `npm test`: JS tests
 - `npm run build`, then `cargo test --manifest-path src-tauri/Cargo.toml`
 - `npm run test:linux`: the same Rust tests, built for Linux in WSL (`Ubuntu-24.04`). Run it after `npm run build` and before every push.
-- `npm run tauri dev`: run the app
+- `npm run tauri dev`: run the app (it shares the installed copy's settings: quit that one first)
+- `npx tauri build --debug --no-bundle --config src-tauri/tauri.dev.conf.json`, then `src-tauri\target\debug\cursora.exe`: the test copy "Cursora Dev", with its own settings, history and hotkeys, beside the installed copy (`--quit` closes it)
 - `npm run fetch-llama`: download the built-in engine (llama-server) into `src-tauri/llama/`, needed only to try it in dev
 
 Develop on Windows. Linux is built by CI (`.github/workflows/ci.yml`) and in WSL; it is tested by hand on a Live USB or VM.
