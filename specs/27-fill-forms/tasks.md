@@ -7,9 +7,10 @@ Status: **In progress**.
 - [x] 3. `/fill` in `ask` and "What will be sent"; the plan on the turn; the `fill` command. Covers FIL-2.3, FIL-2.4, FIL-2.5, FIL-3.1.
 - [x] 4. My details in Settings → Personality; Fill this form and the plan in the bubble. Covers FIL-1.1, FIL-2.1, FIL-2.5.
 - [x] 5. All checks; by hand on Windows; then `/ponytail-review` (2026-10-30: its findings fixed, R89 to R92).
+- [x] 6. The user's ask while testing (2026-10-30): My details as a tab of its own, a form by sections with Father's name, Mother's name, Mobile number and two address lines, then More details. Covers FIL-1.1, FIL-1.2, FIL-2.3. Reviewed with ponytail-review: R93 to R95 fixed.
 
 ## Manual checklist
-- [ ] FIL-1.1 My details in Personality: the 17 names, editing, removing, adding, the note, saved. Windows: shown ✓ (2026-10-30, the test copy: the 17 rows under About you, the note, Remove on each row, Add a detail; the saved details filled the forms below); editing, removing and adding by hand ☐ Linux X11 ☐
+- [ ] FIL-1.1 The My details tab: the form's 20 boxes by section, More details, the note, saved when a box loses focus. Windows: shown and saved ✓ (2026-10-30, the test copy through UI Automation: the 20 boxes and More details; leaving a box saved the address lines, the joined Address and "Blood group: O+", and left out a bare link); by hand ☐ Linux X11 ☐ (the list under About you, checked on 2026-10-30, was replaced by the tab the same day)
 - [ ] FIL-2.1 Fill this form in the bubble with nothing selected in a form; not with a selection. Windows ✓ (2026-10-30: offered in Edge, Chrome and a dialog box with nothing selected; not offered with text selected in Notepad, where `/fill` says to click into the form without selecting) Linux X11: n/a until Linux is built (`/fill` says so) ☐
 - [ ] FIL-2.5 The plan: rows with values and tick boxes, left boxes, already filled; with a model that fails. Windows: rows, tick boxes and left boxes ✓ (2026-10-30); a failing model is unit-tested only ☐ (issue 74)
 - [ ] FIL-3.1 Fill types each ticked value letter by letter in a green frame: a test form in Edge and Chrome, a Microsoft Form, a Google Form, a dialog box. Windows: Edge, Chrome and a dialog box ✓ (2026-10-30, the page saw one input event per letter; hidden boxes left alone); a Microsoft Form and a Google Form ☐ (issue 74)

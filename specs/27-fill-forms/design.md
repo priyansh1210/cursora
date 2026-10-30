@@ -22,16 +22,21 @@ Fill (ticked rows) → fill command → targets with today's values (FIL-3.4)
 ## Components
 | File | Change |
 |---|---|
-| `src-tauri/src/fill/mod.rs` | New. The pure parts: `Detail`, `Field`, `usable`, `sort`, `sensitive`, `someone_else`, `messages`, `requests`, `answer`, `match_boxes`, `Plan`, `targets`, `typed`, `summary`, `report`; `refusal`. `read` and `type_into` call the Windows module, and on Linux say it works on Windows for now. |
+| `src-tauri/src/fill/mod.rs` | New. The pure parts: `Detail`, `FORM`, `Field`, `usable`, `sort`, `sensitive`, `someone_else`, `messages`, `requests`, `answer`, `match_boxes`, `Plan`, `targets`, `typed`, `summary`, `report`; `refusal`. `read` and `type_into` call the Windows module, and on Linux say it works on Windows for now. |
 | `src-tauri/src/fill/windows.rs` | New. UI Automation: the window's text boxes, in its documents if it has any, with one cached `FindAll`; focus, the frame (a layered, click-through, topmost Win32 window shaped by a region), and typing through `SendInput` with `KEYEVENTF_UNICODE`. |
-| `src-tauri/src/settings.rs` | `my_details: Vec<fill::Detail>`, seeded with the 17 names (FIL-1.1). |
+| `src-tauri/src/settings.rs` | `my_details: Vec<fill::Detail>`, as the tab saves them, and `more_details: String`, the More details box as typed, which only the tab reads (FIL-1.1). |
 | `src-tauri/src/chat.rs` | `Turn.fill: Option<fill::Plan>`; `Conversation.fill: bool` (Insert on Windows), never read back from History; `/fill` in `ask` (`fill_command`) and in `send_preview`, which becomes `async` so it can read the form off the main thread; the `fill` command. |
 | `src-tauri/src/skills.rs` | `FILL`, a system command in `/help` and the command list (FIL-2.6). |
 | `src-tauri/src/prompt.rs` | `defuse` also breaks `</form_field`. |
-| `src/Personality.tsx`, `src/useSettings.ts` | The My details group. |
-| `src/Chat.tsx`, `src/conversation.ts` | **Fill this form** under "Nothing was selected"; a fill turn's plan with tick boxes and **Fill**, or **Open My details**. |
+| `src/MyDetails.tsx` (new), `src/Settings.tsx`, `src/icons.tsx`, `src/useSettings.ts` | The My details tab: the form by sections, then More details; `details` makes the list it saves. |
+| `src/Chat.tsx`, `src/conversation.ts` | **Fill this form** under "Nothing was selected"; a fill turn's plan with tick boxes and **Fill**, or **Open My details** (the tab). |
 
 ## Key mechanics
+
+### My details (FIL-1)
+- The tab is a `<form>`: a labelled box for each name of `SECTIONS` in `MyDetails.tsx`, under its section's heading, then More details. `fill::FORM` has the same names in the same order, and a JS test compares the two.
+- When a box loses focus, the form is read with `FormData`. `moreDetails` gets the text as typed, so nothing written there is lost or reordered. `myDetails` gets `details`: the boxes with a value, trimmed; "Address", the two address lines joined by ", " (a Google Form often has one address box); then each line of More details split at its first colon, so a link after it stays whole, but not a bare link, whose colon is its scheme's. Everything after the tab, Rust and the plan's view, reads `myDetails` as before, so the lines are split in one place.
+- `shortcut:` the form's boxes can't be renamed or removed; a detail it lacks goes in More details. Add a box to the form when one comes up often.
 
 ### Reading the form (FIL-2.2)
 - `ElementFromHandle(window)`, then the `Document` elements under it. Where there are any (browsers, Electron apps), only their text boxes count, so the address bar and the browser's own boxes are left out. Without one, or with no boxes in it, the whole window counts (a dialog).
@@ -42,7 +47,7 @@ Fill (ticked rows) → fill command → targets with today's values (FIL-3.4)
 - `shortcut:` at most 80 boxes go to the model; a longer form gets its first 80. Send them in parts if someone fills forms that long.
 
 ### Matching (FIL-2.3)
-- `sort` goes through the boxes in order: one with text is counted as filled; a password or sensitive box is left for the user; one whose normalized label equals a detail's normalized name matches it; one named like a starting detail with no value, or about someone else, is left for the user (asked, the built-in 1.5B model put the full name in "First name"); the rest are asked.
+- `sort` goes through the boxes in order: one with text is counted as filled; a password or sensitive box is left for the user; one whose normalized label equals a detail's normalized name matches it; one named like a box of the My details form with no value, or about someone else, is left for the user (asked, the built-in 1.5B model put the full name in "First name"); the rest are asked.
 - Normalizing: lower case, letters and digits only, words joined by one space, and a trailing "required" dropped. "Full Name *" and "full name (required)" both become "full name".
 - `sensitive` looks at the label and the placeholder: password, passcode, OTP, one-time, CVV, CVC, captcha, security code, credit card, debit card, card number (but not with Aadhaar, PAN, voter or ration), and PIN unless it's "PIN code" or "pincode" (the Indian postal code).
 - `someone_else` looks for whole words: father, mother, parent(s), guardian, spouse, husband, wife, emergency, reference, referee, nominee, sibling, and पिता, माता, अभिभावक. The check comes after the match by name, so a detail the user saved as "Father's name" still fills that box.
@@ -75,9 +80,9 @@ Fill (ticked rows) → fill command → targets with today's values (FIL-3.4)
 ## Test strategy
 | Criterion | How |
 |---|---|
-| FIL-1.2 | `usable`: empty names or values dropped, 50 at most, names and values cut; `messages` has the names and none of the values. |
+| FIL-1.2 | `details` (JS): the boxes with a value, the address lines joined, More details' lines split at their first colon, a bare link and lines without a name or value left out. `usable`: empty names or values dropped, 50 at most, names and values cut; `messages` has the names and none of the values. |
 | FIL-2.2 | `visible`: a box of a pixel or far to the left is left out, one below the fold isn't. `sort`: filled boxes counted, a password box and "OTP", "CVV", "Card number" left, "PIN code" and "Aadhaar card number" not; `sensitive` on its own; boxes about someone else left, unless a detail has their name. |
-| FIL-2.3 | `sort` on exact names with marks; `answer` on reply shapes and on replies that aren't a detail's name; `messages` wraps the label in `<form_field>` and defuses it; `match_boxes` with a fake model, and with one that fails. |
+| FIL-2.3 | `sort` on exact names with marks, and on the form's names left empty; `FORM` against the tab's names; `answer` on reply shapes and on replies that aren't a detail's name; `messages` wraps the label in `<form_field>` and defuses it; `match_boxes` with a fake model, and with one that fails. |
 | FIL-2.4 | The request for a cloud model hides an email in a label (through `fill::requests`). |
 | FIL-2.6 | `refusal` for text, Linux, and no Insert; `/fill` in `/help` and invalid as a skill name. |
 | FIL-3.2 | `typed` on line breaks, a tab and Unicode. |

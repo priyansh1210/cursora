@@ -17,16 +17,11 @@ pub struct Detail {
     pub value: String,
 }
 
-/// FIL-1.1: the names My details starts with.
-const STARTING: [&str; 17] = [
-    "Full name", "First name", "Last name", "Email", "Phone", "Date of birth", "Gender", "Address", "City", "State", "PIN code", "Country",
-    "College or company", "Course or job title", "LinkedIn", "GitHub", "Website",
+/// FIL-1.1: the boxes of the My details tab, the same names as `FORM` in src/MyDetails.tsx (a JS test compares them).
+const FORM: [&str; 20] = [
+    "Full name", "First name", "Last name", "Date of birth", "Gender", "Father's name", "Mother's name", "Mobile number", "Email", "Address line 1",
+    "Address line 2", "City", "State", "PIN code", "Country", "College or company", "Course or job title", "LinkedIn", "GitHub", "Website",
 ];
-
-/// FIL-1.1: the rows My details starts with, all empty.
-pub fn starting_details() -> Vec<Detail> {
-    STARTING.map(|label| Detail { label: label.into(), value: String::new() }).to_vec()
-}
 
 /// FIL-1.2: what counts of My details, even from a settings file edited by hand.
 const MAX_DETAILS: usize = 50;
@@ -119,8 +114,8 @@ pub fn sort(fields: &[Field], details: &[Detail]) -> Sorted {
             continue;
         } else if let Some(d) = details.iter().find(|d| norm(&d.label) == name) {
             s.exact.push((i, d.label.clone()));
-        } else if someone_else(&f.name()) || STARTING.iter().any(|n| norm(n) == name) {
-            // A starting detail without a value: no other one fits, though small models give "First name" the full name.
+        } else if someone_else(&f.name()) || FORM.iter().any(|n| norm(n) == name) {
+            // A box of the form left empty: no other detail fits, though small models give "First name" the full name.
             continue;
         } else if s.ask.len() < MAX_ASKED {
             s.ask.push(i);
@@ -332,8 +327,6 @@ mod tests {
         assert_eq!((u[1].label.chars().count(), u[1].value.chars().count()), (60, 500));
         assert_eq!(u.len(), 50, "at most 50 details");
         assert!(!u.iter().any(|x| x.label.is_empty() || x.value.is_empty()));
-        assert_eq!(starting_details().len(), 17);
-        assert!(starting_details().iter().all(|x| x.value.is_empty()) && usable(&starting_details()).is_empty());
     }
 
     #[test]
@@ -394,8 +387,8 @@ mod tests {
         assert_eq!(s.exact, [(0, "Full name".to_string()), (1, "Email".into()), (3, "Full name".into())]);
         assert_eq!(s.ask, [2]);
         assert_eq!(plan(&fields, &s, &[]).rows[2].field, "FULL NAME", "a dialog box's colon isn't shown twice");
-        let empty = [field("First name:"), field("Last Name *"), field("Your first name")];
-        assert_eq!(sort(&empty, &mine()).ask, [2], "a starting detail without a value is left, not asked");
+        let empty = [field("First name:"), field("Last Name *"), field("Your first name"), field("Address line 2")];
+        assert_eq!(sort(&empty, &mine()).ask, [2], "a box of My details' form left empty is left, not asked");
         let all_named = sort(&fields[..2], &mine());
         assert!(requests(&fields[..2], &all_named, &mine(), &PrivacySettings::default(), Locality::Cloud).unwrap().0.is_empty(), "nothing is sent");
     }

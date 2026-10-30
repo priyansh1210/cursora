@@ -739,7 +739,7 @@ function FillPlan({ plan, details, canFill }: { plan: Plan; details?: Detail[]; 
         </div>
       )}
       {plan.rows.length === 0 && (
-        <button type="button" onClick={() => void invoke("open_settings", { tab: "Personality" })}>
+        <button type="button" onClick={() => void invoke("open_settings", { tab: "My details" })}>
           Open My details
         </button>
       )}
