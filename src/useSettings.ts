@@ -54,8 +54,10 @@ export type Settings = {
   voiceModel: string | null;
   /** Spec 22: a few lines about the user, sent with every question (PRF-1.2). */
   aboutYou: string;
-  /** Spec 27: what Cursora types into forms; a model sees only the labels (FIL-1.2). */
+  /** Spec 27: what Cursora types into forms, as the My details tab saves them; a model sees only the labels (FIL-1.2). */
   myDetails: Detail[];
+  /** The tab's More details box as typed, for the tab only: its lines are in `myDetails` too (FIL-1.1). */
+  moreDetails: string;
 };
 
 export type Detail = { label: string; value: string };

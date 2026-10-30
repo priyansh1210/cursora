@@ -551,7 +551,7 @@ fn fill_command(app: &AppHandle, label: &str, question: String, confirmed: bool)
     let details = fill::usable(&s.my_details);
     if details.is_empty() {
         // An empty plan: the view offers My details (FIL-2.6).
-        let (now, answer) = (now_ms(), "Add your details first, in Settings → Personality → My details. Cursora types them into forms for you.".to_string());
+        let (now, answer) = (now_ms(), "Add your details first, in Settings → My details. Cursora types them into forms for you.".to_string());
         return push_local(app, label, Turn { answer, status: TurnStatus::Done, answered: Some(now), local: true, fill: Some(fill::Plan::default()), ..Turn::asking(question) }).map(|()| Asked::Sent);
     }
     let model = fill_model(app, &conv)?;

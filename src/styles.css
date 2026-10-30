@@ -294,7 +294,8 @@ textarea {
   font: var(--text-xs) / 1.45 var(--mono);
 }
 /* About you (PRF-1.1) is prose: the body font, across the card. */
-textarea.about-you {
+textarea.about-you,
+textarea.more-details {
   max-width: none;
   margin: 0;
   font: inherit;
@@ -1015,14 +1016,6 @@ button.fill-offer {
 .fill-rows input {
   vertical-align: -2px;
   margin-inline-end: 4px;
-}
-/* My details (FIL-1.1): a short name, its value taking the rest of the row, then Remove. */
-.details > .row > input:first-child {
-  flex: 0 1 170px;
-  min-width: 110px;
-}
-.details > .row > input + input {
-  flex: 1 1 200px;
 }
 /* Under an answer: its main action as a labelled button, the rest as icons with tooltips (DSN-2.2). */
 .actions {
