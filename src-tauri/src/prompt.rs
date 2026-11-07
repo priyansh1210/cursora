@@ -154,10 +154,10 @@ fn attr(value: &str) -> String {
     defuse(&value.replace('"', "'"))
 }
 
-/// Breaks every closing tag inside the data, in any letter case, so it can't end its block. Web results too (spec 26).
+/// Breaks every closing tag inside the data, in any letter case, so it can't end its block. Web results and form labels too (specs 26, 27).
 pub(crate) fn defuse(text: &str) -> String {
     let lower = text.to_ascii_lowercase(); // ASCII-only change, so byte positions match `text`
-    let mut cuts: Vec<usize> = ["</selected_text", "</file", "</snip_text", "</search_results"].iter().flat_map(|tag| lower.match_indices(tag).map(|(i, _)| i + 2)).collect();
+    let mut cuts: Vec<usize> = ["</selected_text", "</file", "</snip_text", "</search_results", "</form_field"].iter().flat_map(|tag| lower.match_indices(tag).map(|(i, _)| i + 2)).collect();
     cuts.sort_unstable();
     let mut out = String::with_capacity(text.len() + cuts.len());
     let mut last = 0;
@@ -186,7 +186,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn turn(q: &str, a: &str, status: TurnStatus, local: bool) -> Turn {
-        Turn { question: q.into(), answer: a.into(), status, error: None, asked: 0, answered: None, local, note: None }
+        Turn { question: q.into(), answer: a.into(), status, error: None, asked: 0, answered: None, local, note: None, fill: None }
     }
 
     fn conv(content: Content, turns: Vec<Turn>) -> Conversation {
