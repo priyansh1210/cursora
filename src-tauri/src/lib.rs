@@ -3,6 +3,7 @@ mod bubble;
 mod capture;
 mod chat;
 mod cli;
+mod fill;
 mod history;
 mod hotkey;
 mod keep;
@@ -339,6 +340,7 @@ pub fn run() {
             chat::get_conversation,
             chat::expand,
             chat::write_back,
+            chat::fill,
             chat::prompt_preview,
             chat::send_preview,
             voice::voice_start,

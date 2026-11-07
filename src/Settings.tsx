@@ -6,6 +6,7 @@ import History from "./History";
 import { HotkeyFields } from "./HotkeyInput";
 import ModelsTab, { DownloadModel } from "./Models";
 import PersonalityTab from "./Personality";
+import MyDetailsTab from "./MyDetails";
 import SkillsTab from "./SkillsTab";
 import Privacy, { RuleList } from "./Privacy";
 import { useAppInfo, useSettings, type CopyKey, type Save, type Settings as S } from "./useSettings";
@@ -14,13 +15,14 @@ import { Icon, PATHS } from "./icons";
 import { isIndian, MODELS_FOR_LANGUAGES, MyLanguageField } from "./MyLanguage";
 
 // Voice joins between Skills and Privacy once spec 09 is built (APP-5.1).
-const TABS = ["General", "Models", "Personality", "Skills", "Privacy", "History", "About"] as const;
+const TABS = ["General", "Models", "Personality", "My details", "Skills", "Privacy", "History", "About"] as const;
 type Tab = (typeof TABS)[number];
 const isTab = (t: string): t is Tab => (TABS as readonly string[]).includes(t);
 const SUMMARY: Record<Exclude<Tab, "About">, string> = {
   General: "Hotkeys, startup, language and how Cursora looks.",
   Models: "Where answers come from: models on this computer, or cloud providers.",
   Personality: "Who answers: a persona's name, tone and style.",
+  "My details": "What Cursora types into forms for you.",
   Skills: "Saved instructions you run by typing / in the bubble. Your own are Markdown files in the skills folder.",
   Privacy: "What Cursora reads, what it hides, and what it sends.",
   History: "Past conversations, kept only on this computer.",
@@ -72,6 +74,8 @@ export default function Settings() {
           <ModelsTab settings={settings} save={save} />
         ) : tab === "Personality" ? (
           <PersonalityTab settings={settings} save={save} />
+        ) : tab === "My details" ? (
+          <MyDetailsTab settings={settings} save={save} />
         ) : tab === "Skills" ? (
           <SkillsTab settings={settings} save={save} />
         ) : tab === "Privacy" ? (

@@ -7,7 +7,10 @@ export type ErrorKind = (typeof ERROR_KINDS)[number];
 export type ChatError = { kind: ErrorKind; message: string };
 export type TurnStatus = "streaming" | "done" | "cancelled" | "error";
 /** `local`: Cursora's own reply to a command such as /persona, never sent to the model (PER-3.1). */
-export type Turn = { question: string; answer: string; status: TurnStatus; error: ChatError | null; asked: number; answered: number | null; local: boolean; note?: string | null };
+/** `fill`: `/fill`'s plan (FIL-2.5); values aren't in it, the view takes them from My details. */
+export type Turn = { question: string; answer: string; status: TurnStatus; error: ChatError | null; asked: number; answered: number | null; local: boolean; note?: string | null; fill?: Plan | null };
+/** Mirrors `fill::Plan`: the boxes to fill, by their place among the boxes read; the labels of those left; how many had text. */
+export type Plan = { rows: { index: number; field: string; detail: string }[]; left: string[]; filled: number };
 export type FileItem = { path: string; name: string; kind: "file" | "folder" | "link"; size: number; modified: number; children: string[]; content: string | null; skipped: string | null; image?: boolean };
 export type Image = { mime: string; base64: string };
 /** `snip`: a screen region; the page only ever gets its thumbnail (VIS-2.6), and its text when it was read for a model
@@ -42,6 +45,8 @@ export type Conversation = {
   writeBack?: "replace" | "insert";
   /** The buttons over a selection (spec 14), pinned skills first; a button sends its command as if typed. */
   quick?: { label: string; command: string }[];
+  /** Fill this form (spec 27): Insert works here, on Windows (FIL-2.1). */
+  fill?: boolean;
 };
 export type Delta = { id: number; offset: number; text: string };
 export type Done = { id: number; status: TurnStatus; error: ChatError | null; dropped: number };

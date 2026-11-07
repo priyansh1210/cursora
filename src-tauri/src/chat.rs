@@ -5,7 +5,7 @@ use crate::persona::{self, Persona};
 use crate::privacy::{Hidden, Restorer};
 use crate::settings::Settings;
 use crate::llm::ModelRef;
-use crate::{bubble, llm, privacy, prompt, skills, web, AppState};
+use crate::{bubble, fill, llm, privacy, prompt, skills, web, AppState};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -120,12 +120,15 @@ pub struct Turn {
     /// Said about the answer, e.g. that a skill's own model wasn't available (SKL-2.5).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// `/fill`'s plan: the boxes it can fill and with which details (FIL-2.5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill: Option<fill::Plan>,
 }
 
 impl Turn {
     /// A question waiting for its answer.
     pub fn asking(question: String) -> Self {
-        Turn { question, answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, local: false, note: None }
+        Turn { question, answer: String::new(), status: TurnStatus::Streaming, error: None, asked: now_ms(), answered: None, local: false, note: None, fill: None }
     }
 }
 
@@ -182,6 +185,9 @@ pub struct Conversation {
     /// The buttons over a selection (spec 14); like `write_back`, they belong to the app, so History doesn't keep them.
     #[serde(default, skip_deserializing, skip_serializing_if = "Vec::is_empty")]
     pub quick: Vec<crate::quick::QuickAction>,
+    /// Fill this form (spec 27): Insert works here, on Windows (FIL-2.1). Like `write_back`, not read back from History.
+    #[serde(default, skip_deserializing)]
+    pub fill: bool,
 }
 
 /// One conversation per window label: the bubble's and the expanded window's.
@@ -243,6 +249,7 @@ pub fn start(app: &AppHandle, capture: Capture) -> Conversation {
         dropped: 0,
         unavailable: model.err(),
         own_model: None,
+        fill: cfg!(windows) && write_back == Some(WriteBack::Insert),
         write_back,
         quick,
     };
@@ -450,6 +457,7 @@ pub fn ask(window: WebviewWindow, app: AppHandle, question: String, confirmed: b
             crate::snip::start(&app, crate::snip::Start { model: None, question: Some(rest) });
             Ok(())
         }
+        skills::FILL => return fill_command(&app, label, question, confirmed),
         // WEB-1.4: local-only, no key, or nothing to search for: Cursora says so, and nothing is sent.
         skills::WEB => {
             let content = slots(&app).get(label).map_or(Content::None, |s| s.conv.content.clone());
@@ -498,11 +506,15 @@ fn idle(conv: &Conversation) -> Result<(), String> {
 /// Cursora's own reply: shown and saved, never sent to a model (PER-3.1, SKL-2.3).
 fn local(app: &AppHandle, label: &str, question: String, answer: String) -> Result<(), String> {
     let now = now_ms();
+    push_local(app, label, Turn { answer, status: TurnStatus::Done, answered: Some(now), local: true, asked: now, ..Turn::asking(question) })
+}
+
+fn push_local(app: &AppHandle, label: &str, turn: Turn) -> Result<(), String> {
     let conv = {
         let mut slots = slots(app);
         let conv = &mut slots.get_mut(label).ok_or(CLOSED)?.conv;
         idle(conv)?;
-        conv.turns.push(Turn { question, answer, status: TurnStatus::Done, error: None, asked: now, answered: Some(now), local: true, note: None });
+        conv.turns.push(turn);
         conv.clone()
     };
     save(app, &conv);
@@ -521,6 +533,93 @@ fn persona_command(app: &AppHandle, label: &str, question: String, query: &str) 
         crate::update_settings(app, s)?;
     }
     local(app, label, question, answer)
+}
+
+/// The model that matches a form's boxes: the conversation's own, else the default, at temperature 0 (FIL-2.3).
+fn fill_model(app: &AppHandle, conv: &Conversation) -> Result<Arc<dyn Model>, String> {
+    llm::for_skill(app, conv.own_model.as_ref().map(reference).as_deref(), Some(0.0)).map(|(m, _)| m)
+}
+
+/// `/fill` (spec 27): Cursora's own turn. A worker reads the form and matches its boxes to My details; the turn then says
+/// what it found, and its plan is what Fill types (FIL-2). A cloud model waits for Send like any request (FIL-2.4).
+fn fill_command(app: &AppHandle, label: &str, question: String, confirmed: bool) -> Result<Asked, String> {
+    let s = app.state::<AppState>().settings.lock().unwrap().clone();
+    let conv = slots(app).get(label).ok_or(CLOSED)?.conv.clone();
+    if let Some(reason) = fill::refusal(&conv, cfg!(windows)) {
+        return local(app, label, question, reason).map(|()| Asked::Sent);
+    }
+    let details = fill::usable(&s.my_details);
+    if details.is_empty() {
+        // An empty plan: the view offers My details (FIL-2.6).
+        let (now, answer) = (now_ms(), "Add your details first, in Settings → My details. Cursora types them into forms for you.".to_string());
+        return push_local(app, label, Turn { answer, status: TurnStatus::Done, answered: Some(now), local: true, fill: Some(fill::Plan::default()), ..Turn::asking(question) }).map(|()| Asked::Sent);
+    }
+    let model = fill_model(app, &conv)?;
+    if privacy::must_confirm(&s.privacy, model.info().locality, confirmed) {
+        return Ok(Asked::Confirm);
+    }
+    let (id, cancel) = {
+        let mut slots = slots(app);
+        let slot = slots.get_mut(label).ok_or(CLOSED)?;
+        idle(&slot.conv)?;
+        slot.conv.turns.push(Turn { local: true, ..Turn::asking(question) });
+        slot.cancel = Arc::default();
+        (slot.conv.id, slot.cancel.clone())
+    };
+    let _ = app.emit_to(label, "chat-load", ());
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let name = if conv.app.name.is_empty() { conv.app.exe.clone() } else { conv.app.name.clone() };
+        let found = fill::read(conv.app.window).and_then(|fields| fill::match_boxes(&*model, &fields, &details, &s.privacy, &cancel));
+        let status = if cancel.load(Ordering::SeqCst) { TurnStatus::Cancelled } else { TurnStatus::Done };
+        let conv = with_conv(&app, id, |c| {
+            let t = c.turns.last_mut().unwrap();
+            (t.status, t.answered) = (status, Some(now_ms()));
+            match found {
+                _ if status == TurnStatus::Cancelled => {}
+                Ok((plan, failed)) => (t.answer, t.note, t.fill) = (fill::summary(&plan, &name), failed, Some(plan)),
+                Err(e) => t.answer = e,
+            }
+            c.clone()
+        });
+        for label in [bubble::LABEL, CHAT_LABEL] {
+            let _ = app.emit_to(label, "chat-done", Done { id, status, error: None, dropped: 0 });
+        }
+        if let Some(conv) = conv {
+            save(&app, &conv);
+        }
+    });
+    Ok(Asked::Sent)
+}
+
+/// Fill (spec 27): the ticked rows of the latest plan are typed into the app the bubble opened over, once it's back in
+/// front (FIL-3). The bubble hides just before the first letter, so it covers no box.
+#[tauri::command]
+pub async fn fill(window: WebviewWindow, app: AppHandle, rows: Vec<usize>) -> Result<String, String> {
+    let details = app.state::<AppState>().settings.lock().unwrap().my_details.clone();
+    let (targets, source) = {
+        let slots = slots(&app);
+        let conv = &slots.get(window.label()).ok_or(CLOSED)?.conv;
+        let plan = conv.turns.last().and_then(|t| t.fill.as_ref()).filter(|_| conv.fill).ok_or("There's no form to fill here.")?;
+        (fill::targets(plan, &rows, &details), conv.app.clone())
+    };
+    if targets.is_empty() {
+        return Err("Nothing to fill: tick a box whose detail still has a value in My details.".into());
+    }
+    let name = if source.name.is_empty() { source.exe.clone() } else { source.name.clone() };
+    let bubble = (window.label() == bubble::LABEL).then(|| app.clone());
+    tauri::async_runtime::spawn_blocking(move || {
+        if !bubble::bring_back(source.window) {
+            return Err(format!("Cursora couldn't bring {name} back to the front, so nothing was filled."));
+        }
+        fill::type_into(source.window, &targets, || {
+            if let Some(app) = &bubble {
+                bubble::hide(app);
+            }
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// `/clear` (SKL-2.7). The old conversation is already in history.
@@ -813,9 +912,13 @@ pub struct Preview {
     web: Option<String>,
 }
 
-#[tauri::command]
+/// Async, off the main thread: `/fill`'s preview reads the form through UI Automation (FIL-2.4).
+#[tauri::command(async)]
 pub fn send_preview(window: WebviewWindow, app: AppHandle, question: String, retry: bool) -> Result<Preview, String> {
     let question = question.trim().to_string();
+    if command(&question).is_some_and(|(name, _)| name == skills::FILL) {
+        return fill_preview(&app, window.label());
+    }
     // A command Cursora answers itself; `/web` is sent (WEB-1.3).
     if command(&question).is_some_and(|(name, _)| name != skills::WEB && skills::find(&app, &name).is_none()) {
         return Ok(Preview { to: None, text: String::new(), placeholders: vec![], image_warning: false, web: None });
@@ -831,6 +934,28 @@ pub fn send_preview(window: WebviewWindow, app: AppHandle, question: String, ret
     conv.turns.push(Turn::asking(question));
     let req = build(&conv, &s, r.skill.as_ref(), web.is_some(), &info)?;
     Ok(Preview { image_warning: privacy::image_warning(&req.messages, info.locality), text: prompt::render(&req.messages), placeholders: req.hidden.placeholders(), to: Some(info), web })
+}
+
+/// `/fill`'s request, as the worker builds it (FIL-2.4). Nothing goes out where `/fill` refuses or has no details. The
+/// receiver is named even when every box matches by name, so a Send that confirming waits for can still be pressed.
+fn fill_preview(app: &AppHandle, label: &str) -> Result<Preview, String> {
+    let s = app.state::<AppState>().settings.lock().unwrap().clone();
+    let conv = slots(app).get(label).ok_or(CLOSED)?.conv.clone();
+    let details = fill::usable(&s.my_details);
+    let preview = |to: Option<ModelInfo>, text: String, placeholders: Vec<String>| Preview { to, text, placeholders, image_warning: false, web: None };
+    if fill::refusal(&conv, cfg!(windows)).is_some() || details.is_empty() {
+        return Ok(preview(None, String::new(), vec![]));
+    }
+    let info = fill_model(app, &conv)?.info();
+    let fields = fill::read(conv.app.window)?;
+    let (asks, hidden) = fill::requests(&fields, &fill::sort(&fields, &details), &details, &s.privacy, info.locality)?;
+    // One request per box, each with the same system message: it's shown once, then each box's.
+    let shown: Vec<Message> = asks.iter().flat_map(|(_, m)| m).enumerate().filter(|(n, m)| *n == 0 || m.role == Role::User).map(|(_, m)| m.clone()).collect();
+    Ok(if shown.is_empty() {
+        preview(Some(info), "Nothing is sent for this form: no box needs the AI model.".into(), vec![])
+    } else {
+        preview(Some(info), prompt::render(&shown), hidden.placeholders())
+    })
 }
 
 /// Whether a failed answer goes to the quick model: nothing was written, and the model couldn't be reached or was overloaded (ROU-2.1, 2.2).
@@ -945,6 +1070,7 @@ pub fn sample(text: &str, question: &str) -> Conversation {
         own_model: None,
         write_back: None,
         quick: vec![],
+        fill: false,
     }
 }
 
@@ -1014,7 +1140,7 @@ mod tests {
     }
 
     fn turn(q: &str, a: &str, status: TurnStatus) -> Turn {
-        Turn { question: q.into(), answer: a.into(), status, error: None, asked: 0, answered: None, local: false, note: None }
+        Turn { question: q.into(), answer: a.into(), status, error: None, asked: 0, answered: None, local: false, note: None, fill: None }
     }
 
     #[test]
@@ -1041,6 +1167,7 @@ mod tests {
             own_model: None,
             write_back: None,
             quick: vec![],
+            fill: false,
         }
     }
 

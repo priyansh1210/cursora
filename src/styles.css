@@ -294,7 +294,8 @@ textarea {
   font: var(--text-xs) / 1.45 var(--mono);
 }
 /* About you (PRF-1.1) is prose: the body font, across the card. */
-textarea.about-you {
+textarea.about-you,
+textarea.more-details {
   max-width: none;
   margin: 0;
   font: inherit;
@@ -997,6 +998,24 @@ textarea {
   50% {
     opacity: 0.4;
   }
+}
+/* FIL-2.1: beside "Snip an area instead" when both show. */
+button.fill-offer {
+  margin-inline-end: var(--sp-4);
+}
+/* A /fill plan (FIL-2.5): a box per line, its value muted after its label. */
+.fill-rows {
+  list-style: none;
+  margin: var(--sp-2) 0;
+  padding: 0;
+  font-size: var(--text-sm);
+}
+.fill-rows li + li {
+  margin-top: 4px;
+}
+.fill-rows input {
+  vertical-align: -2px;
+  margin-inline-end: 4px;
 }
 /* Under an answer: its main action as a labelled button, the rest as icons with tooltips (DSN-2.2). */
 .actions {
