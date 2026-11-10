@@ -73,10 +73,16 @@ fn beside(window: &WebviewWindow, open: usize) -> Option<(f64, f64)> {
     let pos = window.outer_position().ok()?.to_logical::<f64>(scale);
     let size = window.outer_size().ok()?.to_logical::<f64>(scale);
     let monitor = window.current_monitor().ok()??;
-    let (left, width) = (monitor.position().to_logical::<f64>(scale).x, monitor.size().to_logical::<f64>(scale).width);
-    let right = pos.x + size.width + 12.0;
-    let x = if right + NOTE.0 <= left + width { right } else { (pos.x - NOTE.0 - 12.0).max(left) };
-    Some((x, pos.y + 24.0 * (open % 5) as f64))
+    let (m_pos, m_size) = (monitor.position().to_logical::<f64>(scale), monitor.size().to_logical::<f64>(scale));
+    Some(place((pos.x, pos.y, size.width), (m_pos.x, m_pos.y, m_size.width, m_size.height), open))
+}
+
+/// The note's corner, kept on the monitor: tao drops a position whose corner is off every monitor, and Windows then
+/// puts the note anywhere (issue 59: a bubble touching the screen's top edge).
+fn place((x, y, width): (f64, f64, f64), (left, top, m_width, m_height): (f64, f64, f64, f64), open: usize) -> (f64, f64) {
+    let right = x + width + 12.0;
+    let x = if right + NOTE.0 <= left + m_width { right } else { (x - NOTE.0 - 12.0).max(left) };
+    (x, (y + 24.0 * (open % 5) as f64).min(top + m_height - NOTE.1).max(top))
 }
 
 /// The note's own answer, for `Pin.tsx`.
@@ -168,6 +174,17 @@ mod tests {
 
     fn kept() -> Kept {
         Kept { question: "What is due\non Friday?".into(), answer: "The **report**.\n\n- step one\n".into(), app: "Notepad".into(), model: Some("qwen \"small\"".into()) }
+    }
+
+    #[test]
+    fn sav_1_1_a_note_opens_beside_the_bubble_with_its_corner_on_the_monitor() {
+        let screen = (0.0, 0.0, 1536.0, 864.0);
+        assert_eq!(place((100.0, 200.0, 380.0), screen, 0), (492.0, 200.0), "right of the bubble");
+        assert_eq!(place((100.0, 200.0, 380.0), screen, 2), (492.0, 248.0), "24 px lower per open note");
+        assert_eq!(place((811.0, 200.0, 380.0), screen, 0), (439.0, 200.0), "left when the right has no room");
+        assert_eq!(place((811.0, -7.0, 380.0), screen, 0), (439.0, 0.0), "a bubble above the top edge (issue 59)");
+        assert_eq!(place((811.0, 800.0, 380.0), screen, 0), (439.0, 604.0), "the bottom edge");
+        assert_eq!(place((1700.0, -7.0, 380.0), (1536.0, 0.0, 1920.0, 1080.0), 0), (2092.0, 0.0), "a second monitor");
     }
 
     #[test]

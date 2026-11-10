@@ -7,6 +7,7 @@ Status: **In progress**. Tasks 1 to 4 are built; the manual checklist is open.
 - [x] 3. Settings: titles, groups, switches, and the persona and skill lists. Covers DSN-3.1 to DSN-3.3, DSN-1.4.
 - [x] 4. Setup: the three source cards in `AddProvider`, the step's intro line, and the window size. Covers DSN-4.1, DSN-4.2.
 - [x] 5. Screenshots of every window in both themes (browser preview; the real app is issue 63), `npm test`, `npm run trace`, `npm run build`, `cargo test`, `npm run test:linux`.
+- [x] 6. `/ponytail-review` (2026-11-10): one finding fixed, R105 (Copy's "Copied" for screen readers).
 
 ## Manual checklist
 - [ ] DSN-1.4: each window has at most one filled button (the bubble, the expanded window, every Settings tab, every Setup step, a pinned note). Windows ☐ Linux X11 ☐

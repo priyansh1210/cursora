@@ -4,7 +4,7 @@
 - [x] 2. `plain_text` and its test; `Conversation.write_back`; the `write_back` command with the foreground check (`bubble::bring_back`). Covers WRT-1.1 to 1.3, 2.1, 4.2.
 - [x] 3. `output: replace` in skills (file, form and the skill form's checkbox), the replacement rule, the four built-ins. Covers WRT-5.1, WRT-5.2.
 - [x] 4. Replace and Insert in the bubble's actions; why it didn't happen shows under the answer, scrolled into view. Covers WRT-1.1, WRT-2.1.
-- [ ] 5. Check on Windows (done with a test window, below) and on X11 in WSL on the stronger PC (done 2026-10-26, below; it found R66 and R67, both fixed), then `/ponytail-review`.
+- [ ] 5. Check on Windows (done with a test window, below) and on X11 in WSL on the stronger PC (done 2026-10-26, below; it found R66 and R67, both fixed), then `/ponytail-review`. `/ponytail-review` done 2026-11-10: two findings fixed, R101 (code blocks) and R102 (a second paste).
 
 ## Manual checklist
 - [ ] WRT-1.1 Replace puts the answer over the selection; Ctrl+Z undoes it. Windows ✓ (2026-10-26, a test window's text box, via a test build with the Echo model: "teh quick brown fox…" became the answer as plain text, with line breaks and dashes kept and Markdown marks gone; the clipboard came back unchanged; the bubble closed) ☐ Notepad, Word, a Chrome text box ☐ Ctrl+Z X11 ✓ (2026-10-26, WSL, mousepad, Echo: at first nothing was put in, "couldn't bring mousepad back to the front" (R66); after the fix the answer replaced the selection as plain text, Markdown marks gone and dashes and code kept, the clipboard came back unchanged, the bubble closed, and one Ctrl+Z restored the original. Also with a Hindi answer, LNG-3.4)

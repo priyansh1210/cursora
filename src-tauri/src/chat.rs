@@ -290,11 +290,19 @@ pub async fn write_back(window: WebviewWindow, app: AppHandle, index: usize) -> 
 /// Single `*` and `_` stay too, since they're often real text (2*3, file_name).
 pub fn plain_text(markdown: &str) -> String {
     let link = regex::Regex::new(r"\[([^\]]+)\]\(([^)\s]+)\)").expect("a valid pattern");
+    let mut code = false;
     let lines: Vec<String> = markdown
         .trim()
         .lines()
-        .filter(|l| !l.trim_start().starts_with("```"))
-        .map(|line| {
+        .filter_map(|line| {
+            let fence = line.trim_start().starts_with("```");
+            code ^= fence;
+            (!fence).then_some((line, code))
+        })
+        .map(|(line, code)| {
+            if code {
+                return line.to_string(); // code keeps its own # comments, ** and backticks
+            }
             let mut l = line.strip_prefix("> ").or(line.strip_prefix('>').filter(|r| r.is_empty())).unwrap_or(line);
             let hashes = l.len() - l.trim_start_matches('#').len();
             if (1..=6).contains(&hashes) && l[hashes..].starts_with(' ') {
@@ -703,6 +711,9 @@ pub fn expand(app: AppHandle) -> Result<(), String> {
 /// The header shows today's persona, which answers from the next message.
 pub fn open_in_chat(app: &AppHandle, mut conv: Conversation) -> Result<(), String> {
     conv.persona = persona::in_use(&app.state::<AppState>().settings.lock().unwrap()).map(|p| p.name);
+    // The header names the model that answers follow-ups, as the switcher does, not the one that answered before (issue 44).
+    let model = llm::active(app);
+    (conv.model, conv.unavailable) = (model.as_ref().ok().map(|m| m.info()), model.err());
     put(app, CHAT_LABEL, conv);
     show_chat_window(app)
 }
@@ -1137,6 +1148,8 @@ mod tests {
         let plain = "Fixed\n\nThe quick brown fox, see docs (https://ex.com/a_b).\n\n- one\n- two\n\nlet x = 2*3;\nquoted\n\n#hashtag stays";
         assert_eq!(plain_text(md), plain);
         assert_eq!(plain_text("  just text \n"), "just text");
+        let code = "**Fixed:**\n```python\n# the total\nx = 2**8  # `bits`\n> not a quote\n```\n# Done";
+        assert_eq!(plain_text(code), "Fixed:\n# the total\nx = 2**8  # `bits`\n> not a quote\nDone", "code stays as it is");
     }
 
     fn turn(q: &str, a: &str, status: TurnStatus) -> Turn {

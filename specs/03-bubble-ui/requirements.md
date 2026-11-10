@@ -86,7 +86,7 @@ User story: As a user, I want the chat box to appear right at my cursor, so that
 - BUB-9.2 (manual) THE History tab SHALL:
   - list conversations, newest first
   - search their text
-  - reopen a conversation in the expanded window
+  - reopen a conversation in the expanded window; its header names the model that answers follow-ups (today's default), as the switcher does (Amended 2026-11-10: it showed the model that answered before, issue 44)
   - delete one conversation, or clear all
 - BUB-9.3 (auto) WHILE "Save history" is off THE SYSTEM SHALL write no conversation data to disk. (Amended 2026-10-26: except an answer the user saves with **Save**, SAV-2.6.)
 - BUB-9.4 (auto) THE SYSTEM SHALL delete conversations older than the retention period (default 90 days; configurable, including "forever").
