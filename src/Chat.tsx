@@ -762,7 +762,7 @@ export function CopyButton({ markdown, plain }: { markdown: string; plain: () =>
     });
   };
   return (
-    <button type="button" className="icon" onClick={copy} aria-label="Copy the answer. Hold Shift for plain text" title={copied ? "Copied" : "Copy (Shift: plain text)"}>
+    <button type="button" className="icon" onClick={copy} aria-label={copied ? "Copied" : "Copy the answer. Hold Shift for plain text"} title={copied ? "Copied" : "Copy (Shift: plain text)"}>
       <Icon d={copied ? PATHS.check : PATHS.copy} size={16} />
     </button>
   );
