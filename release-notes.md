@@ -1,14 +1,23 @@
-Cursora 0.2.0 does more with the text you select, and has a new look.
+Cursora 0.3.0 fills in forms for you, searches the web, listens, and answers faster.
 
 New
-- Replace and Insert: put an answer straight into the app you were in, in place of the selected text, or at the cursor when nothing was selected. (Not on Linux with Wayland.)
-- Quick actions: one-click buttons for the common jobs on a selection, chosen for the app it came from (mail and chat, code, a terminal and more), with your pinned skills first. Alt+1 to Alt+6 press them. Two new skills: /reply drafts a reply, and /error explains an error and how to fix it.
-- Download a free model in one click, from Setup or Settings → Models. There are three sizes, and the one that suits your PC is marked. A download can be cancelled and continued later, and is checked before use.
-- My language: one-click translation into Hindi, Hinglish, Bengali, Tamil and nine more Indian languages, or any language you type, and every answer in it if you like. A cloud model handles these languages best. Indian scripts, Urdu included, show and type correctly.
-- Pin an answer to keep it on screen in a small note, or Save it as a Markdown file in a folder you choose.
-- A new look: a calmer bubble with icon buttons, Settings in grouped cards with switches, a simpler first-time setup, and the Geist font.
+- Fill forms (Windows): save your details once in Settings → My details. In any form, with nothing selected, press Ctrl+G and choose Fill this form (or type /fill). Cursora matches the form's text boxes to your details, shows you the plan, and types them in on Fill. Passwords, one-time codes and card numbers are never filled.
+- Web search: /web <question> searches the web with your free Tavily key and lists the sources under the answer. It works with local models too, and stays off in local-only mode.
+- Voice input: the mic button in the bubble turns what you say into your question, on your own computer. Two speech models to download in Settings → General; Accurate is better for Hindi and the other Indian languages.
+- Define: point at any word on screen, in any app, a PDF or a picture, and press Ctrl+Alt+G for its meaning. Nothing to select. (Not on Linux with Wayland.)
+- Snip with any model: when your model can't see images, the text in a snip is read on your computer and sent instead. On Linux this needs tesseract-ocr.
+- Faster local answers: the built-in engine uses your dedicated graphics card (NVIDIA, AMD or Intel Arc) when you have one. A switch in Settings → Models turns it off.
+- Smart routing: choose a Quick model on your computer in Settings → Models. Short jobs like Define and Fix go to it, and it answers when your main model can't be reached, such as offline.
+- About you: a few lines about yourself in Settings → Personality, which every answer takes into account.
+- Turn Cursora off in an app: from the tray menu or Settings → General, so its hotkeys reach that app instead (Ctrl+G stays "Go to line" in VS Code).
 
 Fixed
-- The built-in engine now brings the Visual C++ runtime it needs, so it starts on a PC that never had it installed.
-- A model you add becomes the default when there is none, so the bubble always has one to use.
-- Higher contrast for the keyboard focus ring and for code in answers.
+- Replace keeps code exactly as written, and a quick second click on Replace no longer loses what was on your clipboard.
+- A pinned note opens beside the bubble even when the bubble is at the top of the screen.
+- A conversation reopened from History names the model that will answer your next question.
+- /translate hinglish answers in English letters, not Devanagari.
+- A damaged history file is moved aside and a new one started, instead of history silently not saving.
+- The Gemini model list leaves out image models that can't chat.
+- "Show more" only shows under text long enough to need it.
+- An answer can no longer be made to freeze the bubble (an update of the Markdown library).
+- Smaller Linux packages: each engine library is included once.
