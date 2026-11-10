@@ -369,6 +369,9 @@ mod tests {
         assert_eq!(language_name("Hindi"), "Hindi");
         let s = crate::settings::Settings { my_language: "Hinglish".into(), answer_in_my_language: true, ..Default::default() };
         assert!(reply_language(&s).unwrap().contains("English letters"));
+        // `/translate hinglish` names it itself, so the skill spells it out too.
+        let (skills, _) = crate::skills::load(None);
+        assert!(skills.iter().find(|s| s.name == "translate").unwrap().template.contains("Hinglish means Hindi written in English letters"));
     }
 
     #[test]
