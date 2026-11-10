@@ -5,6 +5,9 @@ use tauri::WebviewWindow;
 /// X11 window managers leave a skip-taskbar window out of Alt+Tab too.
 pub fn hide_from_alt_tab(_: &WebviewWindow) {}
 
+// shortcut: WebKitGTK's web process dying isn't watched (APP-9.1 is Windows only); add its "web-process-terminated" signal if Linux users see a blank bubble.
+pub fn on_browser_exit(_: &WebviewWindow, _: tauri::AppHandle) {}
+
 pub fn foreground() -> isize {
     X11::connect().and_then(|x| x.active_window()).map_or(0, |w| w as isize)
 }

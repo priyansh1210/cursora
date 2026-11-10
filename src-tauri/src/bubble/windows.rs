@@ -3,6 +3,35 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VK_F24};
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowLongPtrW, SetForegroundWindow, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_TOOLWINDOW};
 
+/// APP-9.1: WebView2's browser process ended (it crashed, or an update ended it), and every window with it, the bubble
+/// included. The bubble lives as long as Cursora, so it hears about it and restarts Cursora. Not in the first minute,
+/// so a WebView2 that can't run doesn't make a restart loop.
+pub fn on_browser_exit(window: &WebviewWindow, app: tauri::AppHandle) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{COREWEBVIEW2_PROCESS_FAILED_KIND, COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED};
+    let started = std::time::Instant::now();
+    let _ = window.with_webview(move |webview| unsafe {
+        let Ok(core) = webview.controller().CoreWebView2() else { return };
+        let handler = webview2_com::ProcessFailedEventHandler::create(Box::new(move |_, args| {
+            let mut kind = COREWEBVIEW2_PROCESS_FAILED_KIND(-1); // BROWSER_PROCESS_EXITED is 0, the default
+            if let Some(args) = args {
+                args.ProcessFailedKind(&mut kind)?;
+            }
+            if kind == COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED {
+                if started.elapsed() > std::time::Duration::from_secs(60) {
+                    crate::restart_for_webview(&app, None);
+                } else {
+                    log::error!("WebView2's browser process exited in Cursora's first minute; not restarting");
+                }
+            }
+            Ok(())
+        }));
+        let mut token = 0;
+        if let Err(e) = core.add_ProcessFailed(&handler, &mut token) {
+            log::warn!("can't watch WebView2's browser process: {e}");
+        }
+    });
+}
+
 /// `skip_taskbar` only removes the taskbar button; a tool window is also left out of Alt+Tab (BUB-2.1).
 pub fn hide_from_alt_tab(window: &WebviewWindow) {
     if let Ok(hwnd) = window.hwnd() {
