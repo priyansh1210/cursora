@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — 2026-11-10: PR #68 merged; issue fixes + reviews of specs 11/13/16/18 (R96-R105) on branch issue-fixes-1110 for the user to merge; fill-forms updates still unnamed
+- [Project status](project-status.md) — 2026-11-10: 0.3.0 draft built (user publishes), issues #71-75, launch videos in D:\cursora-demo, WebView2 restart fix (APP-9.1) on branch webview2-reconnect
 - [Demo video and talk](demo-video-and-talk.md) — D:\cursora-demo (91 s video + scripts), voice-over and class-talk script docs
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user
