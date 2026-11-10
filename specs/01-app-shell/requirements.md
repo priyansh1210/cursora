@@ -101,5 +101,8 @@ User story: As a new user, I want a short setup, so that my first Ctrl+G just wo
   - run `trace`, `cargo test`, `vitest`
   - produce installers on tags (`.msi`/`.exe`, `.deb`/`.AppImage`)
 
+### APP-9 Recovery
+- APP-9.1 (manual) WHEN WebView2's browser process ends under a running Cursora on Windows (it crashed, or an update of WebView2 ended it) THE SYSTEM SHALL restart itself, so the bubble and every window work again. IF a window can't be created because WebView2 is gone, THE SYSTEM SHALL restart and then open that window. Not in the first minute after a start, so a WebView2 that can't run doesn't make a restart loop. (Added 2026-11-10 at the user's go-ahead: Settings wouldn't open until Cursora was restarted, issue 75.)
+
 ## Open questions
 - _(none)_

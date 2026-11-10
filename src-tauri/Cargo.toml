@@ -60,6 +60,8 @@ raw-window-handle = "0.6"
 [target.'cfg(windows)'.dependencies]
 clipboard-win = { version = "5", features = ["std"] }
 windows-native-keyring-store = "1"
+# Tauri's own WebView2 bindings (same version), to hear when WebView2's browser process exits (APP-9.1).
+webview2-com = "0.39"
 # Same version Tauri already compiles, so this only adds features.
 windows = { version = "0.62", features = [
   "Foundation_Collections",

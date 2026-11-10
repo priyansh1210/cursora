@@ -130,3 +130,10 @@ struct Settings {
   - The user chose this over also making the NSIS installer per-machine: NSIS stays per-user, and its users don't get the setting.
   - Rejected: checking the folder's access rights. The parent folders would need the same check, since a writable parent lets a program rename the folder and put its own in its place.
   - Testing Run as administrator now needs the .msi installed in Program Files.
+- **2026-11-10, issue 75, APP-9.1 added:**
+  - The installed copy had run for three days while WebView2 updated itself; then every new window failed with `0x80010108` (RPC_E_DISCONNECTED), since Cursora still held the WebView2 environment of a browser process that was gone.
+  - The bubble lives as long as Cursora, so it listens for WebView2's `ProcessFailed` event (`bubble/windows.rs`, through `webview2-com`, the bindings Tauri already uses). On `BROWSER_PROCESS_EXITED`, more than a minute after start, Cursora restarts.
+  - A window that fails with that error also restarts Cursora, and the window's name goes in `reopen-after-restart` in the app's local data folder; the next start reads it, removes it and opens Settings or Setup.
+  - `restart_for_webview` releases the single-instance lock first: `app.restart()` on the main thread doesn't, and the new copy would hand over to the old one and quit.
+  - Rejected: making a new WebView2 environment in place. Tauri keeps one per app with no way to replace it.
+  - Linux isn't watched (WebKitGTK's `web-process-terminated`): a `shortcut:` in `bubble/linux.rs`.
