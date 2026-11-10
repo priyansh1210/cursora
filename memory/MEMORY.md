@@ -1,4 +1,4 @@
-- [Project status](project-status.md) — 2026-10-30 stop point: spec 27 fill forms works (My details tab); more updates wanted later, ask which; PR #68 for the user to merge; older stop points below
+- [Project status](project-status.md) — 2026-11-10: PR #68 merged; issue fixes + reviews of specs 11/13/16/18 (R96-R105) on branch issue-fixes-1110 for the user to merge; fill-forms updates still unnamed
 - [Demo video and talk](demo-video-and-talk.md) — D:\cursora-demo (91 s video + scripts), voice-over and class-talk script docs
 - [Keep big files off C:](keep-big-files-off-c-drive.md): laptop only: C: is nearly full; WSL Ubuntu and large installs go on D:
 - [Run as administrator status](after-restart-human-checks.md) — PRs #13, #14 merged; Program Files only; dev build no longer runs as admin; old task left to the user

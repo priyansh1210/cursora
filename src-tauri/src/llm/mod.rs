@@ -301,7 +301,7 @@ pub fn models(kind: Kind, j: &serde_json::Value) -> Vec<ModelEntry> {
 // shortcut: the name table goes stale, and OpenAI's own Responses-only models (o1-pro, o3-pro, codex) still show,
 // since OpenRouter serves them as chat; a model left out can still be typed by hand.
 const NOT_CHAT: &[&str] = &[
-    "tts", "whisper", "transcribe", "realtime", "audio", "lyria", "imagen", "veo", "dall-e", "gpt-image", "sora", "embed",
+    "tts", "whisper", "transcribe", "realtime", "audio", "lyria", "imagen", "veo", "dall-e", "gpt-image", "-image", "nano-banana", "sora", "embed",
     "moderation", "guard", "ocr", "computer-use", "davinci", "babbage",
 ];
 
@@ -781,7 +781,12 @@ pub mod tests {
             { "name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"] },
             { "name": "models/gemini-2.5-pro-preview-tts", "supportedGenerationMethods": ["generateContent"] },
             { "name": "models/lyria-3.5", "supportedGenerationMethods": ["generateContent"] },
-            { "name": "models/gemini-embedding-001", "supportedGenerationMethods": ["generateContent", "embedContent"] }
+            { "name": "models/gemini-embedding-001", "supportedGenerationMethods": ["generateContent", "embedContent"] },
+            // Image generation, listed on 2026-10-25 (issue 49).
+            { "name": "models/gemini-2.5-flash-image", "supportedGenerationMethods": ["generateContent"] },
+            { "name": "models/gemini-3-pro-image", "supportedGenerationMethods": ["generateContent"] },
+            { "name": "models/nano-banana-pro-preview", "supportedGenerationMethods": ["generateContent"] },
+            { "name": "models/gemini-nano-banana-2.1", "supportedGenerationMethods": ["generateContent"] }
         ] });
         let ids = |l: Vec<ModelEntry>| l.into_iter().map(|m| m.id).collect::<Vec<_>>();
         assert_eq!(ids(models(Kind::Gemini, &gemini)), ["gemini-2.5-flash"]);

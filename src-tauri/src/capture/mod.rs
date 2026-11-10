@@ -304,8 +304,16 @@ pub fn write_back(content: &Content, method: Method, app: &SourceApp, cfg: &Capt
     }
 }
 
+/// One paste at a time: a second one would save the first one's text as the user's clipboard (WRT-4.1).
+static PASTING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Pastes `text` into the app in front, then puts the user's clipboard back (WRT-1.1, 4.1).
 pub fn paste<P: Platform>(p: &P, text: &str) -> Result<(), &'static str> {
+    let _one = match PASTING.try_lock() {
+        Ok(guard) => guard,
+        Err(std::sync::TryLockError::Poisoned(e)) => e.into_inner(), // a paste that panicked doesn't block the next
+        Err(std::sync::TryLockError::WouldBlock) => return Err("Still putting the last answer in."),
+    };
     if !p.extra_modifiers_released(Duration::from_millis(300)) {
         return Err("Shift, Alt or Windows was still held down, so nothing was put in.");
     }
@@ -737,6 +745,12 @@ mod tests {
         assert!(paste(&busy, "x").is_err() && !busy.called("paste"), "a clipboard that can't be saved isn't touched");
         let held = Fake { modifiers_held: true, ..Fake::new("notepad.exe") };
         assert!(paste(&held, "x").is_err() && !held.called("paste") && !held.called("snapshot"), "Alt+V isn't Ctrl+V");
+
+        // A second Replace while one is pasting would save the answer as "the user's clipboard" and restore that last.
+        let second = Fake::new("notepad.exe");
+        let pasting = PASTING.lock().unwrap();
+        assert!(paste(&second, "x").is_err() && second.calls.borrow().is_empty(), "the second one does nothing");
+        drop(pasting);
     }
 
     #[test]

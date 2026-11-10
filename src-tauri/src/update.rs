@@ -2,6 +2,7 @@
 //! through Tauri's updater plugin, which checks the signature first (UPD-2.3).
 use crate::{chat, tray, AppState};
 use serde::Serialize;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
@@ -139,6 +140,8 @@ pub fn update_skip(app: AppHandle, version: String) -> Result<(), String> {
     Ok(())
 }
 
+static INSTALLING: AtomicBool = AtomicBool::new(false);
+
 /// Tray item and About's button (UPD-2.2, 2.4, 2.6).
 #[tauri::command]
 pub async fn update_install(app: AppHandle) -> Result<(), String> {
@@ -148,12 +151,17 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
     if !installable(&app) {
         return app.opener().open_url(format!("{RELEASES}/tag/v{}", update.version), None::<&str>).map_err(|e| e.to_string());
     }
+    // A second click (tray and About, or a double click) before the first shows progress would install twice.
+    if INSTALLING.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
     if chat::answering(&app) {
         set(&app, Status::Waiting);
         while chat::answering(&app) {
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
+    set(&app, Status::Downloading { done: 0, total: None }); // About's buttons go at once, not after the first 1 MB
     let (mut done, mut shown) = (0u64, 0u64);
     let result = update
         .download_and_install(
@@ -171,6 +179,7 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
         // On Windows the plugin has already exited Cursora for the installer, which starts it again.
         Ok(()) => app.restart(),
         Err(e) => {
+            INSTALLING.store(false, Ordering::SeqCst);
             log::warn!("update: {e}");
             let reason = plain(&e).to_string();
             set(&app, Status::Failed { reason: reason.clone() });

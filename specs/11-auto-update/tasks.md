@@ -6,7 +6,7 @@
 - [x] 4. `tauri.conf.json`: updater artifacts, the .msi only on Windows, `plugins.updater` with the public key and the one endpoint; its test. Covers UPD-1.2.
 - [x] 5. A bad signature is refused: the test. Covers UPD-2.3.
 - [x] 6. `scripts/release-version.mjs` and its test; the release job signs and publishes a draft to `cursora-releases`. Covers UPD-3.1 to 3.4.
-- [ ] 7. Two real releases end to end, then `/ponytail-review`. The releases are done (2026-10-26: v0.1.0 then v0.1.1, below); the review is still to do.
+- [ ] 7. Two real releases end to end, then `/ponytail-review`. The releases are done (2026-10-26: v0.1.0 then v0.1.1, below); the review is still to do. Done 2026-11-10: one finding fixed, R104 (a double click installed twice).
 
 ## Manual checklist
 - [ ] UPD-1.1 Checks 30 s after start, then daily; the start, hotkey and bubble aren't slowed. Windows ☐ Linux ☐

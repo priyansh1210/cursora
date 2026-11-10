@@ -3,7 +3,7 @@
 // in dev, run it once to try the built-in engine: `npm run fetch-llama`.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -35,6 +35,18 @@ export function keep(name) {
   return library && (!/-impl\./.test(name) || /llama-server-impl\./.test(name));
 }
 
+/** Linux: one file per library, under the soname everything loads (libllama.so.0), instead of a copy for each of the
+ * three names (libllama.so, .so.0, .so.0.6.0) when the bundler follows the links (issue 46). */
+export function oneFilePerLibrary(dir) {
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    if (!existsSync(path) || !lstatSync(path).isSymbolicLink()) continue; // gone already: renamed onto its soname
+    const real = realpathSync(path);
+    rmSync(path);
+    if (/\.so\.\d+$/.test(name)) renameSync(real, path);
+  }
+}
+
 async function main() {
   const asset = ASSETS[process.platform];
   if (!asset) throw new Error(`No llama.cpp build is pinned for ${process.platform}.`);
@@ -55,8 +67,8 @@ async function main() {
   const tar = process.platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe") : "tar";
   execFileSync(tar, ["-xf", archive, "-C", out, `--strip-components=${asset.strip}`], { stdio: "inherit" });
   rmSync(archive);
-  // shortcut: Linux symlinks (libllama.so → .so.0 → .so.0.6.0) are bundled as copies, about 15 MB extra; resolve them if size matters.
   for (const name of readdirSync(out)) if (!keep(name)) rmSync(join(out, name), { recursive: true });
+  oneFilePerLibrary(out);
   // A fresh Windows lacks the Visual C++ runtime llama.cpp needs (issue 50): ship it next to llama-server ("app-local").
   if (process.platform === "win32") for (const dll of VC_RUNTIME) copyFileSync(join(vcRedist(), dll), join(out, dll));
   // llama.cpp is MIT-licensed, and the Windows archive leaves its license out.
