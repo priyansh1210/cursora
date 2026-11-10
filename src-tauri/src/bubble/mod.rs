@@ -111,6 +111,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .on_navigation(|url| is_app_url(url))
         .build()?;
     os::hide_from_alt_tab(&window);
+    os::on_browser_exit(&window, app.clone());
     Ok(())
 }
 

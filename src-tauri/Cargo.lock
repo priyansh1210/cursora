@@ -845,6 +845,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "url",
+ "webview2-com",
  "whisper-rs",
  "windows",
  "windows-native-keyring-store",

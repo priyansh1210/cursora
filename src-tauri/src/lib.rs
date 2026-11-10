@@ -242,7 +242,39 @@ pub(crate) fn open_window_at(app: &AppHandle, label: &str, tab: &str) {
     let (title, width, height) = if label == "setup" { ("Cursora setup", 600.0, 600.0) } else { ("Cursora settings", 880.0, 640.0) };
     if let Err(e) = WebviewWindowBuilder::new(app, label, url).additional_browser_args(BROWSER_ARGS).title(title).inner_size(width, height).build() {
         log::error!("opening {label} window: {e}");
+        if webview_gone(&e.to_string()) {
+            restart_for_webview(app, Some(label));
+        }
     }
+}
+
+/// The window Cursora opens after restarting for WebView2 (APP-9.1), in the app's local data folder.
+const REOPEN: &str = "reopen-after-restart";
+
+/// WebView2's browser process is gone: creating a window fails with RPC_E_DISCONNECTED until Cursora restarts (issue 75).
+fn webview_gone(error: &str) -> bool {
+    error.contains("0x80010108")
+}
+
+/// APP-9.1: restarts Cursora, so every window works again, and opens `reopen` once it's back.
+pub(crate) fn restart_for_webview(app: &AppHandle, reopen: Option<&str>) -> ! {
+    log::warn!("WebView2 stopped under Cursora; restarting");
+    if let (Some(label), Ok(dir)) = (reopen, app.path().app_local_data_dir()) {
+        let _ = std::fs::write(dir.join(REOPEN), label);
+    }
+    // Else the new copy finds this one still holding the single-instance lock, hands over to it and quits.
+    tauri_plugin_single_instance::destroy(app);
+    app.cleanup_before_exit();
+    // Not `app.restart()`: it gives the new copy this one's standard handles, and a debug build has closed them with its
+    // console, so starting it failed with os error 50 and Cursora was simply gone.
+    let mut cmd = std::process::Command::new(std::env::current_exe().unwrap_or_default());
+    cmd.args(std::env::args_os().skip(1)).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000); // CREATE_NO_WINDOW: no console flash
+    if let Err(e) = cmd.spawn() {
+        log::error!("couldn't start Cursora again: {e}");
+    }
+    std::process::exit(0);
 }
 
 fn handle(app: &AppHandle, action: cli::Action) {
@@ -433,6 +465,12 @@ pub fn run() {
             llm::engine::watch_idle(app.handle().clone());
             llm::engine::preload(app.handle());
             bubble::create(app.handle())?;
+            // Read once and removed, so a window that fails again can't restart Cursora in a loop (APP-9.1).
+            if let Some(label) = app.path().app_local_data_dir().ok().map(|d| d.join(REOPEN)).and_then(|f| std::fs::read_to_string(&f).ok().inspect(|_| drop(std::fs::remove_file(&f)))) {
+                if matches!(label.as_str(), "settings" | "setup") {
+                    open_window(app.handle(), &label);
+                }
+            }
             if !setup_done {
                 open_window(app.handle(), "setup");
             }
