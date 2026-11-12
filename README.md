@@ -54,7 +54,7 @@ You're reading an error in your terminal, a paragraph in a PDF, a contract in yo
 | 🔒 **Private by design** | Personal details are hidden before anything reaches a cloud model, keys live in your OS keychain, and there is no telemetry at all. |
 | 🏠 **Fully offline if you want** | One click downloads a free model that runs on your own computer, on your graphics card when you have one. No account, no internet needed. |
 | 🧠 **Any model you like** | OpenAI, Anthropic, Gemini, OpenRouter, Groq, DeepSeek, Mistral, LM Studio, llama.cpp, Ollama and other OpenAI-compatible servers, or the built-in engine. |
-| 🇮🇳 **Speaks your language** | Hindi, Hinglish, Tamil, Bengali and every other language: answers, one-click translation, voice input, Indian scripts and Urdu shown right. |
+| 🗣️ **Speaks your language** | Hindi, Hinglish, Tamil, Bengali and every other language: answers, one-click translation, voice input, Indian scripts and Urdu shown right. |
 | 📝 **Fills forms for you** | Save your details once, and Cursora fills web forms and app forms for you. Your details never go to a model. |
 | 💚 **Free and open source** | GPL-3.0, built in the open, with every behavior written down in a spec and checked by a test. |
 
