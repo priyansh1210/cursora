@@ -1,0 +1,39 @@
+name: Bug report
+description: Something doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: The app you were in
+      placeholder: "Chrome, VS Code, Windows Terminal, …"
+  - type: input
+    id: model
+    attributes:
+      label: The model
+      placeholder: "Built-in Qwen2.5 1.5B, Ollama llama3.1, Gemini, …"
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options: ["Windows 11", "Windows 10", "Linux (X11)", "Linux (Wayland)"]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Cursora version
+      description: Settings → About.
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: "Optional: Settings → About → Logs folder. Check it for anything private before you paste it."
+      render: text

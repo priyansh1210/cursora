@@ -3,6 +3,8 @@ name = "cursora"
 version = "0.3.1"
 description = "AI cursor companion"
 authors = ["Priyansh Kabra"]
+license = "GPL-3.0-or-later"
+repository = "https://github.com/priyansh1210/cursora"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
