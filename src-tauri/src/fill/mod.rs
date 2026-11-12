@@ -90,7 +90,8 @@ impl Field {
     /// What the box asks for: its label, else its placeholder, without the colon dialog boxes end labels with.
     pub fn name(&self) -> String {
         let label = self.label.trim();
-        let mut name = (if label.is_empty() { self.hint.trim() } else { label }).trim_end_matches(':').trim_end();
+        // A dialog box's colon and a required mark ("Gender *") aren't part of what the box asks for.
+        let mut name = (if label.is_empty() { self.hint.trim() } else { label }).trim_end_matches([':', '*', ' ']);
         // Google's and Microsoft's mark for a required question, which the plan needn't show.
         for mark in [" Required question", " Required to answer"] {
             name = name.strip_suffix(mark).unwrap_or(name).trim_end();
@@ -620,6 +621,7 @@ mod tests {
         assert_eq!(norm("1. Full name Required to answer"), "full name", "Microsoft Forms");
         assert_eq!(norm("Address line 2"), "address line 2");
         assert_eq!(field("Email Address Required question").name(), "Email Address");
+        assert_eq!(field("Gender *").name(), "Gender", "a required mark isn't shown (issue 77)");
         let fields = [field("Full Name *"), field("email (required)"), field("Mobile (for updates)"), field("FULL NAME:")];
         let s = sort(&fields, &mine());
         assert_eq!(s.exact, [(0, "Full name".to_string()), (1, "Email".into()), (3, "Full name".into())]);

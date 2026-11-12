@@ -79,7 +79,7 @@ pub fn persona_block(p: &Persona, language: Option<&str>) -> String {
         Expertise::Expert => "The user is an expert: be concise and technical.",
     };
     let mut out = format!(
-        "Your persona:\n- Your name is {}.\n- {gender} This describes only you; never assume anything about the user's gender.\n- Tone: {tone}.\n- Length: {length}.\n- {emoji}\n- {language}\n- {expertise}",
+        "Your persona:\n- Your name is {}. Use it only when asked who you are: start with the answer, without a greeting or an introduction.\n- {gender} This describes only you; never assume anything about the user's gender.\n- Tone: {tone}.\n- Length: {length}.\n- {emoji}\n- {language}\n- {expertise}",
         p.name
     );
     // The user's own words, so not delimited as untrusted.
