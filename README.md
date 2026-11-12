@@ -22,6 +22,10 @@ In any app, with any model, and nothing leaves your computer unless you want it 
 
 </div>
 
+https://github.com/user-attachments/assets/3dcae51d-5e5d-4fae-be9e-6ab729712744
+
+<p align="center"><sub>25 seconds: the real app, sped up.</sub></p>
+
 ---
 
 You're reading an error in your terminal, a paragraph in a PDF, a contract in your browser, or a form you have to fill, and you have a question. With Cursora you don't copy, paste or switch windows: **select it, press the hotkey, and a small chat bubble opens right where your mouse is**, with your selection already attached. Ask, read the answer, put it back into the app with one click, and press the hotkey again to be exactly where you were.
