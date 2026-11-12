@@ -33,13 +33,15 @@ Each document moves through: `Draft → Approved → In progress → Done`. A sp
 | 24 | [Smart routing](24-smart-routing/requirements.md) | ROU | Approved² | [Approved²](24-smart-routing/design.md) | [In progress](24-smart-routing/tasks.md) | In progress |
 | 25 | [Hover to define](25-hover-define/requirements.md) | HOV | Approved² | [Approved²](25-hover-define/design.md) | [In progress](25-hover-define/tasks.md) | In progress |
 | 26 | [Web search with sources](26-web-search/requirements.md) | WEB | Approved² | [Approved²](26-web-search/design.md) | [In progress](26-web-search/tasks.md) | In progress |
-| 27 | [Fill forms](27-fill-forms/requirements.md) | FIL | Approved³ | [Approved³](27-fill-forms/design.md) | [In progress](27-fill-forms/tasks.md) | In progress |
+| 27 | [Fill forms](27-fill-forms/requirements.md) | FIL | Approved³ ⁴ | [Approved³ ⁴](27-fill-forms/design.md) | [In progress](27-fill-forms/tasks.md) | In progress |
 
 ¹ Approved under the user's go-ahead of 2026-10-26 to build improvements #1 to #5 while away; the choices made for the user are listed in each spec's requirements.md, for review.
 
 ² Approved under the user's go-ahead of 2026-10-28 to design, build and merge updates 1 and 3 to 9; the choices made for the user are listed in each spec's requirements.md, and the user reviews them all afterwards.
 
 ³ Approved under the user's go-ahead of 2026-10-30 to build form filling with the recommended choices; they are listed in its requirements.md, and the user reviews everything afterwards.
+
+⁴ Any kind of box with any model (FIL-2.7 to 2.12, FIL-3.5), under the user's ask of 2026-11-13; its choices are picks 10 to 13 in requirements.md, for the user's review.
 
 Post-v1 ideas: [backlog.md](backlog.md). Known problems, gaps and untested items: [issues.md](issues.md).
 

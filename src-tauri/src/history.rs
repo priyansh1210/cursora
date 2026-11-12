@@ -43,6 +43,10 @@ impl History {
             return Ok(());
         }
         let title: String = conv.turns.first().map_or("", |t| t.question.as_str()).chars().take(120).collect();
+        // A form's values never go into History (FIL-2.12).
+        let mut conv = conv.clone();
+        conv.turns.iter_mut().filter_map(|t| t.fill.as_mut()).for_each(|p| p.forget_values());
+        let conv = &conv;
         let data = serde_json::to_string(conv).map_err(|e| e.to_string())?;
         let search = searchable(conv);
         self.with(true, |c| {
@@ -250,6 +254,19 @@ mod tests {
         h.record(&cfg, &conv(1, "Saved again?", "Yes.", TurnStatus::Done), 0).unwrap();
         assert_eq!(h.list("", 0).unwrap().len(), 1, "saving works again");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fil_2_12_history_never_keeps_a_forms_values() {
+        let h = History::new(temp_db("fill"));
+        let mut c = conv(1, "/fill", "Cursora can fill 1 box.", TurnStatus::Done);
+        let row = crate::fill::Row { index: 0, field: "Name".into(), detail: "Full name".into(), value: "Priya Sharma".into() };
+        c.turns[0].fill = Some(crate::fill::Plan { rows: vec![row], ..Default::default() });
+        h.record(&HistorySettings::default(), &c, 10).unwrap();
+        let kept = h.get(1).unwrap().unwrap();
+        let plan = kept.turns[0].fill.as_ref().unwrap();
+        assert_eq!((plan.rows[0].detail.as_str(), plan.rows[0].value.as_str()), ("Full name", ""));
+        assert_eq!(c.turns[0].fill.as_ref().unwrap().rows[0].value, "Priya Sharma", "the live plan keeps it for the view");
     }
 
     #[test]

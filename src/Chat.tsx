@@ -7,7 +7,7 @@ import { appendDictation, badge, errorText, formatSize, header, keyAction, marks
 import { render } from "./markdown";
 import { ModelSelect, modelValue, useEnabledModels } from "./Models";
 import { listKey, matches, typedCommand, type Entry } from "./skills";
-import { useSettings, type Detail, type Settings } from "./useSettings";
+import { useSettings, type Settings } from "./useSettings";
 import logo from "../src-tauri/icons/icon.svg";
 import { Icon, PATHS } from "./icons";
 
@@ -269,7 +269,6 @@ export default function Chat() {
                 writeBack={conv.writeBack}
                 onWriteBack={() => invoke<void>("write_back", { index: i })}
                 canFill={!!conv.fill && i === conv.turns.length - 1}
-                details={settings?.myDetails}
               />
             ))}
           </div>
@@ -579,7 +578,6 @@ function TurnView({
   writeBack,
   onWriteBack,
   canFill,
-  details,
 }: {
   turn: Turn;
   latest: boolean;
@@ -588,7 +586,6 @@ function TurnView({
   onWriteBack: () => Promise<void>;
   /** The latest turn of a conversation that can fill a form (FIL-2.1). */
   canFill: boolean;
-  details?: Detail[];
 }) {
   const html = useMemo(() => render(turn.answer), [turn.answer]);
   const [failed, setFailed] = useState<string>(); // why Replace, Insert, Pin or Save didn't happen (WRT-1.3, SAV-2.4)
@@ -609,7 +606,7 @@ function TurnView({
       {/* Cursora's own turn that takes a while is /fill's (FIL-2.2). */}
       {turn.status === "streaming" && !turn.answer && <p className="muted thinking">{turn.local ? "Reading the form…" : "Thinking…"}</p>}
       {turn.answer && <div ref={answerRef} className="answer" aria-busy={turn.status === "streaming"} dangerouslySetInnerHTML={{ __html: html }} />}
-      {turn.fill && turn.status === "done" && <FillPlan plan={turn.fill} details={details} canFill={canFill} />}
+      {turn.fill && turn.status === "done" && <FillPlan plan={turn.fill} canFill={canFill} />}
       {turn.status === "cancelled" && <p className="muted note">Cancelled</p>}
       {err && (
         <div role="alert" className="error note">
@@ -692,18 +689,11 @@ function TurnView({
   );
 }
 
-/** `/fill`'s plan (FIL-2.5): a tick box per box, with its value from My details; Fill types the ticked ones (FIL-3.1). */
-function FillPlan({ plan, details, canFill }: { plan: Plan; details?: Detail[]; canFill: boolean }) {
+/** `/fill`'s plan (FIL-2.5): a tick box per box, with its value fitted to it (FIL-2.12); Fill types the ticked ones (FIL-3.1). */
+function FillPlan({ plan, canFill }: { plan: Plan; canFill: boolean }) {
   const [ticked, setTicked] = useState(() => plan.rows.map(() => true));
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string }>();
-  // As it's typed: lines joined with ", " (FIL-3.2).
-  const value = (detail: string) =>
-    (details?.find((d) => d.label.trim() === detail)?.value ?? "")
-      .split(/[\r\n]+/)
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .join(", ");
   const fill = () => {
     setBusy(true);
     setResult(undefined);
@@ -722,7 +712,7 @@ function FillPlan({ plan, details, canFill }: { plan: Plan; details?: Detail[]; 
             <li key={r.index}>
               <label title={`From ${r.detail} in My details`}>
                 <input type="checkbox" checked={ticked[i]} disabled={!canFill || busy} onChange={(e) => setTicked(ticked.map((t, j) => (j === i ? e.target.checked : t)))} /> {r.field}:{" "}
-                <span className="muted">{value(r.detail)}</span>
+                <span className="muted">{r.value}</span>
               </label>
             </li>
           ))}
