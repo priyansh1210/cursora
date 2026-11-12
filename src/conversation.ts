@@ -7,10 +7,10 @@ export type ErrorKind = (typeof ERROR_KINDS)[number];
 export type ChatError = { kind: ErrorKind; message: string };
 export type TurnStatus = "streaming" | "done" | "cancelled" | "error";
 /** `local`: Cursora's own reply to a command such as /persona, never sent to the model (PER-3.1). */
-/** `fill`: `/fill`'s plan (FIL-2.5); values aren't in it, the view takes them from My details. */
+/** `fill`: `/fill`'s plan (FIL-2.5), with each row's fitted value, which History doesn't keep (FIL-2.12). */
 export type Turn = { question: string; answer: string; status: TurnStatus; error: ChatError | null; asked: number; answered: number | null; local: boolean; note?: string | null; fill?: Plan | null };
 /** Mirrors `fill::Plan`: the boxes to fill, by their place among the boxes read; the labels of those left; how many had text. */
-export type Plan = { rows: { index: number; field: string; detail: string }[]; left: string[]; filled: number };
+export type Plan = { rows: { index: number; field: string; detail: string; value: string }[]; left: string[]; filled: number };
 export type FileItem = { path: string; name: string; kind: "file" | "folder" | "link"; size: number; modified: number; children: string[]; content: string | null; skipped: string | null; image?: boolean };
 export type Image = { mime: string; base64: string };
 /** `snip`: a screen region; the page only ever gets its thumbnail (VIS-2.6), and its text when it was read for a model
