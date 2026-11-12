@@ -7,7 +7,7 @@ AI cursor companion: select text anywhere → hotkey → chat bubble at the curs
 - **Use the `ponytail` skill (level full) for all development.** Write the smallest complete change, and mark every known limit with `// shortcut: <limit>, <when to upgrade>`. Use `/ponytail-review` before marking a spec Done.
 - **Log every issue in [specs/issues.md](specs/issues.md)** as soon as it is found: bugs, missing behavior, checks that couldn't run, and test-environment traps. Move it to Resolved, with the fix, when it is fixed.
 - **Tests cite criterion IDs:** Rust `fn sel_3_1_<what>()`, TS/JS `it('SEL-3.1 …')`.
-- **Shared memory (maintainer only):** Claude's memory is the `memory/` folder, a clone of the private `priyansh1210/cursora-memory` repo that this public repo ignores. On a new PC, run `powershell -File scripts\link-memory.ps1` once: it clones the memory repo and links Claude Code to it. Pull `main` and `memory/` when a session starts; commit and push memory changes in `memory/` itself, never in this repo. Contributors don't need it.
+- **Shared memory (maintainer only):** Claude's memory is the `memory/` folder, a clone of the `memory` branch of the private `priyansh1210/cursora-mine` repo, which this public repo ignores. On a new PC, run `powershell -File scripts\link-memory.ps1` once: it clones the memory repo and links Claude Code to it. Pull `main` and `memory/` when a session starts; commit and push memory changes in `memory/` itself, never in this repo. Contributors don't need it.
 
 ## Commands
 - `npm run trace`: the spec ↔ test traceability check

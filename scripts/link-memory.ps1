@@ -1,12 +1,12 @@
-# Maintainer only: clones the private memory repo into memory\ (this repo ignores it) and points Claude Code's memory
+# Maintainer only: clones the memory branch of the private cursora-mine repo into memory\ (this repo ignores it) and points Claude Code's memory
 # folder for this clone at it, so every dev PC shares one memory. Run once per PC: powershell -File scripts\link-memory.ps1
 # shortcut: Windows only; a Claude Code running inside WSL would need a symlink instead, if we ever run it there.
-param([string]$From = 'https://github.com/priyansh1210/cursora-memory.git')
+param([string]$From = 'https://github.com/priyansh1210/cursora-mine.git', [string]$Branch = 'memory')
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path "$PSScriptRoot\..").Path
 if (-not (Test-Path "$repo\memory\.git")) {
   if ((Test-Path "$repo\memory") -and (Get-ChildItem "$repo\memory" -Force)) { throw "$repo\memory has files but isn't a clone of $($From): move them aside, then run this again" }
-  git clone $From "$repo\memory"
+  git clone --branch $Branch --single-branch $From "$repo\memory"
   if ($LASTEXITCODE) { throw "Couldn't clone $($From)" }
 }
 # Claude Code names a project's folder after its path, with every other character turned into '-' (D:\cursora -> D--cursora).
