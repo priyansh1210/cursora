@@ -1,4 +1,4 @@
-//! Fill forms (spec 27): a form's text boxes are read, matched to My details, and typed in one letter at a time.
+//! Fill forms (spec 27): a form's boxes are read, matched to My details, fitted, and typed in one letter at a time or picked.
 //! Everything but reading and typing is here, OS-independent; `windows.rs` reads and types.
 #[cfg(windows)]
 mod windows;
@@ -90,18 +90,31 @@ impl Field {
     /// What the box asks for: its label, else its placeholder, without the colon dialog boxes end labels with.
     pub fn name(&self) -> String {
         let label = self.label.trim();
-        (if label.is_empty() { self.hint.trim() } else { label }).trim_end_matches(':').trim_end().chars().take(MAX_LABEL).collect()
+        let mut name = (if label.is_empty() { self.hint.trim() } else { label }).trim_end_matches(':').trim_end();
+        // Google's and Microsoft's mark for a required question, which the plan needn't show.
+        for mark in [" Required question", " Required to answer"] {
+            name = name.strip_suffix(mark).unwrap_or(name).trim_end();
+        }
+        name.chars().take(MAX_LABEL).collect()
     }
 }
 
-/// Lower case, letters and digits only, one space between words, without a trailing "required": "Full Name *" is "full name".
+/// Lower case, letters and digits only, one space between words, without a trailing "required" mark or a question's number:
+/// "Full Name *" and "1. Full name Required question" are "full name".
 fn norm(text: &str) -> String {
     let lower = text.to_lowercase();
-    let words: Vec<&str> = lower.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
-    match words.split_last() {
-        Some((&"required", rest)) => rest.join(" "),
-        _ => words.join(" "),
+    let mut words: Vec<&str> = lower.split(|c: char| !c.is_alphanumeric()).filter(|w| !w.is_empty()).collect();
+    // Google Forms ends a required box's name with "Required question", Microsoft Forms with "Required to answer".
+    for mark in [&["required"][..], &["required", "question"], &["required", "to", "answer"]] {
+        if words.len() > mark.len() && words.ends_with(mark) {
+            words.truncate(words.len() - mark.len());
+        }
     }
+    // Microsoft Forms numbers its questions: "1. Name".
+    if words.len() > 1 && words[0].chars().all(|c| c.is_ascii_digit()) {
+        words.remove(0);
+    }
+    words.join(" ")
 }
 
 /// FIL-2.2: a box Cursora never fills, by what its label or placeholder asks for. "PIN code" is a postal code, and an
@@ -255,8 +268,8 @@ pub fn requests(fields: &[Field], sorted: &Sorted, details: &[Detail], p: &Priva
 pub fn answer(reply: &str, details: &[Detail]) -> Option<String> {
     let n = norm(reply.trim().lines().next()?);
     let found = |name: &str| details.iter().find(|d| norm(&d.label) == norm(name)).map(|d| d.label.clone());
-    // The first word only: "Mobile no" is a name.
-    if n.is_empty() || n.split(' ').any(|w| w == "none") || ["no", "not"].contains(&n.split(' ').next().unwrap_or_default()) {
+    // "no" as the first word only: "Mobile no" is a name.
+    if n.is_empty() || n.split(' ').any(|w| w == "none" || w == "not") || n.split(' ').next() == Some("no") {
         return None;
     }
     if let Some(d) = found(&n).or_else(|| common(&n).and_then(found)) {
@@ -438,7 +451,7 @@ fn written((y, m, d): (u32, u32, u32), order: &str, sep: &str) -> String {
 /// The turn's answer for a plan (FIL-2.5).
 pub fn summary(plan: &Plan, app: &str) -> String {
     match plan.rows.len() {
-        0 if plan.left.is_empty() => format!("Cursora found no empty text box in {app}. Click into the form, then try again."),
+        0 if plan.left.is_empty() => format!("Cursora found no empty box in {app}. Click into the form, then try again."),
         0 => "None of the empty boxes asks for one of your details. Add the missing ones to My details.".into(),
         1 => "Cursora can fill 1 box from My details. Untick it if you don't want it, then press **Fill**.".into(),
         n => format!("Cursora can fill {n} boxes from My details. Untick any you don't want, then press **Fill**."),
@@ -484,7 +497,7 @@ pub fn typed(value: &str) -> String {
     lines.iter().map(|l| l.trim()).filter(|l| !l.is_empty()).collect::<Vec<_>>().join(", ")
 }
 
-/// The text boxes of the window, in the form's order (FIL-2.2).
+/// The boxes of the window, in the form's order (FIL-2.2, 2.7).
 pub fn read(window: isize) -> Result<Vec<Field>, String> {
     #[cfg(windows)]
     return windows::read(window);
@@ -603,6 +616,10 @@ mod tests {
 
     #[test]
     fn fil_2_3_a_box_named_like_a_detail_matches_without_a_model() {
+        assert_eq!(norm("2. Email Address Required question"), "email address", "Google Forms");
+        assert_eq!(norm("1. Full name Required to answer"), "full name", "Microsoft Forms");
+        assert_eq!(norm("Address line 2"), "address line 2");
+        assert_eq!(field("Email Address Required question").name(), "Email Address");
         let fields = [field("Full Name *"), field("email (required)"), field("Mobile (for updates)"), field("FULL NAME:")];
         let s = sort(&fields, &mine());
         assert_eq!(s.exact, [(0, "Full name".to_string()), (1, "Email".into()), (3, "Full name".into())]);
@@ -850,7 +867,7 @@ mod tests {
             let want = if want == "Phone" { "Mobile number" } else { want };
             assert_eq!(answer(reply, &details).as_deref(), Some(want), "{reply:?}");
         }
-        for reply in ["None of them", "Not Email", "Email or Phone", "No detail fits"] {
+        for reply in ["None of them", "Not Email", "Email or Phone", "No detail fits", "This is not the Full name"] {
             assert_eq!(answer(reply, &mine()), None, "{reply:?}");
         }
     }
