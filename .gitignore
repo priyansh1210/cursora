@@ -28,3 +28,6 @@ src-tauri/llama/
 
 # Logo drafts, kept out of the repo
 /logos/
+
+# Claude Code's memory: a clone of the maintainer's private cursora-memory repo (scripts/link-memory.ps1)
+/memory/

@@ -13,6 +13,7 @@ Select anything · press <kbd>Ctrl</kbd> + <kbd>G</kbd> · ask
 ![Local or cloud models](https://img.shields.io/badge/models-local%20%2B%20cloud-8A2BE2)
 ![No telemetry](https://img.shields.io/badge/telemetry-none-2EA44F)
 ![Pre-alpha](https://img.shields.io/badge/status-pre--alpha-orange)
+[![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 </div>
 
@@ -134,9 +135,6 @@ Get the latest release from **[cursora-releases](https://github.com/priyansh1210
 
 Cursora then keeps itself up to date: it checks once a day (one tick in Settings turns that off), and every update is signed.
 
-> [!IMPORTANT]
-> The latest release, **v0.1.1**, came out before the newest features: Replace and Insert, quick actions, the one-click model download, Indian languages, and Save and pin. They come with the next release; to use them now, build from source (below).
-
 - The installers aren't code-signed yet, so Windows may say it doesn't recognize the app: choose **More info**, then **Run anyway**.
 - The built-in engine needs Microsoft's Visual C++ runtime, which most PCs already have. If the engine doesn't start, install the [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
 
@@ -180,22 +178,20 @@ To try the built-in engine, run `npm run fetch-llama` first. It downloads llama-
 
 </details>
 
+## 🤝 Contributing
+
+Cursora is open source, and help is welcome: hands-on checks on setups we don't have (a real Linux desktop, two monitors, a screen reader), bug reports, and code. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [open issues](https://github.com/priyansh1210/cursora/issues). Cursora is built **spec-first**: behavior changes go into its [spec](specs/README.md) before the code.
+
 <details>
-<summary><b>🛠️ Contributing</b></summary>
-
-Cursora is built **spec-first**: read the [constitution](specs/00-constitution.md) and the [specs](specs/README.md) before changing anything. Behavior changes go into the spec first, and every test is named after the criterion it covers (`SEL-3.1`).
-
-```
-npm run trace        # every (auto) spec criterion has a test
-npm test             # JS tests
-npm run build
-cargo test --manifest-path src-tauri/Cargo.toml
-npm run test:linux   # the same Rust tests, built for Linux in WSL (Ubuntu-24.04)
-```
+<summary><b>📦 Releases</b></summary>
 
 **Releases:** pushing a `v*` tag makes CI build the installers (`.msi` for Windows; `.deb`, `.rpm` and `.AppImage` for Linux, all with the built-in engine) and the signed update files, as a draft release in the public [`cursora-releases`](https://github.com/priyansh1210/cursora-releases) repo. Publishing the draft by hand makes it the update every installed Cursora sees. A tag with a `-` (such as `v0.2.0-rc.1`) makes a pre-release.
 
 </details>
+
+## 📄 License
+
+Cursora is free software under the [GNU General Public License v3.0 or later](LICENSE). You may use, study, share and change it; copies you share, changed or not, must stay under the same license. To report a security problem privately, see [SECURITY.md](SECURITY.md).
 
 <div align="center">
 <sub>Built with Tauri v2, Rust and React.</sub>
