@@ -297,6 +297,8 @@ struct Read {
     els: Vec<IUIAutomationElement>,
     rect: RECT,
     group: Option<IUIAutomationElement>,
+    /// A question's buttons, by place and name: an iframe's are read again with its document.
+    buttons: Vec<(RECT, String)>,
 }
 
 /// Adds `root`'s boxes (FIL-2.7). A page inside a page (an iframe) is a document inside a document, so a box already
@@ -325,7 +327,9 @@ unsafe fn collect(uia: &IUIAutomation2, root: &IUIAutomationElement, kinds: &IUI
             let read = match ty {
                 UIA_EditControlTypeId if writable => {
                     let (kind, first, dated) = date_parts(uia, &el)?;
-                    Read { field: Field { kind, filled: dated || !current.trim().is_empty(), ..field }, els: [Some(el)].into_iter().chain([first]).flatten().collect(), rect, group: None }
+                    // A Google Forms date box is named "Date"; its group has the question ("Date of birth").
+                    let label = if matches!(kind, Kind::Date(_)) { group_of(&walker, &el).1.unwrap_or(name) } else { name };
+                    Read { field: Field { label, kind, filled: dated || !current.trim().is_empty(), ..field }, els: [Some(el)].into_iter().chain([first]).flatten().collect(), rect, group: None, buttons: vec![] }
                 }
                 UIA_ComboBoxControlTypeId => {
                     // A Win32 combo box's Edit is read as itself.
@@ -334,7 +338,7 @@ unsafe fn collect(uia: &IUIAutomation2, root: &IUIAutomationElement, kinds: &IUI
                     }
                     let typing = writable && el.GetCachedPatternAs::<IUIAutomationTextPattern>(UIA_TextPatternId).is_ok();
                     let (kind, filled) = if typing { (Kind::Text, !current.trim().is_empty()) } else { (Kind::List, !super::placeholder(&current)) };
-                    Read { field: Field { kind, filled, ..field }, els: vec![el], rect, group: None }
+                    Read { field: Field { kind, filled, ..field }, els: vec![el], rect, group: None, buttons: vec![] }
                 }
                 UIA_ListControlTypeId => {
                     // A list of check boxes (Google Forms') has no Selection pattern: its boxes are read themselves.
@@ -352,7 +356,7 @@ unsafe fn collect(uia: &IUIAutomation2, root: &IUIAutomationElement, kinds: &IUI
                             options.push(n);
                         }
                     }
-                    Read { field: Field { kind: Kind::List, filled, options, ..field }, els: vec![el], rect, group: None }
+                    Read { field: Field { kind: Kind::List, filled, options, ..field }, els: vec![el], rect, group: None, buttons: vec![] }
                 }
                 UIA_RadioButtonControlTypeId | UIA_CheckBoxControlTypeId => {
                     let (kind, chosen) = if ty == UIA_CheckBoxControlTypeId {
@@ -360,9 +364,14 @@ unsafe fn collect(uia: &IUIAutomation2, root: &IUIAutomationElement, kinds: &IUI
                     } else {
                         (Kind::Choice, el.GetCachedPatternAs::<IUIAutomationSelectionItemPattern>(UIA_SelectionItemPatternId).is_ok_and(|s| on(s.CachedIsSelected())))
                     };
+                    let button = (rect, name.clone());
+                    if out.iter().any(|q| q.buttons.contains(&button)) {
+                        continue;
+                    }
                     let (group, question) = group_of(&walker, &el);
                     // Buttons next to each other with the same group are one question.
                     if let Some(last) = out.last_mut().filter(|q| q.field.kind == kind && same(uia, q.group.as_ref(), group.as_ref())) {
+                        last.buttons.push(button);
                         last.field.options.push(name);
                         last.field.filled |= chosen;
                         last.els.push(el);
@@ -372,7 +381,7 @@ unsafe fn collect(uia: &IUIAutomation2, root: &IUIAutomationElement, kinds: &IUI
                     // (a check box on its own, "I agree to the terms").
                     let before = || walker.GetPreviousSiblingElement(&el).ok().filter(|p| p.CurrentControlType().is_ok_and(|t| t == UIA_TextControlTypeId)).map(|p| text(p.CurrentName()));
                     let label = question.or_else(before).unwrap_or_else(|| name.clone());
-                    Read { field: Field { label: label.trim().to_string(), hint: String::new(), kind, filled: chosen, options: vec![name], ..field }, els: vec![el], rect, group }
+                    Read { field: Field { label: label.trim().to_string(), hint: String::new(), kind, filled: chosen, options: vec![name], ..field }, els: vec![el], rect, group, buttons: vec![button] }
                 }
                 _ => continue,
             };
@@ -606,26 +615,34 @@ mod tests {
     }
 
     /// Reads and fills a test page in Chrome titled "Fill probe", with made-up values: bring it to the front, then
-    /// `cargo test probe -- --ignored --nocapture`. Prints what it read and what it filled.
+    /// `cargo test probe -- --ignored --nocapture`. Prints what it read and what it filled. CURSORA_PROBE_TITLE reads
+    /// another window (its whole title), and CURSORA_PROBE_READ=1 only reads.
     #[test]
     #[ignore]
     fn probe() {
-        let title: Vec<u16> = "Fill probe - Google Chrome\0".encode_utf16().collect();
+        let title = std::env::var("CURSORA_PROBE_TITLE").unwrap_or_else(|_| "Fill probe - Google Chrome".into());
+        let title: Vec<u16> = title.encode_utf16().chain([0]).collect();
         let window = unsafe { windows::Win32::UI::WindowsAndMessaging::FindWindowW(None, windows::core::PCWSTR(title.as_ptr())) }.expect("the Fill probe page in Chrome").0 as isize;
         let fields = read(window).unwrap();
         fields.iter().enumerate().for_each(|(i, f)| println!("{i}: {f:?}"));
-        let value = |label: &str| match label {
-            "First name" => "Priya",
-            "City" => "Bengaluru",
-            "Country" => "Nepal",
-            "Gender" => "F",
-            "Year of study" => "Second year",
-            "Languages you know" => "English, Hindi",
-            "Date of birth" => "15/01/2000",
-            "State" => "Kerala",
-            "Blood group" => "O+",
-            "Department" => "ECE",
-            "Hobbies" => "Music",
+        if std::env::var("CURSORA_PROBE_READ").is_ok() {
+            return;
+        }
+        let value = |label: &str| match label.to_lowercase().as_str() {
+            "first name" => "Priya",
+            "city" => "Bengaluru",
+            "country" => "Nepal",
+            "gender" => "F",
+            "year of study" => "Second year",
+            "languages you know" => "English, Hindi",
+            "date of birth" => "15/01/2000",
+            "state" => "Kerala",
+            "blood group" => "O+",
+            "department" => "ECE",
+            "hobbies" => "Music",
+            "hostel needed" => "No",
+            "sports" => "Chess",
+            "student name" => "Test Student",
             _ => "",
         };
         let targets: Vec<Target> = fields.iter().enumerate().filter(|(_, f)| !value(&f.name()).is_empty()).map(|(index, f)| Target { index, field: f.name(), value: value(&f.name()).into() }).collect();
